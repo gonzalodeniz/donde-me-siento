@@ -309,10 +309,166 @@ select {
   gap: 1rem;
 }
 
+.plan-card {
+  grid-column: 1 / -1;
+  padding: 1.1rem;
+  border-radius: 1.6rem;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255, 251, 246, 0.86), rgba(246, 234, 221, 0.88));
+  box-shadow: var(--shadow);
+}
+
+.plan-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.plan-card__header h3 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.plan-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.plan-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.plan-legend__dot {
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 999px;
+  display: inline-block;
+  border: 1px solid rgba(36, 24, 20, 0.12);
+}
+
+.plan-legend__dot--conflict {
+  background: rgba(154, 79, 36, 0.8);
+}
+
+.plan-legend__dot--full {
+  background: rgba(36, 24, 20, 0.65);
+}
+
+.plan-legend__dot--active {
+  background: rgba(50, 88, 81, 0.82);
+}
+
+.plan-stage {
+  border-radius: 1.35rem;
+  padding: 1rem;
+  background:
+    linear-gradient(0deg, rgba(255, 255, 255, 0.46), rgba(255, 255, 255, 0.46)),
+    repeating-linear-gradient(
+      45deg,
+      rgba(154, 79, 36, 0.04),
+      rgba(154, 79, 36, 0.04) 12px,
+      rgba(255, 255, 255, 0.38) 12px,
+      rgba(255, 255, 255, 0.38) 24px
+    );
+  border: 1px solid rgba(36, 24, 20, 0.09);
+  overflow: hidden;
+}
+
+.plan-stage__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.plan-table {
+  cursor: pointer;
+  outline: none;
+}
+
+.plan-table__halo {
+  fill: rgba(154, 79, 36, 0.08);
+  stroke: transparent;
+  transition: fill 160ms ease, stroke 160ms ease;
+}
+
+.plan-table__halo--full {
+  fill: rgba(36, 24, 20, 0.1);
+}
+
+.plan-table__disc {
+  fill: rgba(255, 253, 249, 0.96);
+  stroke: rgba(154, 79, 36, 0.32);
+  stroke-width: 2;
+}
+
+.plan-table__disc--full {
+  stroke: rgba(36, 24, 20, 0.5);
+}
+
+.plan-table--selected .plan-table__halo {
+  fill: rgba(50, 88, 81, 0.12);
+  stroke: rgba(50, 88, 81, 0.38);
+  stroke-width: 3;
+}
+
+.plan-table__number,
+.plan-table__capacity,
+.plan-seat__label {
+  fill: var(--ink);
+  pointer-events: none;
+}
+
+.plan-table__number {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.plan-table__capacity {
+  font-size: 0.78rem;
+  fill: var(--muted);
+}
+
+.plan-seat {
+  fill: rgba(255, 252, 247, 0.95);
+  stroke: rgba(36, 24, 20, 0.12);
+  stroke-width: 1.5;
+}
+
+.plan-seat--occupied {
+  fill: rgba(50, 88, 81, 0.12);
+  stroke: rgba(50, 88, 81, 0.2);
+}
+
+.plan-seat--conflict {
+  fill: rgba(154, 79, 36, 0.18);
+  stroke: rgba(154, 79, 36, 0.42);
+}
+
+.plan-seat__label {
+  font-size: 0.48rem;
+  font-weight: 700;
+}
+
+.plan-seat__label--conflict {
+  fill: #822f1f;
+}
+
 .table-card,
 .list-card {
   padding: 1.1rem;
   border-radius: 1.4rem;
+}
+
+.table-card--selected {
+  border-color: rgba(50, 88, 81, 0.28);
+  box-shadow: 0 20px 45px rgba(50, 88, 81, 0.15);
 }
 
 .editor-card {
@@ -359,6 +515,10 @@ select {
   padding-right: 0.5rem;
 }
 
+.guest-chip--conflict {
+  background: rgba(154, 79, 36, 0.18);
+}
+
 .chip-action {
   border: 0;
   background: rgba(36, 24, 20, 0.08);
@@ -387,6 +547,11 @@ select {
   border: 1px solid rgba(36, 24, 20, 0.08);
   display: grid;
   gap: 0.7rem;
+}
+
+.guest-card--conflict {
+  border-color: rgba(154, 79, 36, 0.24);
+  background: rgba(255, 241, 234, 0.9);
 }
 
 .guest-card__header,
@@ -458,6 +623,10 @@ select {
   .metrics {
     grid-template-columns: repeat(3, 1fr);
     min-width: 0;
+  }
+
+  .plan-card__header {
+    flex-direction: column;
   }
 }
 

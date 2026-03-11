@@ -11,6 +11,7 @@ import {
   updateGuest,
   updateTableCapacity,
 } from "./api";
+import { SeatingPlan } from "./components/SeatingPlan";
 import type { EventSummary, Guest, Workspace } from "./types";
 
 const TOKEN_STORAGE_KEY = "dms.auth.token";
@@ -40,9 +41,14 @@ export function App() {
   const [editingGuestGroupId, setEditingGuestGroupId] = useState("");
   const [assignmentValues, setAssignmentValues] = useState<Record<string, string>>({});
   const [capacityValues, setCapacityValues] = useState<Record<string, string>>({});
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
 
   const groupedConflictCount = useMemo(
     () => Object.keys(workspace?.validation.grouping_conflicts ?? {}).length,
+    [workspace],
+  );
+  const conflictGuestIds = useMemo(
+    () => new Set(Object.values(workspace?.validation.grouping_conflicts ?? {}).flatMap((guestIds) => guestIds)),
     [workspace],
   );
 
@@ -104,6 +110,7 @@ export function App() {
         setCapacityValues(
           Object.fromEntries(nextWorkspace.tables.map((table) => [table.id, String(table.capacity)])),
         );
+        setSelectedTableId((currentSelected) => currentSelected ?? nextWorkspace.tables[0]?.id ?? null);
         setErrorMessage(null);
       } catch (error) {
         if (cancelled) {
@@ -123,6 +130,18 @@ export function App() {
       cancelled = true;
     };
   }, [selectedEventId, token]);
+
+  useEffect(() => {
+    if (!workspace) {
+      setSelectedTableId(null);
+      return;
+    }
+
+    const selectedStillExists = workspace.tables.some((table) => table.id === selectedTableId);
+    if (!selectedStillExists) {
+      setSelectedTableId(workspace.tables[0]?.id ?? null);
+    }
+  }, [selectedTableId, workspace]);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -174,6 +193,7 @@ export function App() {
     setCapacityValues(
       Object.fromEntries(nextWorkspace.tables.map((table) => [table.id, String(table.capacity)])),
     );
+    setSelectedTableId((currentSelected) => currentSelected ?? nextWorkspace.tables[0]?.id ?? null);
   }
 
   async function runWorkspaceAction(actionKey: string, action: () => Promise<void>, message: string) {
@@ -342,8 +362,18 @@ export function App() {
 
         <section className="canvas">
           <div className="canvas__tables">
+            {workspace ? (
+              <SeatingPlan
+                onSelectTable={setSelectedTableId}
+                selectedTableId={selectedTableId}
+                workspace={workspace}
+              />
+            ) : null}
             {workspace?.tables.map((table) => (
-              <article className="table-card" key={table.id}>
+              <article
+                className={`table-card ${selectedTableId === table.id ? "table-card--selected" : ""}`}
+                key={table.id}
+              >
                 <div className="table-card__header">
                   <div>
                     <span className="table-card__label">Mesa {table.number}</span>
@@ -372,6 +402,7 @@ export function App() {
                       onChange={(event) =>
                         setCapacityValues((current) => ({ ...current, [table.id]: event.target.value }))
                       }
+                      onFocus={() => setSelectedTableId(table.id)}
                     />
                   </label>
                   <button
@@ -387,7 +418,10 @@ export function App() {
                     <p className="empty-state">Sin invitados asignados.</p>
                   ) : (
                     table.guests.map((guest) => (
-                      <div className="guest-chip guest-chip--interactive" key={guest.id}>
+                      <div
+                        className={`guest-chip guest-chip--interactive ${conflictGuestIds.has(guest.id) ? "guest-chip--conflict" : ""}`}
+                        key={guest.id}
+                      >
                         <span>{guest.name}</span>
                         <button
                           className="chip-action"
@@ -447,7 +481,10 @@ export function App() {
               <div className="guest-list">
                 {workspace && workspace.guests.unassigned.length > 0 ? (
                   workspace.guests.unassigned.map((guest) => (
-                    <article className="guest-card" key={guest.id}>
+                    <article
+                      className={`guest-card ${conflictGuestIds.has(guest.id) ? "guest-card--conflict" : ""}`}
+                      key={guest.id}
+                    >
                       <div className="guest-card__header">
                         <strong>{guest.name}</strong>
                         <span>{guest.guest_type}</span>
