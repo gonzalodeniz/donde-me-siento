@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from backend.app.api.dependencies import get_event_service
+from backend.app.api.dependencies import get_current_user, get_event_service
 from backend.app.domains.seating import DomainError
 from backend.app.schemas.events import EventCreate, EventResponse, EventSummaryResponse, build_event_response
 from backend.app.services.events import EventNotFoundError, EventService
 
 
-router = APIRouter(prefix="/api/events", tags=["events"])
+router = APIRouter(prefix="/api/events", tags=["events"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("", response_model=EventResponse, status_code=status.HTTP_201_CREATED)

@@ -6,10 +6,12 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from pathlib import Path
 
+from backend.app.api.dependencies import get_current_user
 from backend.app.core.config import Settings
 from backend.app.db.base import Base
 from backend.app.db.session import create_engine_from_settings
 from backend.app.main import create_app
+from backend.app.repositories.auth import AuthUser
 from backend.app.repositories.events import EventRepository
 from backend.app.services.events import EventService
 
@@ -36,9 +38,18 @@ async def client(tmp_path: Path):
     async def override_get_event_service() -> EventService:
         return EventService(EventRepository(session))
 
+    async def override_get_current_user() -> AuthUser:
+        return AuthUser(
+            id="user-test",
+            username="tester",
+            password_hash="",
+            password_salt="",
+        )
+
     from backend.app.api.dependencies import get_event_service
 
     app.dependency_overrides[get_event_service] = override_get_event_service
+    app.dependency_overrides[get_current_user] = override_get_current_user
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as async_client:
         yield async_client

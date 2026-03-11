@@ -47,6 +47,28 @@ El dominio inicial cubre:
 - deteccion de conflictos de agrupacion;
 - resumen reactivo del estado del evento.
 
+La API actual cubre:
+
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
+- `POST /api/events`
+- `GET /api/events`
+- `GET /api/events/{event_id}`
+- `DELETE /api/events/{event_id}`
+
+Todos los endpoints de eventos requieren autenticacion Bearer.
+
+## Credenciales locales por defecto
+
+- Usuario: `admin`
+- Contrasena: `admin1234`
+
+Se pueden cambiar con:
+
+- `DMS_DEFAULT_ADMIN_USERNAME`
+- `DMS_DEFAULT_ADMIN_PASSWORD`
+
 ## Preparacion del entorno
 
 ```bash

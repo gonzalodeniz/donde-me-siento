@@ -15,6 +15,8 @@ class Settings:
     environment: str = "development"
     data_dir: Path = Path("data")
     database_url: str = "sqlite:///data/donde_me_siento.db"
+    default_admin_username: str = "admin"
+    default_admin_password: str = "admin1234"
 
 
 def load_settings() -> Settings:
@@ -28,6 +30,8 @@ def load_settings() -> Settings:
         environment=os.getenv("DMS_ENVIRONMENT", "development"),
         data_dir=data_dir,
         database_url=database_url,
+        default_admin_username=os.getenv("DMS_DEFAULT_ADMIN_USERNAME", "admin"),
+        default_admin_password=os.getenv("DMS_DEFAULT_ADMIN_PASSWORD", "admin1234"),
     )
 
 
