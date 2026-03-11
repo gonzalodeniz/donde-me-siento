@@ -1,0 +1,9 @@
+# Runtime
+fastapi>=0.116,<1.0
+uvicorn[standard]>=0.35,<1.0
+sqlalchemy>=2.0,<3.0
+pydantic>=2.11,<3.0
+
+# Testing
+pytest>=8.4,<9.0
+pytest-cov>=6.0,<7.0

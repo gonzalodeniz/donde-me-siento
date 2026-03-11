@@ -1,0 +1,70 @@
+# Donde me siento
+
+Aplicacion para gestionar la distribucion de invitados en bodas y eventos, con validacion de conflictos, control de aforo y persistencia del estado del evento.
+
+## Estado actual
+
+Este repositorio contiene el arranque de la Fase 1 del MVP:
+
+- base documental del proyecto;
+- estructura inicial del backend;
+- modelo de dominio para eventos, mesas e invitados;
+- tests unitarios del dominio.
+
+## Stack objetivo
+
+- Frontend: React + TypeScript + Vite
+- Backend: Python + FastAPI + SQLAlchemy
+- Persistencia: SQLite
+- Testing: Pytest, Vitest, Playwright
+
+## Estructura actual
+
+```text
+.
+├── backend/
+│   ├── app/
+│   │   ├── core/
+│   │   └── domains/
+│   └── tests/
+├── reports/
+├── scrum/
+├── AGENT.md
+├── pytest.ini
+├── README.md
+└── requirements.txt
+```
+
+## Primer alcance implementado
+
+El dominio inicial cubre:
+
+- creacion de eventos con nombre y capacidad por defecto;
+- generacion de mesas con posicion base para el plano;
+- alta, edicion y baja de invitados;
+- asignacion y desasignacion de invitados a mesas;
+- validacion de aforo por mesa;
+- deteccion de conflictos de agrupacion;
+- resumen reactivo del estado del evento.
+
+## Preparacion del entorno
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+## Ejecutar tests
+
+```bash
+pytest
+pytest --cov=backend/app --cov-report=term-missing
+```
+
+## Siguientes pasos recomendados
+
+1. Añadir `backend/app/main.py` con la API FastAPI y endpoint de salud.
+2. Incorporar esquemas y repositorios para persistencia en SQLite.
+3. Implementar autenticacion basica y primeros endpoints de eventos.
+4. Conectar el frontend una vez esten cerrados los contratos de API.
