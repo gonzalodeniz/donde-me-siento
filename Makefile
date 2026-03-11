@@ -4,7 +4,7 @@ VENV_BIN ?= .venv/bin
 PYTEST ?= $(VENV_BIN)/pytest
 UVICORN ?= $(VENV_BIN)/uvicorn
 
-.PHONY: help install test test-cov run-backend install-frontend run-frontend build-frontend test-e2e install-e2e lint clean
+.PHONY: help install test test-cov run-backend install-frontend run-frontend run-app build-frontend test-e2e install-e2e lint clean
 
 help:
 	@printf "Objetivos disponibles:\n"
@@ -14,6 +14,7 @@ help:
 	@printf "  make run-backend  Arranca la API FastAPI prevista para Fase 1.\n"
 	@printf "  make install-frontend  Instala dependencias del frontend.\n"
 	@printf "  make run-frontend      Arranca Vite en modo desarrollo.\n"
+	@printf "  make run-app           Arranca backend y frontend a la vez.\n"
 	@printf "  make build-frontend    Genera la build del frontend.\n"
 	@printf "  make install-e2e       Instala navegadores de Playwright.\n"
 	@printf "  make test-e2e          Ejecuta el flujo E2E minimo.\n"
@@ -36,6 +37,12 @@ install-frontend:
 
 run-frontend:
 	cd frontend && npm run dev
+
+run-app:
+	@trap 'kill 0' INT TERM EXIT; \
+	$(UVICORN) backend.app.main:app --reload & \
+	cd frontend && npm run dev & \
+	wait
 
 build-frontend:
 	cd frontend && npm run build
