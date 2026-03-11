@@ -106,6 +106,24 @@ export function App() {
     () => workspace?.tables.filter((table) => table.available === 0).length ?? 0,
     [workspace],
   );
+  const conflictTableIds = useMemo(
+    () =>
+      new Set(
+        workspace?.tables
+          .filter((table) => table.guests.some((guest) => conflictGuestIds.has(guest.id)))
+          .map((table) => table.id) ?? [],
+      ),
+    [conflictGuestIds, workspace],
+  );
+  const attentionTableCount = useMemo(
+    () =>
+      workspace?.tables.filter((table) => table.available === 0 || conflictTableIds.has(table.id)).length ?? 0,
+    [conflictTableIds, workspace],
+  );
+  const selectedTableHasConflict = selectedTable
+    ? selectedTable.guests.some((guest) => conflictGuestIds.has(guest.id))
+    : false;
+  const selectedTableIsFull = selectedTable ? selectedTable.available === 0 : false;
   const railBusy =
     loadingAuth ||
     submittingAction === "create-event" ||
@@ -744,6 +762,25 @@ export function App() {
             </article>
           </div>
         </header>
+        {workspace ? (
+          <section className="attention-strip" aria-label="Alertas de workspace">
+            <article className={`attention-strip__item ${groupedConflictCount > 0 ? "attention-strip__item--alert" : ""}`}>
+              <span>Conflictos de agrupacion</span>
+              <strong>{groupedConflictCount}</strong>
+              <p>{groupedConflictCount > 0 ? "Revisa mesas con invitados marcados en cobre." : "No hay separaciones activas."}</p>
+            </article>
+            <article className={`attention-strip__item ${fullTablesCount > 0 ? "attention-strip__item--alert" : ""}`}>
+              <span>Mesas sin margen</span>
+              <strong>{fullTablesCount}</strong>
+              <p>{fullTablesCount > 0 ? "No admiten mas invitados sin tocar capacidad." : "Todas mantienen al menos un asiento libre."}</p>
+            </article>
+            <article className={`attention-strip__item ${attentionTableCount > 0 ? "attention-strip__item--accent" : ""}`}>
+              <span>Mesas a revisar</span>
+              <strong>{attentionTableCount}</strong>
+              <p>{attentionTableCount > 0 ? "El resumen prioriza conflicto y aforo completo." : "El salon esta estable ahora mismo."}</p>
+            </article>
+          </section>
+        ) : null}
 
         {errorMessage ? <div className="banner banner--error">{errorMessage}</div> : null}
         {loadingWorkspace ? <div className="banner">Actualizando workspace...</div> : null}
@@ -772,7 +809,7 @@ export function App() {
             ) : null}
             {workspace?.tables.map((table) => (
               <article
-                className={`table-card ${selectedTableId === table.id ? "table-card--selected" : ""}`}
+                className={`table-card ${selectedTableId === table.id ? "table-card--selected" : ""} ${table.available === 0 ? "table-card--full" : ""} ${conflictTableIds.has(table.id) ? "table-card--conflict" : ""}`}
                 data-testid={`table-card-${table.id}`}
                 key={table.id}
                 onClick={() => setSelectedTableId(table.id)}
@@ -782,7 +819,14 @@ export function App() {
                     <span className="table-card__label">Mesa {table.number}</span>
                     <h3>{table.occupied}/{table.capacity} asientos</h3>
                   </div>
-                  <span className="table-card__pill">{table.available} libres</span>
+                  <span className={`table-card__pill ${table.available === 0 ? "table-card__pill--full" : ""}`}>
+                    {table.available} libres
+                  </span>
+                </div>
+                <div className="table-card__flags">
+                  {conflictTableIds.has(table.id) ? <span className="status-flag status-flag--conflict">Conflicto</span> : null}
+                  {table.available === 0 ? <span className="status-flag status-flag--full">Completa</span> : null}
+                  {table.available > 0 && table.available <= 2 ? <span className="status-flag status-flag--tight">Poco margen</span> : null}
                 </div>
                 <p className="table-card__summary">
                   Usa el panel de mesa seleccionada para ajustar capacidad y mover invitados.
@@ -816,6 +860,10 @@ export function App() {
                   <span>Mesas completas</span>
                   <strong>{fullTablesCount}</strong>
                 </article>
+                <article className="control-metric control-metric--alert">
+                  <span>Mesas con conflicto</span>
+                  <strong>{conflictTableIds.size}</strong>
+                </article>
                 <article className="control-metric">
                   <span>Ocupacion media</span>
                   <strong>
@@ -838,7 +886,7 @@ export function App() {
                   return (
                     <button
                       key={table.id}
-                      className={`table-summary-row ${selectedTableId === table.id ? "table-summary-row--active" : ""}`}
+                      className={`table-summary-row ${selectedTableId === table.id ? "table-summary-row--active" : ""} ${table.available === 0 ? "table-summary-row--full" : ""} ${conflictTableIds.has(table.id) ? "table-summary-row--conflict" : ""}`}
                       onClick={() => setSelectedTableId(table.id)}
                       type="button"
                     >
@@ -847,6 +895,10 @@ export function App() {
                         <span>
                           {table.occupied}/{table.capacity} ocupados
                         </span>
+                        <div className="table-summary-row__flags">
+                          {conflictTableIds.has(table.id) ? <i className="status-flag status-flag--conflict">Conflicto</i> : null}
+                          {table.available === 0 ? <i className="status-flag status-flag--full">Completa</i> : null}
+                        </div>
                       </div>
                       <div className="table-summary-row__meter">
                         <i style={{ width: `${ratio}%` }} />
@@ -864,10 +916,24 @@ export function App() {
               </div>
               {selectedTable ? (
                 <div className="selected-table-panel">
-                  <div className="selected-table-panel__hero">
+                  <div className={`selected-table-panel__hero ${selectedTableHasConflict ? "selected-table-panel__hero--conflict" : ""} ${selectedTableIsFull ? "selected-table-panel__hero--full" : ""}`}>
                     <strong>{selectedTable.occupied}/{selectedTable.capacity}</strong>
                     <span>{selectedTable.available} asientos libres</span>
                   </div>
+                  {(selectedTableHasConflict || selectedTableIsFull) ? (
+                    <div className="selected-table-panel__alerts">
+                      {selectedTableHasConflict ? (
+                        <div className="inline-notice inline-notice--error">
+                          Esta mesa tiene invitados con conflicto de agrupacion. Revisa la composicion antes de cerrar.
+                        </div>
+                      ) : null}
+                      {selectedTableIsFull ? (
+                        <div className="inline-notice inline-notice--info">
+                          Esta mesa esta completa. Para seguir asignando aqui necesitas liberar asiento o subir capacidad.
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <form
                     className="selected-table-panel__controls"
                     onSubmit={(event) => {
@@ -1099,7 +1165,7 @@ export function App() {
               <div className="guest-list">
                 {workspace && workspace.guests.assigned.length > 0 ? (
                   workspace.guests.assigned.map((guest) => (
-                    <article className="guest-row" key={guest.id}>
+                    <article className={`guest-row ${conflictGuestIds.has(guest.id) ? "guest-row--conflict" : ""}`} key={guest.id}>
                       <strong>{guest.name}</strong>
                       <span>{guest.table_id}</span>
                     </article>
