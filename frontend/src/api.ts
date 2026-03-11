@@ -43,6 +43,29 @@ export async function fetchWorkspace(eventId: string, token: string): Promise<Wo
   });
 }
 
+export async function createEvent(
+  token: string,
+  payload: { name: string; default_table_capacity: number; table_count: number },
+): Promise<{ id: string }> {
+  return request<{ id: string }>("/api/events", {
+    method: "POST",
+    headers: {
+      ...API_HEADERS,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteEvent(eventId: string, token: string): Promise<void> {
+  await request(`/api/events/${eventId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
 export async function createGuest(
   eventId: string,
   token: string,

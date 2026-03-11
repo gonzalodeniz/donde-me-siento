@@ -2,7 +2,9 @@ import { DragEvent, FormEvent, useEffect, useMemo, useState, startTransition } f
 
 import {
   assignGuest,
+  createEvent,
   createGuest,
+  deleteEvent,
   deleteGuest,
   fetchEvents,
   fetchWorkspace,
@@ -32,6 +34,9 @@ export function App() {
   const [submittingAction, setSubmittingAction] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [eventName, setEventName] = useState("");
+  const [eventTableCount, setEventTableCount] = useState("8");
+  const [eventDefaultCapacity, setEventDefaultCapacity] = useState("10");
   const [guestName, setGuestName] = useState("");
   const [guestType, setGuestType] = useState("adulto");
   const [guestGroupId, setGuestGroupId] = useState("");
@@ -200,6 +205,14 @@ export function App() {
     setSelectedTableId((currentSelected) => currentSelected ?? nextWorkspace.tables[0]?.id ?? null);
   }
 
+  async function refreshEventsOnly(activeToken: string) {
+    const nextEvents = await fetchEvents(activeToken);
+    startTransition(() => {
+      setEvents(nextEvents);
+    });
+    return nextEvents;
+  }
+
   async function runWorkspaceAction(actionKey: string, action: () => Promise<void>, message: string) {
     if (!token || !selectedEventId) {
       return;
@@ -264,6 +277,67 @@ export function App() {
 
   function isActionRunning(actionKey: string) {
     return submittingAction === actionKey;
+  }
+
+  async function handleEventCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token) {
+      return;
+    }
+
+    const activeToken = token;
+    setSubmittingAction("create-event");
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const createdEvent = await createEvent(activeToken, {
+        name: eventName,
+        table_count: Number(eventTableCount),
+        default_table_capacity: Number(eventDefaultCapacity),
+      });
+      await refreshEventsOnly(activeToken);
+      setSelectedEventId(createdEvent.id);
+      setEventName("");
+      setEventTableCount("8");
+      setEventDefaultCapacity("10");
+      setSuccessMessage("Evento creado correctamente.");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "No se pudo crear el evento.");
+    } finally {
+      setSubmittingAction(null);
+    }
+  }
+
+  async function handleEventDelete(eventId: string) {
+    if (!token) {
+      return;
+    }
+
+    const activeToken = token;
+    setSubmittingAction(`delete-event-${eventId}`);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      await deleteEvent(eventId, activeToken);
+      const nextEvents = await refreshEventsOnly(activeToken);
+      const fallbackEventId =
+        selectedEventId === eventId
+          ? nextEvents[0]?.id ?? null
+          : nextEvents.find((currentEvent) => currentEvent.id === selectedEventId)?.id ?? nextEvents[0]?.id ?? null;
+      startTransition(() => {
+        setSelectedEventId(fallbackEventId);
+        if (!fallbackEventId) {
+          setWorkspace(null);
+        }
+      });
+      setSuccessMessage("Evento eliminado.");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "No se pudo eliminar el evento.");
+    } finally {
+      setSubmittingAction(null);
+    }
   }
 
   function handleGuestDragStart(event: DragEvent<HTMLElement>, guestId: string) {
@@ -360,22 +434,59 @@ export function App() {
             <h2>Eventos</h2>
             <span>{metricLabel(events.length, "evento", "eventos")}</span>
           </div>
+          <form className="stack-form" onSubmit={handleEventCreate}>
+            <label className="mini-field">
+              <span>Nombre del evento</span>
+              <input value={eventName} onChange={(event) => setEventName(event.target.value)} />
+            </label>
+            <div className="mini-grid">
+              <label className="mini-field">
+                <span>Mesas</span>
+                <input
+                  min={1}
+                  type="number"
+                  value={eventTableCount}
+                  onChange={(event) => setEventTableCount(event.target.value)}
+                />
+              </label>
+              <label className="mini-field">
+                <span>Capacidad base</span>
+                <input
+                  min={1}
+                  type="number"
+                  value={eventDefaultCapacity}
+                  onChange={(event) => setEventDefaultCapacity(event.target.value)}
+                />
+              </label>
+            </div>
+            <button className="button button--primary button--small" disabled={isActionRunning("create-event")} type="submit">
+              Crear evento
+            </button>
+          </form>
           <div className="events-list">
             {events.length === 0 ? (
               <p className="empty-state">Inicia sesion y crea un evento en backend para verlo aqui.</p>
             ) : (
               events.map((event) => (
-                <button
+                <article
                   key={event.id}
                   className={`event-card ${selectedEventId === event.id ? "event-card--active" : ""}`}
-                  onClick={() => setSelectedEventId(event.id)}
-                  type="button"
                 >
-                  <span className="event-card__name">{event.name}</span>
-                  <span className="event-card__meta">
-                    {event.table_count} mesas · {event.guest_count} invitados
-                  </span>
-                </button>
+                  <button className="event-card__button" onClick={() => setSelectedEventId(event.id)} type="button">
+                    <span className="event-card__name">{event.name}</span>
+                    <span className="event-card__meta">
+                      {event.table_count} mesas · {event.guest_count} invitados
+                    </span>
+                  </button>
+                  <button
+                    className="button button--ghost button--small"
+                    disabled={isActionRunning(`delete-event-${event.id}`)}
+                    onClick={() => void handleEventDelete(event.id)}
+                    type="button"
+                  >
+                    Eliminar
+                  </button>
+                </article>
               ))
             )}
           </div>

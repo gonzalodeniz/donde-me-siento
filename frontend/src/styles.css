@@ -214,11 +214,19 @@ select {
 }
 
 .event-card {
-  text-align: left;
   border: 1px solid transparent;
   border-radius: 1rem;
   padding: 0.95rem 1rem;
   background: rgba(255, 252, 247, 0.66);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.event-card__button {
+  text-align: left;
+  border: 0;
+  padding: 0;
+  background: transparent;
   cursor: pointer;
 }
 

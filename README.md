@@ -74,6 +74,7 @@ Todos los endpoints de eventos requieren autenticacion Bearer.
 El frontend en `frontend/` consume `GET /api/events/{event_id}/workspace` como fuente principal de estado inicial del workspace.
 Tambien permite:
 
+- crear y eliminar eventos desde la UI;
 - anadir, editar y eliminar invitados;
 - asignar y desasignar invitados desde la UI;
 - asignar invitados por drag & drop desde la lista al plano del salon;
