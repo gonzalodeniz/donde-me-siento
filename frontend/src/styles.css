@@ -77,6 +77,20 @@ select {
   z-index: 1;
 }
 
+.section-shell {
+  position: relative;
+}
+
+.section-shell--busy::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(246, 238, 227, 0.46);
+  backdrop-filter: blur(2px);
+  pointer-events: auto;
+}
+
 .rail {
   padding: 2.5rem 2rem;
   border-right: 1px solid var(--line);
@@ -90,6 +104,12 @@ select {
   letter-spacing: 0.24em;
   text-transform: uppercase;
   color: var(--sage);
+}
+
+.eyebrow--compact {
+  margin-bottom: 0.35rem;
+  font-size: 0.64rem;
+  letter-spacing: 0.2em;
 }
 
 .rail__title,
@@ -192,6 +212,16 @@ select {
   color: var(--ink);
 }
 
+.button--quiet {
+  background: rgba(36, 24, 20, 0.03);
+  color: var(--muted);
+}
+
+.button--danger {
+  color: #fff5f1;
+  background: linear-gradient(135deg, #9f4524, #7d2f1f);
+}
+
 .button--small {
   width: auto;
   padding: 0.55rem 0.9rem;
@@ -213,19 +243,59 @@ select {
   gap: 0.75rem;
 }
 
+.events-panel__header--spaced {
+  margin-top: 0.2rem;
+}
+
+.rail-section {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.rail-section__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.rail-section__header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.rail-section__meta,
+.section-copy {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.rail-divider {
+  height: 1px;
+  margin: 1.15rem 0;
+  background: linear-gradient(90deg, rgba(36, 24, 20, 0.1), transparent);
+}
+
+.stack-form--event {
+  padding: 1rem;
+  border-radius: 1.05rem;
+  background: rgba(255, 252, 247, 0.62);
+  border: 1px solid rgba(36, 24, 20, 0.07);
+}
+
 .event-card {
-  border: 1px solid transparent;
+  border: 1px solid rgba(36, 24, 20, 0.08);
   border-radius: 1rem;
   padding: 0.95rem 1rem;
   background: rgba(255, 252, 247, 0.66);
   display: grid;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .event-card__button {
   text-align: left;
   border: 0;
-  padding: 0;
+  padding: 0.1rem 0;
   background: transparent;
   cursor: pointer;
 }
@@ -233,6 +303,47 @@ select {
 .event-card--active {
   border-color: rgba(154, 79, 36, 0.32);
   background: rgba(154, 79, 36, 0.14);
+}
+
+.event-card__topline,
+.event-card__confirm-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.event-card__state,
+.event-card__warning {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.8rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+}
+
+.event-card__state {
+  color: var(--sage);
+  background: rgba(50, 88, 81, 0.1);
+}
+
+.event-card__warning {
+  color: #822f1f;
+  background: rgba(255, 228, 220, 0.9);
+}
+
+.event-card__actions {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.event-card__confirm-copy {
+  margin: 0;
+  color: #822f1f;
+  font-size: 0.82rem;
 }
 
 .event-card__name,
@@ -295,6 +406,46 @@ select {
   border: 1px solid var(--line);
 }
 
+.inline-notice,
+.inline-feedback {
+  margin: 0.7rem 0 0;
+  padding: 0.72rem 0.9rem;
+  border-radius: 0.95rem;
+  border: 1px solid transparent;
+  font-size: 0.9rem;
+}
+
+.inline-notice {
+  margin-bottom: 0.9rem;
+  background: rgba(255, 251, 245, 0.78);
+  border-color: rgba(36, 24, 20, 0.08);
+}
+
+.inline-notice--floating {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 3;
+}
+
+.inline-notice--success {
+  color: #21453f;
+  background: rgba(218, 241, 231, 0.9);
+  border-color: rgba(33, 69, 63, 0.12);
+}
+
+.inline-notice--error,
+.inline-feedback--error {
+  color: #822f1f;
+  background: rgba(255, 228, 220, 0.9);
+  border-color: rgba(130, 47, 31, 0.14);
+}
+
+.inline-notice--info {
+  color: #4f4138;
+  background: rgba(255, 248, 239, 0.92);
+  border-color: rgba(36, 24, 20, 0.08);
+}
+
 .banner--error {
   color: #822f1f;
   background: rgba(255, 228, 220, 0.84);
@@ -315,6 +466,7 @@ select {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 1rem;
+  align-content: start;
 }
 
 .plan-card {
@@ -654,6 +806,12 @@ select {
 .mini-field span {
   color: var(--muted);
   font-size: 0.8rem;
+}
+
+.field input[aria-invalid="true"],
+.mini-field input[aria-invalid="true"] {
+  border-color: rgba(130, 47, 31, 0.42);
+  background: rgba(255, 241, 238, 0.92);
 }
 
 .lists-panel {
