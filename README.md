@@ -81,6 +81,7 @@ Tambien permite:
 - ajustar capacidad individual de mesas;
 - visualizar un plano interactivo del salon con mesas redondas e invitados alrededor;
 - resaltar conflictos de agrupacion y mesas seleccionadas en el plano;
+- mostrar un panel de control con resumen de ocupacion por mesa y detalle de la mesa seleccionada;
 - refrescar el workspace tras cada mutacion sobre backend.
 
 ## Credenciales locales por defecto

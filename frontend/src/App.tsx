@@ -58,6 +58,23 @@ export function App() {
     () => new Set(Object.values(workspace?.validation.grouping_conflicts ?? {}).flatMap((guestIds) => guestIds)),
     [workspace],
   );
+  const selectedTable = useMemo(
+    () => workspace?.tables.find((table) => table.id === selectedTableId) ?? null,
+    [selectedTableId, workspace],
+  );
+  const occupancyTables = useMemo(
+    () =>
+      [...(workspace?.tables ?? [])].sort((left, right) => {
+        const leftRatio = left.capacity === 0 ? 0 : left.occupied / left.capacity;
+        const rightRatio = right.capacity === 0 ? 0 : right.occupied / right.capacity;
+        return rightRatio - leftRatio;
+      }),
+    [workspace],
+  );
+  const fullTablesCount = useMemo(
+    () => workspace?.tables.filter((table) => table.available === 0).length ?? 0,
+    [workspace],
+  );
 
   useEffect(() => {
     if (!token) {
@@ -612,6 +629,89 @@ export function App() {
           </div>
 
           <div className="lists-panel">
+            <section className="control-card">
+              <div className="list-card__header">
+                <h3>Panel de control</h3>
+                <span>{workspace?.tables.length ?? 0} mesas</span>
+              </div>
+              <div className="control-metrics">
+                <article className="control-metric">
+                  <span>Mesas completas</span>
+                  <strong>{fullTablesCount}</strong>
+                </article>
+                <article className="control-metric">
+                  <span>Ocupacion media</span>
+                  <strong>
+                    {workspace
+                      ? `${Math.round(
+                          workspace.tables.reduce((total, table) => total + table.occupied, 0) /
+                            Math.max(
+                              workspace.tables.reduce((total, table) => total + table.capacity, 0),
+                              1,
+                            ) *
+                            100,
+                        )}%`
+                      : "0%"}
+                  </strong>
+                </article>
+              </div>
+              <div className="table-summary-list">
+                {occupancyTables.map((table) => {
+                  const ratio = table.capacity === 0 ? 0 : Math.round((table.occupied / table.capacity) * 100);
+                  return (
+                    <button
+                      key={table.id}
+                      className={`table-summary-row ${selectedTableId === table.id ? "table-summary-row--active" : ""}`}
+                      onClick={() => setSelectedTableId(table.id)}
+                      type="button"
+                    >
+                      <div>
+                        <strong>Mesa {table.number}</strong>
+                        <span>
+                          {table.occupied}/{table.capacity} ocupados
+                        </span>
+                      </div>
+                      <div className="table-summary-row__meter">
+                        <i style={{ width: `${ratio}%` }} />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="control-card">
+              <div className="list-card__header">
+                <h3>Mesa seleccionada</h3>
+                <span>{selectedTable ? `Mesa ${selectedTable.number}` : "Sin seleccion"}</span>
+              </div>
+              {selectedTable ? (
+                <div className="selected-table-panel">
+                  <div className="selected-table-panel__hero">
+                    <strong>{selectedTable.occupied}/{selectedTable.capacity}</strong>
+                    <span>{selectedTable.available} asientos libres</span>
+                  </div>
+                  <div className="selected-table-panel__guests">
+                    {selectedTable.guests.length > 0 ? (
+                      selectedTable.guests.map((guest) => (
+                        <article
+                          className={`selected-guest ${conflictGuestIds.has(guest.id) ? "selected-guest--conflict" : ""}`}
+                          key={guest.id}
+                        >
+                          <strong>{guest.name}</strong>
+                          <span>{guest.group_id ? `Agrupacion ${guest.group_id}` : guest.guest_type}</span>
+                        </article>
+                      ))
+                    ) : (
+                      <p className="empty-state">La mesa seleccionada todavia no tiene invitados.</p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="empty-state">Selecciona una mesa desde el plano o el resumen.</p>
+              )}
+            </section>
+
             <section className="list-card">
               <div className="list-card__header">
                 <h3>Sin asignar</h3>

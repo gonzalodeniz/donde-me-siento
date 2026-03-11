@@ -481,6 +481,14 @@ select {
   border-radius: 1.4rem;
 }
 
+.control-card {
+  padding: 1.1rem;
+  border-radius: 1.4rem;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
 .table-card--selected {
   border-color: rgba(50, 88, 81, 0.28);
   box-shadow: 0 20px 45px rgba(50, 88, 81, 0.15);
@@ -633,6 +641,103 @@ select {
   font-size: 0.86rem;
 }
 
+.control-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin: 0.9rem 0 1rem;
+}
+
+.control-metric {
+  padding: 0.9rem;
+  border-radius: 1rem;
+  background: rgba(255, 252, 247, 0.84);
+  border: 1px solid rgba(36, 24, 20, 0.08);
+}
+
+.control-metric span,
+.selected-guest span,
+.table-summary-row span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.control-metric strong {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 1.5rem;
+}
+
+.table-summary-list,
+.selected-table-panel__guests {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.table-summary-row {
+  border: 1px solid rgba(36, 24, 20, 0.08);
+  background: rgba(255, 252, 247, 0.84);
+  border-radius: 1rem;
+  padding: 0.9rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.table-summary-row--active {
+  border-color: rgba(50, 88, 81, 0.28);
+  background: rgba(50, 88, 81, 0.1);
+}
+
+.table-summary-row__meter {
+  margin-top: 0.55rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgba(36, 24, 20, 0.08);
+  overflow: hidden;
+}
+
+.table-summary-row__meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #325851, #9a4f24);
+}
+
+.selected-table-panel {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.selected-table-panel__hero {
+  padding: 1rem;
+  border-radius: 1rem;
+  background: rgba(50, 88, 81, 0.08);
+  border: 1px solid rgba(50, 88, 81, 0.14);
+}
+
+.selected-table-panel__hero strong {
+  display: block;
+  font-size: 1.8rem;
+}
+
+.selected-table-panel__hero span {
+  color: var(--muted);
+}
+
+.selected-guest {
+  padding: 0.85rem 0.9rem;
+  border-radius: 1rem;
+  background: rgba(255, 252, 247, 0.84);
+  border: 1px solid rgba(36, 24, 20, 0.08);
+}
+
+.selected-guest--conflict {
+  background: rgba(255, 241, 234, 0.9);
+  border-color: rgba(154, 79, 36, 0.2);
+}
+
 @media (max-width: 1024px) {
   .shell {
     grid-template-columns: 1fr;
@@ -656,6 +761,10 @@ select {
 
   .plan-card__header {
     flex-direction: column;
+  }
+
+  .control-metrics {
+    grid-template-columns: 1fr;
   }
 }
 
