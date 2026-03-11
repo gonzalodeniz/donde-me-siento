@@ -28,13 +28,13 @@ Convertir Donde-me-siento en la herramienta de referencia para la gestión del s
 - detectar y advertir automáticamente cuando se violan restricciones o se supera el aforo;
 - crear varias versiones de distribución para comparar alternativas;
 - exportar e imprimir planos y listados (por mesa, alfabético, para el salón);
-- guardar eventos con persistencia fiable y recuperarlos sin pérdida de datos;
-- acceder de forma segura mediante autenticación de usuario.
+- guardar eventos con persistencia fiable en backend y recuperarlos sin pérdida de datos;
+- acceder de forma segura mediante autenticación de usuario contra backend.
 
 ## Alcance por fases
 
 **MVP**
-Crear evento, configurar mesas, gestionar invitados, definir relaciones y restricciones, asignar a mesas (manual y drag & drop), visualizar invitados sin asignar, detectar conflictos, guardado de eventos, autenticación básica.
+Crear evento, configurar mesas, gestionar invitados, definir relaciones y restricciones, asignar a mesas (manual y drag & drop), visualizar invitados sin asignar, detectar conflictos, guardado de eventos sobre backend con base de datos y autenticación básica.
 
 **v2**
 Importación de invitados desde fichero, exportación e impresión de planos y listados, propuesta inicial automática de distribución, gestión de confirmaciones de asistencia, múltiples versiones/escenarios.

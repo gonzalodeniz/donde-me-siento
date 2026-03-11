@@ -21,7 +21,7 @@ Criterios de aceptación:
 - Tras cerrar sesión, no se puede acceder a ninguna pantalla protegida sin volver a autenticarse.
 
 ### TT-01 · Implementar sistema de autenticación básico · MVP
-Implementar autenticación con usuario/contraseña. Proteger todas las rutas de la aplicación. Gestionar sesión activa y cierre manual. Almacenar credenciales de forma segura (hash + sal).
+Implementar autenticación con usuario/contraseña sobre backend. Proteger todas las rutas de la aplicación y los endpoints privados. Gestionar sesión activa y cierre manual. Almacenar credenciales de forma segura (hash + sal) y exponer un mecanismo de sesión seguro para el cliente.
 
 ---
 
@@ -235,7 +235,7 @@ Criterios de aceptación:
 - Se puede cargar cualquier versión guardada.
 
 ### TT-07 · Capa de persistencia de eventos · MVP
-Implementar almacenamiento local (ficheros JSON o localStorage según arquitectura) para guardar, cargar y eliminar eventos. Definir formato de serialización del estado completo. Gestionar múltiples eventos y versiones.
+Implementar persistencia en backend con base de datos en disco para guardar, cargar y eliminar eventos. Definir formato de serialización del estado completo y contratos API. Gestionar múltiples eventos y versiones sin depender de almacenamiento local del navegador.
 
 ---
 
@@ -269,7 +269,7 @@ Implementar generación de PDF o HTML imprimible para: listado por mesa, listado
 ## Épica 9 — Infraestructura y arquitectura
 
 ### TT-09 · Definir stack tecnológico y estructura del proyecto · MVP
-Decidir y documentar: framework frontend (React / Vue / otro), gestión de estado global, sistema de persistencia, herramienta de build, estructura de carpetas.
+Decidir y documentar: framework frontend (React / Vue / otro), framework backend, gestión de estado global, sistema de persistencia, herramienta de build, estructura de carpetas.
 
 ### TT-10 · Configurar entorno de desarrollo · MVP
 Configurar repositorio, linter, formatter, tests unitarios básicos, pipeline CI mínimo.

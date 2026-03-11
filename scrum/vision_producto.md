@@ -37,6 +37,6 @@ Donde-me-siento permite crear, revisar y ajustar la distribución de invitados d
 - **No bloquear el flujo de trabajo**: las advertencias de conflicto deben ser visibles sin impedir seguir operando.
 - **Confianza operativa**: el sistema debe hacer visibles inconsistencias, aforos superados y restricciones violadas antes de que se conviertan en errores.
 - **Relaciones explícitas**: las agrupaciones y restricciones entre invitados deben ser identificables a simple vista tanto en el diagrama como en las listas.
-- **Persistencia fiable**: el estado completo de la distribución debe poder guardarse y recuperarse sin pérdida de datos.
+- **Persistencia fiable**: el estado completo de la distribución debe poder guardarse y recuperarse sin pérdida de datos mediante backend y almacenamiento persistente en disco.
 - **Experiencia agradable**: sensación de orden y calma, jerarquía tipográfica clara, color funcional, estados vacíos bien diseñados y transiciones suaves al reorganizar invitados o mesas.
 - **Seguridad por defecto**: acceso restringido mediante login; sesión controlada por el usuario.
