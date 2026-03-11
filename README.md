@@ -27,6 +27,9 @@ Este repositorio contiene el arranque de la Fase 1 del MVP:
 │   │   ├── core/
 │   │   └── domains/
 │   └── tests/
+├── frontend/
+│   ├── src/
+│   └── package.json
 ├── reports/
 ├── scrum/
 ├── AGENT.md
@@ -68,6 +71,8 @@ La API actual cubre:
 
 Todos los endpoints de eventos requieren autenticacion Bearer.
 
+El frontend en `frontend/` consume `GET /api/events/{event_id}/workspace` como fuente principal de estado inicial del workspace.
+
 ## Credenciales locales por defecto
 
 - Usuario: `admin`
@@ -92,6 +97,17 @@ pip install -r requirements.txt
 pytest
 pytest --cov=backend/app --cov-report=term-missing
 ```
+
+## Ejecutar backend y frontend
+
+En dos terminales distintas:
+
+```bash
+make run-backend
+make run-frontend
+```
+
+Vite queda configurado con proxy a `http://127.0.0.1:8000` para las rutas `/api`.
 
 ## Siguientes pasos recomendados
 
