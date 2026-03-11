@@ -49,6 +49,18 @@ class EventRepository:
         self.session.commit()
         return True
 
+    def save(self, event: Event) -> Event:
+        existing_model = self.session.get(EventModel, event.id)
+        if existing_model is not None:
+            self.session.delete(existing_model)
+            self.session.flush()
+
+        model = self._to_model(event)
+        self.session.add(model)
+        self.session.commit()
+        self.session.refresh(model)
+        return self._to_domain(model)
+
     @staticmethod
     def _to_model(event: Event) -> EventModel:
         return EventModel(

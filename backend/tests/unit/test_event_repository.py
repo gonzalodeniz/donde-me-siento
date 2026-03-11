@@ -45,3 +45,19 @@ def test_repository_delete_returns_false_when_event_does_not_exist() -> None:
         repository = EventRepository(session)
 
         assert repository.delete("missing-event") is False
+
+
+def test_repository_save_replaces_existing_event_state() -> None:
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=engine)
+
+    with Session(engine) as session:
+        repository = EventRepository(session)
+        event = repository.create(build_event())
+        event.update_guest("guest-1", name="Ana Maria")
+        event.assign_guest_to_table("guest-1", "table-2")
+
+        saved = repository.save(event)
+
+    assert saved.guests["guest-1"].name == "Ana Maria"
+    assert saved.guests["guest-1"].table_id == "table-2"

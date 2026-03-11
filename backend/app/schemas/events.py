@@ -10,7 +10,7 @@ from backend.app.domains.seating import Event
 class GuestCreate(BaseModel):
     """Payload de invitado al crear un evento."""
 
-    id: str = Field(min_length=1, max_length=64)
+    id: str | None = Field(default=None, min_length=1, max_length=64)
     name: str = Field(min_length=1, max_length=255)
     guest_type: str = Field(min_length=1, max_length=32)
     group_id: str | None = Field(default=None, max_length=64)
@@ -77,6 +77,39 @@ class EventSummaryResponse(BaseModel):
     guest_count: int
 
 
+class GuestUpdate(BaseModel):
+    """Payload para actualizar un invitado."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    guest_type: str | None = Field(default=None, min_length=1, max_length=32)
+    group_id: str | None = Field(default=None, max_length=64)
+
+
+class GuestAssignmentRequest(BaseModel):
+    """Payload para asignar un invitado a una mesa."""
+
+    table_id: str = Field(min_length=1, max_length=64)
+
+
+class TableSummaryResponse(BaseModel):
+    """Resumen de una mesa para panel y validacion."""
+
+    table_id: str
+    table_number: int
+    capacity: int
+    occupied: int
+    available: int
+
+
+class ValidationResponse(BaseModel):
+    """Estado de validacion del evento listo para frontend."""
+
+    grouping_conflicts: dict[str, list[str]]
+    tables: list[TableSummaryResponse]
+    assigned_guests: int
+    unassigned_guests: int
+
+
 def build_event_response(event: Event) -> EventResponse:
     """Convierte el agregado de dominio a la respuesta HTTP."""
 
@@ -105,4 +138,22 @@ def build_event_response(event: Event) -> EventResponse:
             )
             for guest in sorted(event.guests.values(), key=lambda current: current.name.casefold())
         ],
+    )
+
+
+def build_validation_response(event: Event) -> ValidationResponse:
+    """Convierte el estado de validacion del dominio a respuesta HTTP."""
+
+    validation = event.validate_state()
+    return ValidationResponse(
+        grouping_conflicts={
+            group_id: sorted(guest_ids)
+            for group_id, guest_ids in validation["grouping_conflicts"].items()
+        },
+        tables=[
+            TableSummaryResponse(**table_summary)
+            for table_summary in validation["tables"]
+        ],
+        assigned_guests=validation["assigned_guests"],
+        unassigned_guests=validation["unassigned_guests"],
     )

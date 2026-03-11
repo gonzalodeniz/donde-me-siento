@@ -56,6 +56,12 @@ La API actual cubre:
 - `GET /api/events`
 - `GET /api/events/{event_id}`
 - `DELETE /api/events/{event_id}`
+- `POST /api/events/{event_id}/guests`
+- `PUT /api/events/{event_id}/guests/{guest_id}`
+- `DELETE /api/events/{event_id}/guests/{guest_id}`
+- `PUT /api/events/{event_id}/guests/{guest_id}/assignment`
+- `DELETE /api/events/{event_id}/guests/{guest_id}/assignment`
+- `GET /api/events/{event_id}/validation`
 
 Todos los endpoints de eventos requieren autenticacion Bearer.
 
