@@ -76,6 +76,7 @@ Tambien permite:
 
 - anadir, editar y eliminar invitados;
 - asignar y desasignar invitados desde la UI;
+- asignar invitados por drag & drop desde la lista al plano del salon;
 - ajustar capacidad individual de mesas;
 - visualizar un plano interactivo del salon con mesas redondas e invitados alrededor;
 - resaltar conflictos de agrupacion y mesas seleccionadas en el plano;

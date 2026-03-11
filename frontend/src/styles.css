@@ -418,6 +418,13 @@ select {
   stroke-width: 3;
 }
 
+.plan-table--drop .plan-table__halo,
+.plan-table__halo--drop {
+  fill: rgba(154, 79, 36, 0.16);
+  stroke: rgba(154, 79, 36, 0.4);
+  stroke-width: 3;
+}
+
 .plan-table__number,
 .plan-table__capacity,
 .plan-seat__label {
@@ -547,11 +554,19 @@ select {
   border: 1px solid rgba(36, 24, 20, 0.08);
   display: grid;
   gap: 0.7rem;
+  cursor: grab;
+  transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
 }
 
 .guest-card--conflict {
   border-color: rgba(154, 79, 36, 0.24);
   background: rgba(255, 241, 234, 0.9);
+}
+
+.guest-card--dragging {
+  opacity: 0.42;
+  transform: rotate(-1.5deg) scale(0.985);
+  box-shadow: none;
 }
 
 .guest-card__header,
@@ -602,6 +617,12 @@ select {
 .lists-panel {
   display: grid;
   gap: 1rem;
+}
+
+.microcopy {
+  margin: 0.35rem 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.86rem;
 }
 
 @media (max-width: 1024px) {

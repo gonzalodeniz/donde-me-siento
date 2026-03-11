@@ -3,14 +3,26 @@ import type { Workspace } from "../types";
 type SeatingPlanProps = {
   workspace: Workspace;
   selectedTableId: string | null;
+  activeDropTableId: string | null;
   onSelectTable: (tableId: string) => void;
+  onTableDragEnter: (tableId: string) => void;
+  onTableDragLeave: (tableId: string) => void;
+  onTableDrop: (tableId: string) => void;
 };
 
 function truncateName(name: string) {
   return name.length > 12 ? `${name.slice(0, 12)}…` : name;
 }
 
-export function SeatingPlan({ workspace, selectedTableId, onSelectTable }: SeatingPlanProps) {
+export function SeatingPlan({
+  workspace,
+  selectedTableId,
+  activeDropTableId,
+  onSelectTable,
+  onTableDragEnter,
+  onTableDragLeave,
+  onTableDrop,
+}: SeatingPlanProps) {
   const conflictGuestIds = new Set(
     Object.values(workspace.validation.grouping_conflicts).flatMap((guestIds) => guestIds),
   );
@@ -62,14 +74,31 @@ export function SeatingPlan({ workspace, selectedTableId, onSelectTable }: Seati
             const seatCount = Math.max(table.capacity, 1);
             const isSelected = table.id === selectedTableId;
             const isFull = table.available === 0;
+            const isDropTarget = table.id === activeDropTableId;
             const radius = 52;
             const labelRadius = 98;
 
             return (
               <g
-                className={`plan-table ${isSelected ? "plan-table--selected" : ""}`}
+                className={`plan-table ${isSelected ? "plan-table--selected" : ""} ${isDropTarget ? "plan-table--drop" : ""}`}
                 key={table.id}
                 onClick={() => onSelectTable(table.id)}
+                onDragEnter={(event) => {
+                  event.preventDefault();
+                  onTableDragEnter(table.id);
+                }}
+                onDragLeave={(event) => {
+                  event.preventDefault();
+                  onTableDragLeave(table.id);
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  onTableDragEnter(table.id);
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  onTableDrop(table.id);
+                }}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(event) => {
@@ -79,7 +108,7 @@ export function SeatingPlan({ workspace, selectedTableId, onSelectTable }: Seati
                 }}
               >
                 <circle
-                  className={`plan-table__halo ${isFull ? "plan-table__halo--full" : ""}`}
+                  className={`plan-table__halo ${isFull ? "plan-table__halo--full" : ""} ${isDropTarget ? "plan-table__halo--drop" : ""}`}
                   cx={table.position_x}
                   cy={table.position_y}
                   r={74}

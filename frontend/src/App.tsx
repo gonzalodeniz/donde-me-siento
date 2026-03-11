@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState, startTransition } from "react";
+import { DragEvent, FormEvent, useEffect, useMemo, useState, startTransition } from "react";
 
 import {
   assignGuest,
@@ -42,6 +42,8 @@ export function App() {
   const [assignmentValues, setAssignmentValues] = useState<Record<string, string>>({});
   const [capacityValues, setCapacityValues] = useState<Record<string, string>>({});
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  const [draggedGuestId, setDraggedGuestId] = useState<string | null>(null);
+  const [activeDropTableId, setActiveDropTableId] = useState<string | null>(null);
 
   const groupedConflictCount = useMemo(
     () => Object.keys(workspace?.validation.grouping_conflicts ?? {}).length,
@@ -134,6 +136,8 @@ export function App() {
   useEffect(() => {
     if (!workspace) {
       setSelectedTableId(null);
+      setActiveDropTableId(null);
+      setDraggedGuestId(null);
       return;
     }
 
@@ -262,6 +266,53 @@ export function App() {
     return submittingAction === actionKey;
   }
 
+  function handleGuestDragStart(event: DragEvent<HTMLElement>, guestId: string) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", guestId);
+    setDraggedGuestId(guestId);
+    setSuccessMessage(null);
+  }
+
+  function handleGuestDragEnd() {
+    setDraggedGuestId(null);
+    setActiveDropTableId(null);
+  }
+
+  function handleTableDragEnter(tableId: string) {
+    if (!draggedGuestId) {
+      return;
+    }
+    setActiveDropTableId(tableId);
+    setSelectedTableId(tableId);
+  }
+
+  function handleTableDragLeave(tableId: string) {
+    if (activeDropTableId === tableId) {
+      setActiveDropTableId(null);
+    }
+  }
+
+  function handleTableDrop(tableId: string) {
+    if (!workspace || !draggedGuestId) {
+      return;
+    }
+
+    const guest = workspace.guests.unassigned.find((currentGuest) => currentGuest.id === draggedGuestId);
+    const droppedGuestId = draggedGuestId;
+    setDraggedGuestId(null);
+    setActiveDropTableId(null);
+
+    if (!guest) {
+      return;
+    }
+
+    void runWorkspaceAction(
+      `assign-dnd-${droppedGuestId}`,
+      () => assignGuest(workspace.event_id, droppedGuestId, tableId, token ?? ""),
+      `${guest.name} asignado mediante arrastrar y soltar.`,
+    );
+  }
+
   return (
     <div className="shell">
       <div className="shell__backdrop shell__backdrop--one" />
@@ -364,7 +415,11 @@ export function App() {
           <div className="canvas__tables">
             {workspace ? (
               <SeatingPlan
+                activeDropTableId={activeDropTableId}
                 onSelectTable={setSelectedTableId}
+                onTableDragEnter={handleTableDragEnter}
+                onTableDragLeave={handleTableDragLeave}
+                onTableDrop={handleTableDrop}
                 selectedTableId={selectedTableId}
                 workspace={workspace}
               />
@@ -451,6 +506,9 @@ export function App() {
                 <h3>Sin asignar</h3>
                 <span>{workspace?.guests.unassigned.length ?? 0}</span>
               </div>
+              <p className="microcopy">
+                Arrastra un invitado desde esta lista hasta una mesa del plano para asignarlo visualmente.
+              </p>
               <form className="stack-form" onSubmit={handleGuestCreate}>
                 <label className="mini-field">
                   <span>Nombre</span>
@@ -482,8 +540,11 @@ export function App() {
                 {workspace && workspace.guests.unassigned.length > 0 ? (
                   workspace.guests.unassigned.map((guest) => (
                     <article
-                      className={`guest-card ${conflictGuestIds.has(guest.id) ? "guest-card--conflict" : ""}`}
+                      className={`guest-card ${conflictGuestIds.has(guest.id) ? "guest-card--conflict" : ""} ${draggedGuestId === guest.id ? "guest-card--dragging" : ""}`}
                       key={guest.id}
+                      draggable
+                      onDragEnd={handleGuestDragEnd}
+                      onDragStart={(event) => handleGuestDragStart(event, guest.id)}
                     >
                       <div className="guest-card__header">
                         <strong>{guest.name}</strong>
