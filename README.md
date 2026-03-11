@@ -72,6 +72,12 @@ La API actual cubre:
 Todos los endpoints de eventos requieren autenticacion Bearer.
 
 El frontend en `frontend/` consume `GET /api/events/{event_id}/workspace` como fuente principal de estado inicial del workspace.
+Tambien permite:
+
+- anadir, editar y eliminar invitados;
+- asignar y desasignar invitados desde la UI;
+- ajustar capacidad individual de mesas;
+- refrescar el workspace tras cada mutacion sobre backend.
 
 ## Credenciales locales por defecto
 

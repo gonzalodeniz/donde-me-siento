@@ -1,7 +1,17 @@
 import { FormEvent, useEffect, useMemo, useState, startTransition } from "react";
 
-import { fetchEvents, fetchWorkspace, login } from "./api";
-import type { EventSummary, Workspace } from "./types";
+import {
+  assignGuest,
+  createGuest,
+  deleteGuest,
+  fetchEvents,
+  fetchWorkspace,
+  login,
+  unassignGuest,
+  updateGuest,
+  updateTableCapacity,
+} from "./api";
+import type { EventSummary, Guest, Workspace } from "./types";
 
 const TOKEN_STORAGE_KEY = "dms.auth.token";
 
@@ -18,7 +28,18 @@ export function App() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(false);
   const [loadingWorkspace, setLoadingWorkspace] = useState(false);
+  const [submittingAction, setSubmittingAction] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [guestName, setGuestName] = useState("");
+  const [guestType, setGuestType] = useState("adulto");
+  const [guestGroupId, setGuestGroupId] = useState("");
+  const [editingGuestId, setEditingGuestId] = useState<string | null>(null);
+  const [editingGuestName, setEditingGuestName] = useState("");
+  const [editingGuestType, setEditingGuestType] = useState("adulto");
+  const [editingGuestGroupId, setEditingGuestGroupId] = useState("");
+  const [assignmentValues, setAssignmentValues] = useState<Record<string, string>>({});
+  const [capacityValues, setCapacityValues] = useState<Record<string, string>>({});
 
   const groupedConflictCount = useMemo(
     () => Object.keys(workspace?.validation.grouping_conflicts ?? {}).length,
@@ -80,6 +101,9 @@ export function App() {
         startTransition(() => {
           setWorkspace(nextWorkspace);
         });
+        setCapacityValues(
+          Object.fromEntries(nextWorkspace.tables.map((table) => [table.id, String(table.capacity)])),
+        );
         setErrorMessage(null);
       } catch (error) {
         if (cancelled) {
@@ -120,6 +144,102 @@ export function App() {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     setToken(null);
     setErrorMessage(null);
+    setSuccessMessage(null);
+  }
+
+  function beginGuestEdit(guest: Guest) {
+    setEditingGuestId(guest.id);
+    setEditingGuestName(guest.name);
+    setEditingGuestType(guest.guest_type);
+    setEditingGuestGroupId(guest.group_id ?? "");
+  }
+
+  function cancelGuestEdit() {
+    setEditingGuestId(null);
+    setEditingGuestName("");
+    setEditingGuestType("adulto");
+    setEditingGuestGroupId("");
+  }
+
+  async function refreshWorkspaceState(activeEventId: string, activeToken: string) {
+    const [nextEvents, nextWorkspace] = await Promise.all([
+      fetchEvents(activeToken),
+      fetchWorkspace(activeEventId, activeToken),
+    ]);
+    startTransition(() => {
+      setEvents(nextEvents);
+      setWorkspace(nextWorkspace);
+      setSelectedEventId(activeEventId);
+    });
+    setCapacityValues(
+      Object.fromEntries(nextWorkspace.tables.map((table) => [table.id, String(table.capacity)])),
+    );
+  }
+
+  async function runWorkspaceAction(actionKey: string, action: () => Promise<void>, message: string) {
+    if (!token || !selectedEventId) {
+      return;
+    }
+
+    const activeToken = token;
+    const activeEventId = selectedEventId;
+    setSubmittingAction(actionKey);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      await action();
+      await refreshWorkspaceState(activeEventId, activeToken);
+      setSuccessMessage(message);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "No se pudo completar la accion.");
+    } finally {
+      setSubmittingAction(null);
+    }
+  }
+
+  async function handleGuestCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !selectedEventId) {
+      return;
+    }
+
+    await runWorkspaceAction(
+      "create-guest",
+      () =>
+        createGuest(selectedEventId, token, {
+          name: guestName,
+          guest_type: guestType,
+          group_id: guestGroupId.trim() || null,
+        }),
+      "Invitado anadido al workspace.",
+    );
+    setGuestName("");
+    setGuestType("adulto");
+    setGuestGroupId("");
+  }
+
+  async function handleGuestUpdate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !selectedEventId || !editingGuestId) {
+      return;
+    }
+
+    await runWorkspaceAction(
+      `update-${editingGuestId}`,
+      () =>
+        updateGuest(selectedEventId, editingGuestId, token, {
+          name: editingGuestName,
+          guest_type: editingGuestType,
+          group_id: editingGuestGroupId.trim() || null,
+        }),
+      "Invitado actualizado.",
+    );
+    cancelGuestEdit();
+  }
+
+  function isActionRunning(actionKey: string) {
+    return submittingAction === actionKey;
   }
 
   return (
@@ -217,6 +337,7 @@ export function App() {
         </header>
 
         {errorMessage ? <div className="banner banner--error">{errorMessage}</div> : null}
+        {successMessage ? <div className="banner banner--success">{successMessage}</div> : null}
         {loadingWorkspace ? <div className="banner">Cargando workspace...</div> : null}
 
         <section className="canvas">
@@ -230,14 +351,59 @@ export function App() {
                   </div>
                   <span className="table-card__pill">{table.available} libres</span>
                 </div>
+                <form
+                  className="table-card__controls"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const nextCapacity = Number(capacityValues[table.id] ?? table.capacity);
+                    void runWorkspaceAction(
+                      `capacity-${table.id}`,
+                      () => updateTableCapacity(workspace.event_id, table.id, nextCapacity, token ?? ""),
+                      `Capacidad de la mesa ${table.number} actualizada.`,
+                    );
+                  }}
+                >
+                  <label className="mini-field">
+                    <span>Capacidad</span>
+                    <input
+                      min={1}
+                      type="number"
+                      value={capacityValues[table.id] ?? String(table.capacity)}
+                      onChange={(event) =>
+                        setCapacityValues((current) => ({ ...current, [table.id]: event.target.value }))
+                      }
+                    />
+                  </label>
+                  <button
+                    className="button button--ghost button--small"
+                    disabled={isActionRunning(`capacity-${table.id}`)}
+                    type="submit"
+                  >
+                    Guardar
+                  </button>
+                </form>
                 <div className="seat-ring">
                   {table.guests.length === 0 ? (
                     <p className="empty-state">Sin invitados asignados.</p>
                   ) : (
                     table.guests.map((guest) => (
-                      <span className="guest-chip" key={guest.id}>
-                        {guest.name}
-                      </span>
+                      <div className="guest-chip guest-chip--interactive" key={guest.id}>
+                        <span>{guest.name}</span>
+                        <button
+                          className="chip-action"
+                          disabled={isActionRunning(`unassign-${guest.id}`)}
+                          onClick={() =>
+                            void runWorkspaceAction(
+                              `unassign-${guest.id}`,
+                              () => unassignGuest(workspace.event_id, guest.id, token ?? ""),
+                              `${guest.name} vuelve a la lista sin asignar.`,
+                            )
+                          }
+                          type="button"
+                        >
+                          Quitar
+                        </button>
+                      </div>
                     ))
                   )}
                 </div>
@@ -251,13 +417,124 @@ export function App() {
                 <h3>Sin asignar</h3>
                 <span>{workspace?.guests.unassigned.length ?? 0}</span>
               </div>
+              <form className="stack-form" onSubmit={handleGuestCreate}>
+                <label className="mini-field">
+                  <span>Nombre</span>
+                  <input value={guestName} onChange={(event) => setGuestName(event.target.value)} />
+                </label>
+                <div className="mini-grid">
+                  <label className="mini-field">
+                    <span>Tipo</span>
+                    <select value={guestType} onChange={(event) => setGuestType(event.target.value)}>
+                      <option value="adulto">adulto</option>
+                      <option value="adolescente">adolescente</option>
+                      <option value="nino">nino</option>
+                    </select>
+                  </label>
+                  <label className="mini-field">
+                    <span>Agrupacion</span>
+                    <input
+                      placeholder="opcional"
+                      value={guestGroupId}
+                      onChange={(event) => setGuestGroupId(event.target.value)}
+                    />
+                  </label>
+                </div>
+                <button className="button button--primary button--small" disabled={isActionRunning("create-guest")} type="submit">
+                  Anadir invitado
+                </button>
+              </form>
               <div className="guest-list">
-                {workspace?.guests.unassigned.map((guest) => (
-                  <article className="guest-row" key={guest.id}>
-                    <strong>{guest.name}</strong>
-                    <span>{guest.guest_type}</span>
-                  </article>
-                )) ?? <p className="empty-state">Nada pendiente.</p>}
+                {workspace && workspace.guests.unassigned.length > 0 ? (
+                  workspace.guests.unassigned.map((guest) => (
+                    <article className="guest-card" key={guest.id}>
+                      <div className="guest-card__header">
+                        <strong>{guest.name}</strong>
+                        <span>{guest.guest_type}</span>
+                      </div>
+                      <div className="guest-card__meta">
+                        <span>{guest.group_id ? `Agrupacion ${guest.group_id}` : "Sin agrupacion"}</span>
+                      </div>
+                      <div className="guest-card__actions">
+                        <select
+                          value={assignmentValues[guest.id] ?? ""}
+                          onChange={(event) =>
+                            setAssignmentValues((current) => ({ ...current, [guest.id]: event.target.value }))
+                          }
+                        >
+                          <option value="">Asignar a mesa</option>
+                          {workspace.tables.map((table) => (
+                            <option key={table.id} value={table.id}>
+                              Mesa {table.number}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          className="button button--ghost button--small"
+                          disabled={!assignmentValues[guest.id] || isActionRunning(`assign-${guest.id}`)}
+                          onClick={() =>
+                            void runWorkspaceAction(
+                              `assign-${guest.id}`,
+                              () =>
+                                assignGuest(
+                                  workspace.event_id,
+                                  guest.id,
+                                  assignmentValues[guest.id],
+                                  token ?? "",
+                                ),
+                              `${guest.name} asignado correctamente.`,
+                            )
+                          }
+                          type="button"
+                        >
+                          Asignar
+                        </button>
+                        <button
+                          className="button button--ghost button--small"
+                          onClick={() => beginGuestEdit(guest)}
+                          type="button"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          className="button button--ghost button--small"
+                          disabled={isActionRunning(`delete-${guest.id}`)}
+                          onClick={() =>
+                            void runWorkspaceAction(
+                              `delete-${guest.id}`,
+                              () => deleteGuest(workspace.event_id, guest.id, token ?? ""),
+                              `${guest.name} eliminado.`,
+                            )
+                          }
+                          type="button"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <p className="empty-state">Nada pendiente.</p>
+                )}
+              </div>
+            </section>
+
+            <section className="list-card">
+              <div className="list-card__header">
+                <h3>Asignados</h3>
+                <span>{workspace?.guests.assigned.length ?? 0}</span>
+              </div>
+              <div className="guest-list">
+                {workspace && workspace.guests.assigned.length > 0 ? (
+                  workspace.guests.assigned.map((guest) => (
+                    <article className="guest-row" key={guest.id}>
+                      <strong>{guest.name}</strong>
+                      <span>{guest.table_id}</span>
+                    </article>
+                  ))
+                ) : (
+                  <p className="empty-state">Todavia no hay invitados sentados.</p>
+                )}
               </div>
             </section>
 
@@ -281,6 +558,53 @@ export function App() {
             </section>
           </div>
         </section>
+
+        {editingGuestId ? (
+          <section className="editor-card">
+            <div className="list-card__header">
+              <h3>Editar invitado</h3>
+              <button className="button button--ghost button--small" onClick={cancelGuestEdit} type="button">
+                Cancelar
+              </button>
+            </div>
+            <form className="stack-form" onSubmit={handleGuestUpdate}>
+              <label className="mini-field">
+                <span>Nombre</span>
+                <input
+                  value={editingGuestName}
+                  onChange={(event) => setEditingGuestName(event.target.value)}
+                />
+              </label>
+              <div className="mini-grid">
+                <label className="mini-field">
+                  <span>Tipo</span>
+                  <select
+                    value={editingGuestType}
+                    onChange={(event) => setEditingGuestType(event.target.value)}
+                  >
+                    <option value="adulto">adulto</option>
+                    <option value="adolescente">adolescente</option>
+                    <option value="nino">nino</option>
+                  </select>
+                </label>
+                <label className="mini-field">
+                  <span>Agrupacion</span>
+                  <input
+                    value={editingGuestGroupId}
+                    onChange={(event) => setEditingGuestGroupId(event.target.value)}
+                  />
+                </label>
+              </div>
+              <button
+                className="button button--primary button--small"
+                disabled={isActionRunning(`update-${editingGuestId}`)}
+                type="submit"
+              >
+                Guardar cambios
+              </button>
+            </form>
+          </section>
+        ) : null}
       </main>
     </div>
   );

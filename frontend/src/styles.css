@@ -33,7 +33,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -191,6 +192,12 @@ input {
   color: var(--ink);
 }
 
+.button--small {
+  width: auto;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.88rem;
+}
+
 .events-panel__header,
 .list-card__header,
 .table-card__header {
@@ -285,6 +292,11 @@ input {
   background: rgba(255, 228, 220, 0.84);
 }
 
+.banner--success {
+  color: #21453f;
+  background: rgba(218, 241, 231, 0.84);
+}
+
 .canvas {
   display: grid;
   grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.95fr);
@@ -301,6 +313,14 @@ input {
 .list-card {
   padding: 1.1rem;
   border-radius: 1.4rem;
+}
+
+.editor-card {
+  padding: 1.1rem;
+  border-radius: 1.4rem;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  box-shadow: var(--shadow);
 }
 
 .table-card h3,
@@ -332,6 +352,22 @@ input {
   background: rgba(50, 88, 81, 0.08);
 }
 
+.guest-chip--interactive {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding-right: 0.5rem;
+}
+
+.chip-action {
+  border: 0;
+  background: rgba(36, 24, 20, 0.08);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  cursor: pointer;
+}
+
 .guest-row,
 .conflict-row {
   border-radius: 1rem;
@@ -342,6 +378,60 @@ input {
 
 .conflict-row {
   background: rgba(154, 79, 36, 0.12);
+}
+
+.guest-card {
+  border-radius: 1rem;
+  padding: 0.9rem;
+  background: rgba(255, 252, 247, 0.84);
+  border: 1px solid rgba(36, 24, 20, 0.08);
+  display: grid;
+  gap: 0.7rem;
+}
+
+.guest-card__header,
+.guest-card__actions,
+.table-card__controls,
+.mini-grid {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.guest-card__header {
+  justify-content: space-between;
+}
+
+.guest-card__meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.guest-card__actions select,
+.mini-field input,
+.mini-field select {
+  border: 1px solid rgba(36, 24, 20, 0.14);
+  background: rgba(255, 255, 255, 0.8);
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.8rem;
+}
+
+.stack-form {
+  display: grid;
+  gap: 0.85rem;
+  margin: 0.9rem 0 1rem;
+}
+
+.mini-field {
+  display: grid;
+  gap: 0.35rem;
+  flex: 1;
+}
+
+.mini-field span {
+  color: var(--muted);
+  font-size: 0.8rem;
 }
 
 .lists-panel {
