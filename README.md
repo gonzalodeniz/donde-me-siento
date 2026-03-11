@@ -120,6 +120,15 @@ make run-frontend
 
 Vite queda configurado con proxy a `http://127.0.0.1:8000` para las rutas `/api`.
 
+## Ejecutar E2E
+
+```bash
+make install-e2e
+make test-e2e
+```
+
+El flujo E2E actual cubre: login, creacion de evento, alta de invitados, asignacion por drag & drop y recarga del evento guardado.
+
 ## Siguientes pasos recomendados
 
 1. Añadir `backend/app/main.py` con la API FastAPI y endpoint de salud.

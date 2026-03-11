@@ -383,13 +383,13 @@ export function App() {
     }
   }
 
-  function handleTableDrop(tableId: string) {
-    if (!workspace || !draggedGuestId) {
+  function handleTableDrop(tableId: string, droppedGuestIdFromEvent: string | null) {
+    const droppedGuestId = droppedGuestIdFromEvent ?? draggedGuestId;
+    if (!workspace || !droppedGuestId) {
       return;
     }
 
-    const guest = workspace.guests.unassigned.find((currentGuest) => currentGuest.id === draggedGuestId);
-    const droppedGuestId = draggedGuestId;
+    const guest = workspace.guests.unassigned.find((currentGuest) => currentGuest.id === droppedGuestId);
     setDraggedGuestId(null);
     setActiveDropTableId(null);
 
@@ -454,12 +454,17 @@ export function App() {
           <form className="stack-form" onSubmit={handleEventCreate}>
             <label className="mini-field">
               <span>Nombre del evento</span>
-              <input value={eventName} onChange={(event) => setEventName(event.target.value)} />
+              <input
+                data-testid="event-name-input"
+                value={eventName}
+                onChange={(event) => setEventName(event.target.value)}
+              />
             </label>
             <div className="mini-grid">
               <label className="mini-field">
                 <span>Mesas</span>
                 <input
+                  data-testid="event-table-count-input"
                   min={1}
                   type="number"
                   value={eventTableCount}
@@ -469,6 +474,7 @@ export function App() {
               <label className="mini-field">
                 <span>Capacidad base</span>
                 <input
+                  data-testid="event-default-capacity-input"
                   min={1}
                   type="number"
                   value={eventDefaultCapacity}
@@ -489,7 +495,12 @@ export function App() {
                   key={event.id}
                   className={`event-card ${selectedEventId === event.id ? "event-card--active" : ""}`}
                 >
-                  <button className="event-card__button" onClick={() => setSelectedEventId(event.id)} type="button">
+                  <button
+                    className="event-card__button"
+                    data-testid={`event-card-${event.id}`}
+                    onClick={() => setSelectedEventId(event.id)}
+                    type="button"
+                  >
                     <span className="event-card__name">{event.name}</span>
                     <span className="event-card__meta">
                       {event.table_count} mesas · {event.guest_count} invitados
@@ -555,6 +566,7 @@ export function App() {
             {workspace?.tables.map((table) => (
               <article
                 className={`table-card ${selectedTableId === table.id ? "table-card--selected" : ""}`}
+                data-testid={`table-card-${table.id}`}
                 key={table.id}
               >
                 <div className="table-card__header">
@@ -713,6 +725,7 @@ export function App() {
             </section>
 
             <section className="list-card">
+              <div data-testid="unassigned-guests-panel">
               <div className="list-card__header">
                 <h3>Sin asignar</h3>
                 <span>{workspace?.guests.unassigned.length ?? 0}</span>
@@ -723,7 +736,11 @@ export function App() {
               <form className="stack-form" onSubmit={handleGuestCreate}>
                 <label className="mini-field">
                   <span>Nombre</span>
-                  <input value={guestName} onChange={(event) => setGuestName(event.target.value)} />
+                  <input
+                    data-testid="guest-name-input"
+                    value={guestName}
+                    onChange={(event) => setGuestName(event.target.value)}
+                  />
                 </label>
                 <div className="mini-grid">
                   <label className="mini-field">
@@ -752,6 +769,7 @@ export function App() {
                   workspace.guests.unassigned.map((guest) => (
                     <article
                       className={`guest-card ${conflictGuestIds.has(guest.id) ? "guest-card--conflict" : ""} ${draggedGuestId === guest.id ? "guest-card--dragging" : ""}`}
+                      data-testid={`unassigned-guest-${guest.id}`}
                       key={guest.id}
                       draggable
                       onDragEnd={handleGuestDragEnd}
@@ -825,6 +843,7 @@ export function App() {
                 ) : (
                   <p className="empty-state">Nada pendiente.</p>
                 )}
+              </div>
               </div>
             </section>
 

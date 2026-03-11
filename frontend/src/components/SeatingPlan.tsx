@@ -7,7 +7,7 @@ type SeatingPlanProps = {
   onSelectTable: (tableId: string) => void;
   onTableDragEnter: (tableId: string) => void;
   onTableDragLeave: (tableId: string) => void;
-  onTableDrop: (tableId: string) => void;
+  onTableDrop: (tableId: string, guestId: string | null) => void;
 };
 
 function truncateName(name: string) {
@@ -81,6 +81,7 @@ export function SeatingPlan({
             return (
               <g
                 className={`plan-table ${isSelected ? "plan-table--selected" : ""} ${isDropTarget ? "plan-table--drop" : ""}`}
+                data-testid={`plan-table-${table.id}`}
                 key={table.id}
                 onClick={() => onSelectTable(table.id)}
                 onDragEnter={(event) => {
@@ -97,7 +98,7 @@ export function SeatingPlan({
                 }}
                 onDrop={(event) => {
                   event.preventDefault();
-                  onTableDrop(table.id);
+                  onTableDrop(table.id, event.dataTransfer.getData("text/plain") || null);
                 }}
                 role="button"
                 tabIndex={0}
@@ -172,6 +173,43 @@ export function SeatingPlan({
             );
           })}
         </svg>
+
+        <div className="plan-stage__drops">
+          {workspace.tables.map((table) => {
+            const left = ((table.position_x - minX) / width) * 100;
+            const top = ((table.position_y - minY) / height) * 100;
+            const isSelected = table.id === selectedTableId;
+            const isDropTarget = table.id === activeDropTableId;
+
+            return (
+              <button
+                aria-label={`Mesa ${table.number}`}
+                className={`plan-dropzone ${isSelected ? "plan-dropzone--selected" : ""} ${isDropTarget ? "plan-dropzone--active" : ""}`}
+                data-testid={`plan-table-${table.id}`}
+                key={`dropzone-${table.id}`}
+                onClick={() => onSelectTable(table.id)}
+                onDragEnter={(event) => {
+                  event.preventDefault();
+                  onTableDragEnter(table.id);
+                }}
+                onDragLeave={(event) => {
+                  event.preventDefault();
+                  onTableDragLeave(table.id);
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  onTableDragEnter(table.id);
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  onTableDrop(table.id, event.dataTransfer.getData("text/plain") || null);
+                }}
+                style={{ left: `${left}%`, top: `${top}%` }}
+                type="button"
+              />
+            );
+          })}
+        </div>
       </div>
     </section>
   );

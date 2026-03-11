@@ -4,7 +4,7 @@ VENV_BIN ?= .venv/bin
 PYTEST ?= $(VENV_BIN)/pytest
 UVICORN ?= $(VENV_BIN)/uvicorn
 
-.PHONY: help install test test-cov run-backend install-frontend run-frontend build-frontend lint clean
+.PHONY: help install test test-cov run-backend install-frontend run-frontend build-frontend test-e2e install-e2e lint clean
 
 help:
 	@printf "Objetivos disponibles:\n"
@@ -15,6 +15,8 @@ help:
 	@printf "  make install-frontend  Instala dependencias del frontend.\n"
 	@printf "  make run-frontend      Arranca Vite en modo desarrollo.\n"
 	@printf "  make build-frontend    Genera la build del frontend.\n"
+	@printf "  make install-e2e       Instala navegadores de Playwright.\n"
+	@printf "  make test-e2e          Ejecuta el flujo E2E minimo.\n"
 	@printf "  make clean        Limpia caches de Python y pytest.\n"
 
 install:
@@ -37,6 +39,12 @@ run-frontend:
 
 build-frontend:
 	cd frontend && npm run build
+
+install-e2e:
+	cd frontend && npx playwright install chromium
+
+test-e2e:
+	cd frontend && npm run test:e2e
 
 clean:
 	find . -type d \( -name "__pycache__" -o -name ".pytest_cache" -o -name ".coverage" \) -prune -exec rm -rf {} +

@@ -70,7 +70,7 @@ class EventRepository:
             default_table_capacity=event.default_table_capacity,
             tables=[
                 TableModel(
-                    id=table.id,
+                    id=EventRepository._db_scoped_id(event.id, table.id),
                     event_id=event.id,
                     number=table.number,
                     capacity=table.capacity,
@@ -81,7 +81,7 @@ class EventRepository:
             ],
             guests=[
                 GuestModel(
-                    id=guest.id,
+                    id=EventRepository._db_scoped_id(event.id, guest.id),
                     event_id=event.id,
                     name=guest.name,
                     guest_type=guest.guest_type.value,
@@ -101,8 +101,8 @@ class EventRepository:
             default_table_capacity=model.default_table_capacity,
         )
         event.tables = {
-            table.id: Table(
-                id=table.id,
+            EventRepository._public_id(model.id, table.id): Table(
+                id=EventRepository._public_id(model.id, table.id),
                 number=table.number,
                 capacity=table.capacity,
                 position_x=table.position_x,
@@ -111,8 +111,8 @@ class EventRepository:
             for table in model.tables
         }
         event.guests = {
-            guest.id: Guest(
-                id=guest.id,
+            EventRepository._public_id(model.id, guest.id): Guest(
+                id=EventRepository._public_id(model.id, guest.id),
                 name=guest.name,
                 guest_type=GuestType(guest.guest_type),
                 group_id=guest.group_id,
@@ -121,3 +121,14 @@ class EventRepository:
             for guest in model.guests
         }
         return event
+
+    @staticmethod
+    def _db_scoped_id(event_id: str, entity_id: str) -> str:
+        return f"{event_id}:{entity_id}"
+
+    @staticmethod
+    def _public_id(event_id: str, db_id: str) -> str:
+        prefix = f"{event_id}:"
+        if db_id.startswith(prefix):
+            return db_id[len(prefix) :]
+        return db_id

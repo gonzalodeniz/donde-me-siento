@@ -374,6 +374,7 @@ select {
 }
 
 .plan-stage {
+  position: relative;
   border-radius: 1.35rem;
   padding: 1rem;
   background:
@@ -393,6 +394,31 @@ select {
   width: 100%;
   height: auto;
   display: block;
+}
+
+.plan-stage__drops {
+  position: absolute;
+  inset: 1rem;
+}
+
+.plan-dropzone {
+  position: absolute;
+  width: 8.5rem;
+  height: 8.5rem;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  border: 2px dashed transparent;
+  background: transparent;
+  cursor: pointer;
+}
+
+.plan-dropzone--selected {
+  border-color: rgba(50, 88, 81, 0.28);
+}
+
+.plan-dropzone--active {
+  border-color: rgba(154, 79, 36, 0.45);
+  background: rgba(154, 79, 36, 0.08);
 }
 
 .plan-table {
