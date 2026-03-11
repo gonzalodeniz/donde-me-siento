@@ -2,25 +2,25 @@
 
 ## Propósito
 
-Donde-me-siento ayuda a los organizadores de bodas a **distribuir a los invitados entre las mesas del salón** de forma visual e intuitiva, evitando conflictos de convivencia y respetando las relaciones entre invitados.
+Donde-me-siento ayuda a los organizadores de bodas y eventos a **pasar de una lista de invitados a una distribución completa, validada y lista para compartir**, de forma visual, rápida y con confianza.
 
 ## Problema que resuelve
 
 Organizar la distribución de mesas en una boda suele hacerse con hojas de cálculo o en papel, lo que dificulta:
 
 - visualizar de forma clara qué invitados están sentados en cada mesa;
-- detectar cuando invitados que deben estar juntos han sido separados;
-- reajustar la distribución de forma ágil a medida que cambian las confirmaciones.
+- detectar cuando invitados que deben estar juntos han sido separados, o que no deberían coincidir lo están;
+- gestionar cambios de última hora sin perder el control del conjunto;
+- entregar un resultado final (plano, listado) a terceros de forma ordenada.
 
 ## Propuesta de valor
 
-Donde-me-siento combina:
+Donde-me-siento permite crear, revisar y ajustar la distribución de invitados de un evento de forma visual, rápida y fiable, combinando:
 
-- **contexto visual** (diagrama interactivo del salón con mesas redondas),
-- **gestión de relaciones** (agrupaciones de invitados que deben compartir mesa),
-- **control operativo** (listas de invitados con y sin asiento, panel de configuración),
-
-para facilitar la planificación del banquete y evitar errores de distribución.
+- **plano interactivo** del salón con mesas redondas configurables;
+- **reglas de relación entre invitados** (juntos, separados, preferencia);
+- **herramientas de validación** que detectan conflictos antes de que sean un error;
+- **exportación e impresión** del plano y los listados finales.
 
 ## Usuarios objetivo
 
@@ -28,21 +28,13 @@ para facilitar la planificación del banquete y evitar errores de distribución.
 - Wedding planners y coordinadores de eventos
 - Personal de salones de celebraciones que gestionan la distribución de mesas
 
-## Visión de producto (medio plazo)
-
-Convertir Donde-me-siento en la herramienta de referencia para la gestión del seating de eventos, que permita:
-
-- configurar el salón con el número de mesas y capacidad deseada;
-- gestionar la lista de invitados con sus relaciones y tipo (adulto, adolescente, niño);
-- asignar invitados a mesas de forma manual o mediante arrastrar y soltar;
-- detectar y advertir automáticamente cuando invitados relacionados queden en mesas distintas;
-- guardar y cargar múltiples configuraciones de eventos;
-- acceder de forma segura mediante autenticación de usuario.
-
 ## Principios de diseño del producto
 
 - **Claridad visual primero**: el diagrama del salón debe reflejar en todo momento el estado real de la distribución.
-- **No bloquear el flujo de trabajo**: advertencias de conflicto (invitados relacionados separados) deben ser visibles sin impedir seguir operando.
-- **Relaciones explícitas**: las agrupaciones de invitados deben ser identificables a simple vista tanto en el diagrama como en las listas.
+- **Edición rápida**: cualquier cambio frecuente debe poder hacerse en muy pocos pasos.
+- **No bloquear el flujo de trabajo**: las advertencias de conflicto deben ser visibles sin impedir seguir operando.
+- **Confianza operativa**: el sistema debe hacer visibles inconsistencias, aforos superados y restricciones violadas antes de que se conviertan en errores.
+- **Relaciones explícitas**: las agrupaciones y restricciones entre invitados deben ser identificables a simple vista tanto en el diagrama como en las listas.
 - **Persistencia fiable**: el estado completo de la distribución debe poder guardarse y recuperarse sin pérdida de datos.
+- **Experiencia agradable**: sensación de orden y calma, jerarquía tipográfica clara, color funcional, estados vacíos bien diseñados y transiciones suaves al reorganizar invitados o mesas.
 - **Seguridad por defecto**: acceso restringido mediante login; sesión controlada por el usuario.
