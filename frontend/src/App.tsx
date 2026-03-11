@@ -85,6 +85,13 @@ export function App() {
     () => workspace?.tables.find((table) => table.id === selectedTableId) ?? null,
     [selectedTableId, workspace],
   );
+  const draggedGuest = useMemo(
+    () =>
+      workspace?.guests.unassigned.find((guest) => guest.id === draggedGuestId) ??
+      workspace?.guests.assigned.find((guest) => guest.id === draggedGuestId) ??
+      null,
+    [draggedGuestId, workspace],
+  );
   const occupancyTables = useMemo(
     () =>
       [...(workspace?.tables ?? [])].sort((left, right) => {
@@ -753,6 +760,7 @@ export function App() {
             {workspace ? (
               <SeatingPlan
                 activeDropTableId={activeDropTableId}
+                draggedGuestName={draggedGuest?.name ?? null}
                 onSelectTable={setSelectedTableId}
                 onTableDragEnter={handleTableDragEnter}
                 onTableDragLeave={handleTableDragLeave}
@@ -944,7 +952,7 @@ export function App() {
                 <span>{workspace?.guests.unassigned.length ?? 0}</span>
               </div>
               <p className="microcopy">
-                Arrastra un invitado desde esta lista hasta una mesa del plano para asignarlo visualmente.
+                Arrastra un invitado hacia el plano. Cuando entres en modo arrastre, las mesas mostraran su zona de recepcion.
               </p>
               <form className="stack-form" onSubmit={handleGuestCreate}>
                 <label className="mini-field">
@@ -994,6 +1002,9 @@ export function App() {
                         <strong>{guest.name}</strong>
                         <span>{guest.guest_type}</span>
                       </div>
+                      {draggedGuestId === guest.id ? (
+                        <div className="guest-card__drag-hint">En movimiento: suelta esta tarjeta sobre una mesa.</div>
+                      ) : null}
                       <div className="guest-card__meta">
                         <span>{guest.group_id ? `Agrupacion ${guest.group_id}` : "Sin agrupacion"}</span>
                       </div>

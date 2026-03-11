@@ -4,6 +4,7 @@ type SeatingPlanProps = {
   workspace: Workspace;
   selectedTableId: string | null;
   activeDropTableId: string | null;
+  draggedGuestName: string | null;
   onSelectTable: (tableId: string) => void;
   onTableDragEnter: (tableId: string) => void;
   onTableDragLeave: (tableId: string) => void;
@@ -18,6 +19,7 @@ export function SeatingPlan({
   workspace,
   selectedTableId,
   activeDropTableId,
+  draggedGuestName,
   onSelectTable,
   onTableDragEnter,
   onTableDragLeave,
@@ -33,6 +35,7 @@ export function SeatingPlan({
   const maxY = Math.max(...workspace.tables.map((table) => table.position_y)) + 180;
   const width = maxX - minX;
   const height = maxY - minY;
+  const isDraggingGuest = Boolean(draggedGuestName);
 
   return (
     <section className="plan-card">
@@ -40,6 +43,11 @@ export function SeatingPlan({
         <div>
           <p className="eyebrow">Plano interactivo</p>
           <h3>Salon y mesas</h3>
+          <p className="plan-card__lead">
+            {isDraggingGuest
+              ? `Suelta a ${draggedGuestName} sobre una mesa resaltada para sentarlo.`
+              : "Selecciona una mesa o arrastra un invitado hasta el plano para asignarlo."}
+          </p>
         </div>
         <div className="plan-legend">
           <span className="plan-legend__item">
@@ -57,7 +65,13 @@ export function SeatingPlan({
         </div>
       </div>
 
-      <div className="plan-stage">
+      <div className={`plan-stage ${isDraggingGuest ? "plan-stage--dragging" : ""}`}>
+        {isDraggingGuest ? (
+          <div className="plan-stage__guide" aria-live="polite">
+            <strong>{draggedGuestName}</strong>
+            <span>Busca una mesa con anillo cobre y suelta dentro del circulo marcado.</span>
+          </div>
+        ) : null}
         <svg
           aria-label="Plano del salon"
           className="plan-stage__svg"
@@ -75,12 +89,13 @@ export function SeatingPlan({
             const isSelected = table.id === selectedTableId;
             const isFull = table.available === 0;
             const isDropTarget = table.id === activeDropTableId;
+            const isDragCandidate = isDraggingGuest && !isDropTarget;
             const radius = 52;
             const labelRadius = 98;
 
             return (
               <g
-                className={`plan-table ${isSelected ? "plan-table--selected" : ""} ${isDropTarget ? "plan-table--drop" : ""}`}
+                className={`plan-table ${isSelected ? "plan-table--selected" : ""} ${isDropTarget ? "plan-table--drop" : ""} ${isDragCandidate ? "plan-table--candidate" : ""}`}
                 data-testid={`plan-table-${table.id}`}
                 key={table.id}
                 onClick={() => onSelectTable(table.id)}
@@ -137,6 +152,16 @@ export function SeatingPlan({
                 >
                   {table.occupied}/{table.capacity}
                 </text>
+                {isDraggingGuest ? (
+                  <text
+                    className={`plan-table__dropcopy ${isDropTarget ? "plan-table__dropcopy--active" : ""}`}
+                    textAnchor="middle"
+                    x={table.position_x}
+                    y={table.position_y - 92}
+                  >
+                    {isDropTarget ? "Soltar aqui" : "Destino"}
+                  </text>
+                ) : null}
 
                 {Array.from({ length: seatCount }).map((_, index) => {
                   const angle = (Math.PI * 2 * index) / seatCount - Math.PI / 2;
@@ -184,7 +209,7 @@ export function SeatingPlan({
             return (
               <button
                 aria-label={`Mesa ${table.number}`}
-                className={`plan-dropzone ${isSelected ? "plan-dropzone--selected" : ""} ${isDropTarget ? "plan-dropzone--active" : ""}`}
+                className={`plan-dropzone ${isSelected ? "plan-dropzone--selected" : ""} ${isDropTarget ? "plan-dropzone--active" : ""} ${isDraggingGuest ? "plan-dropzone--visible" : ""}`}
                 data-testid={`plan-table-${table.id}`}
                 key={`dropzone-${table.id}`}
                 onClick={() => onSelectTable(table.id)}
@@ -206,7 +231,11 @@ export function SeatingPlan({
                 }}
                 style={{ left: `${left}%`, top: `${top}%` }}
                 type="button"
-              />
+              >
+                {isDraggingGuest ? (
+                  <span className="plan-dropzone__label">{isDropTarget ? "Soltar" : `Mesa ${table.number}`}</span>
+                ) : null}
+              </button>
             );
           })}
         </div>
