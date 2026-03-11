@@ -752,6 +752,10 @@ select {
   box-shadow: 0 20px 45px rgba(50, 88, 81, 0.15);
 }
 
+.table-card {
+  cursor: pointer;
+}
+
 .editor-card {
   padding: 1.1rem;
   border-radius: 1.4rem;
@@ -789,24 +793,14 @@ select {
   background: rgba(50, 88, 81, 0.08);
 }
 
-.guest-chip--interactive {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding-right: 0.5rem;
-}
-
 .guest-chip--conflict {
   background: rgba(154, 79, 36, 0.18);
 }
 
-.chip-action {
-  border: 0;
-  background: rgba(36, 24, 20, 0.08);
-  color: var(--ink);
-  border-radius: 999px;
-  padding: 0.25rem 0.55rem;
-  cursor: pointer;
+.table-card__summary {
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
 }
 
 .guest-row,
@@ -847,7 +841,7 @@ select {
 
 .guest-card__header,
 .guest-card__actions,
-.table-card__controls,
+.selected-table-panel__controls,
 .mini-grid {
   display: flex;
   gap: 0.7rem;
@@ -985,6 +979,10 @@ select {
   gap: 0.9rem;
 }
 
+.selected-table-panel__controls {
+  align-items: flex-end;
+}
+
 .selected-table-panel__hero {
   padding: 1rem;
   border-radius: 1rem;
@@ -1001,11 +999,21 @@ select {
   color: var(--muted);
 }
 
+.selected-table-panel__hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
 .selected-guest {
   padding: 0.85rem 0.9rem;
   border-radius: 1rem;
   background: rgba(255, 252, 247, 0.84);
   border: 1px solid rgba(36, 24, 20, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
 }
 
 .selected-guest--conflict {

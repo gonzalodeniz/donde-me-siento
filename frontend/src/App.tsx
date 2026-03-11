@@ -85,6 +85,7 @@ export function App() {
     () => workspace?.tables.find((table) => table.id === selectedTableId) ?? null,
     [selectedTableId, workspace],
   );
+  const activeWorkspaceEventId = workspace?.event_id ?? null;
   const draggedGuest = useMemo(
     () =>
       workspace?.guests.unassigned.find((guest) => guest.id === draggedGuestId) ??
@@ -774,6 +775,7 @@ export function App() {
                 className={`table-card ${selectedTableId === table.id ? "table-card--selected" : ""}`}
                 data-testid={`table-card-${table.id}`}
                 key={table.id}
+                onClick={() => setSelectedTableId(table.id)}
               >
                 <div className="table-card__header">
                   <div>
@@ -782,72 +784,19 @@ export function App() {
                   </div>
                   <span className="table-card__pill">{table.available} libres</span>
                 </div>
-                <form
-                  className="table-card__controls"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    const nextCapacity = Number(capacityValues[table.id] ?? table.capacity);
-                    if (!Number.isInteger(nextCapacity) || nextCapacity < table.occupied || nextCapacity <= 0) {
-                      setSectionNotice(
-                        "tables",
-                        "error",
-                        `Mesa ${table.number}: la capacidad debe ser un entero y no puede bajar de ${table.occupied}.`,
-                      );
-                      return;
-                    }
-                    void runWorkspaceAction(
-                      `capacity-${table.id}`,
-                      "tables",
-                      () => updateTableCapacity(workspace.event_id, table.id, nextCapacity, token ?? ""),
-                      `Capacidad de la mesa ${table.number} actualizada.`,
-                    );
-                  }}
-                >
-                  <label className="mini-field">
-                    <span>Capacidad</span>
-                    <input
-                      min={1}
-                      type="number"
-                      value={capacityValues[table.id] ?? String(table.capacity)}
-                      onChange={(event) =>
-                        setCapacityValues((current) => ({ ...current, [table.id]: event.target.value }))
-                      }
-                      onFocus={() => setSelectedTableId(table.id)}
-                    />
-                  </label>
-                  <button
-                    className="button button--ghost button--small"
-                    disabled={isActionRunning(`capacity-${table.id}`)}
-                    type="submit"
-                  >
-                    {isActionRunning(`capacity-${table.id}`) ? "Guardando..." : "Guardar"}
-                  </button>
-                </form>
+                <p className="table-card__summary">
+                  Usa el panel de mesa seleccionada para ajustar capacidad y mover invitados.
+                </p>
                 <div className="seat-ring">
                   {table.guests.length === 0 ? (
                     <p className="empty-state">Sin invitados asignados.</p>
                   ) : (
                     table.guests.map((guest) => (
                       <div
-                        className={`guest-chip guest-chip--interactive ${conflictGuestIds.has(guest.id) ? "guest-chip--conflict" : ""}`}
+                        className={`guest-chip ${conflictGuestIds.has(guest.id) ? "guest-chip--conflict" : ""}`}
                         key={guest.id}
                       >
                         <span>{guest.name}</span>
-                        <button
-                          className="chip-action"
-                          disabled={isActionRunning(`unassign-${guest.id}`)}
-                          onClick={() =>
-                            void runWorkspaceAction(
-                              `unassign-${guest.id}`,
-                              "tables",
-                              () => unassignGuest(workspace.event_id, guest.id, token ?? ""),
-                              `${guest.name} vuelve a la lista sin asignar.`,
-                            )
-                          }
-                          type="button"
-                        >
-                          Quitar
-                        </button>
                       </div>
                     ))
                   )}
@@ -919,6 +868,53 @@ export function App() {
                     <strong>{selectedTable.occupied}/{selectedTable.capacity}</strong>
                     <span>{selectedTable.available} asientos libres</span>
                   </div>
+                  <form
+                    className="selected-table-panel__controls"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const nextCapacity = Number(capacityValues[selectedTable.id] ?? selectedTable.capacity);
+                      if (
+                        !Number.isInteger(nextCapacity) ||
+                        nextCapacity < selectedTable.occupied ||
+                        nextCapacity <= 0
+                      ) {
+                        setSectionNotice(
+                          "tables",
+                          "error",
+                          `Mesa ${selectedTable.number}: la capacidad debe ser un entero y no puede bajar de ${selectedTable.occupied}.`,
+                        );
+                        return;
+                      }
+                      void runWorkspaceAction(
+                        `capacity-${selectedTable.id}`,
+                        "tables",
+                        () => updateTableCapacity(activeWorkspaceEventId ?? "", selectedTable.id, nextCapacity, token ?? ""),
+                        `Capacidad de la mesa ${selectedTable.number} actualizada.`,
+                      );
+                    }}
+                  >
+                    <label className="mini-field">
+                      <span>Capacidad de trabajo</span>
+                      <input
+                        min={1}
+                        type="number"
+                        value={capacityValues[selectedTable.id] ?? String(selectedTable.capacity)}
+                        onChange={(event) =>
+                          setCapacityValues((current) => ({ ...current, [selectedTable.id]: event.target.value }))
+                        }
+                      />
+                    </label>
+                    <button
+                      className="button button--ghost button--small"
+                      disabled={isActionRunning(`capacity-${selectedTable.id}`)}
+                      type="submit"
+                    >
+                      {isActionRunning(`capacity-${selectedTable.id}`) ? "Guardando..." : "Guardar capacidad"}
+                    </button>
+                  </form>
+                  <p className="selected-table-panel__hint">
+                    Aqui vive la operativa de mesa: ajustar aforo y devolver invitados a la lista sin asignar.
+                  </p>
                   <div className="selected-table-panel__guests">
                     {selectedTable.guests.length > 0 ? (
                       selectedTable.guests.map((guest) => (
@@ -926,8 +922,25 @@ export function App() {
                           className={`selected-guest ${conflictGuestIds.has(guest.id) ? "selected-guest--conflict" : ""}`}
                           key={guest.id}
                         >
-                          <strong>{guest.name}</strong>
-                          <span>{guest.group_id ? `Agrupacion ${guest.group_id}` : guest.guest_type}</span>
+                          <div>
+                            <strong>{guest.name}</strong>
+                            <span>{guest.group_id ? `Agrupacion ${guest.group_id}` : guest.guest_type}</span>
+                          </div>
+                          <button
+                            className="button button--ghost button--small"
+                            disabled={isActionRunning(`unassign-${guest.id}`)}
+                            onClick={() =>
+                              void runWorkspaceAction(
+                                `unassign-${guest.id}`,
+                                "tables",
+                                () => unassignGuest(activeWorkspaceEventId ?? "", guest.id, token ?? ""),
+                                `${guest.name} vuelve a la lista sin asignar.`,
+                              )
+                            }
+                            type="button"
+                          >
+                            {isActionRunning(`unassign-${guest.id}`) ? "Quitando..." : "Quitar de mesa"}
+                          </button>
                         </article>
                       ))
                     ) : (
@@ -1080,6 +1093,9 @@ export function App() {
                 <h3>Asignados</h3>
                 <span>{workspace?.guests.assigned.length ?? 0}</span>
               </div>
+              <p className="microcopy">
+                Esta lista es solo de lectura. Para liberar un asiento, usa el panel de mesa seleccionada.
+              </p>
               <div className="guest-list">
                 {workspace && workspace.guests.assigned.length > 0 ? (
                   workspace.guests.assigned.map((guest) => (
