@@ -91,6 +91,12 @@ class GuestAssignmentRequest(BaseModel):
     table_id: str = Field(min_length=1, max_length=64)
 
 
+class TableCapacityUpdate(BaseModel):
+    """Payload para ajustar la capacidad de una mesa."""
+
+    capacity: int = Field(gt=0)
+
+
 class TableSummaryResponse(BaseModel):
     """Resumen de una mesa para panel y validacion."""
 

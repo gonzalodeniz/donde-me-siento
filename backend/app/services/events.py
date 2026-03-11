@@ -78,6 +78,11 @@ class EventService:
         event.unassign_guest(guest_id)
         return self.repository.save(event)
 
+    def update_table_capacity(self, event_id: str, table_id: str, capacity: int) -> Event:
+        event = self.get_event(event_id)
+        event.update_table_capacity(table_id, capacity)
+        return self.repository.save(event)
+
     @staticmethod
     def _parse_guest_type(raw_guest_type: str) -> GuestType:
         try:

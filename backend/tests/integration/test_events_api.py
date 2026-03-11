@@ -215,3 +215,90 @@ async def test_assignment_rejects_full_table(client: AsyncClient) -> None:
     )
     assert assign_second.status_code == 400
     assert "no tiene asientos libres" in assign_second.json()["detail"]
+
+
+@pytest.mark.anyio
+async def test_tables_summary_and_capacity_update_flow(client: AsyncClient) -> None:
+    create_event_response = await client.post(
+        "/api/events",
+        json={
+            "name": "Evento panel",
+            "default_table_capacity": 4,
+            "table_count": 2,
+            "guests": [
+                {"id": "guest-1", "name": "Ana", "guest_type": "adulto"},
+                {"id": "guest-2", "name": "Luis", "guest_type": "adulto"},
+            ],
+        },
+    )
+    assert create_event_response.status_code == 201
+    event_id = create_event_response.json()["id"]
+
+    await client.put(
+        f"/api/events/{event_id}/guests/guest-1/assignment",
+        json={"table_id": "table-1"},
+    )
+    await client.put(
+        f"/api/events/{event_id}/guests/guest-2/assignment",
+        json={"table_id": "table-1"},
+    )
+
+    summary_response = await client.get(f"/api/events/{event_id}/tables/summary")
+    assert summary_response.status_code == 200
+    summary = summary_response.json()
+    assert summary[0] == {
+        "table_id": "table-1",
+        "table_number": 1,
+        "capacity": 4,
+        "occupied": 2,
+        "available": 2,
+    }
+
+    update_capacity_response = await client.put(
+        f"/api/events/{event_id}/tables/table-1",
+        json={"capacity": 6},
+    )
+    assert update_capacity_response.status_code == 200
+    updated_table = next(table for table in update_capacity_response.json()["tables"] if table["id"] == "table-1")
+    assert updated_table["capacity"] == 6
+
+    validation_response = await client.get(f"/api/events/{event_id}/validation")
+    assert validation_response.status_code == 200
+    updated_summary = validation_response.json()["tables"][0]
+    assert updated_summary["capacity"] == 6
+    assert updated_summary["occupied"] == 2
+    assert updated_summary["available"] == 4
+
+
+@pytest.mark.anyio
+async def test_capacity_update_rejects_value_below_current_occupancy(client: AsyncClient) -> None:
+    create_event_response = await client.post(
+        "/api/events",
+        json={
+            "name": "Evento aforo",
+            "default_table_capacity": 3,
+            "table_count": 1,
+            "guests": [
+                {"id": "guest-1", "name": "Ana", "guest_type": "adulto"},
+                {"id": "guest-2", "name": "Luis", "guest_type": "adulto"},
+            ],
+        },
+    )
+    assert create_event_response.status_code == 201
+    event_id = create_event_response.json()["id"]
+
+    await client.put(
+        f"/api/events/{event_id}/guests/guest-1/assignment",
+        json={"table_id": "table-1"},
+    )
+    await client.put(
+        f"/api/events/{event_id}/guests/guest-2/assignment",
+        json={"table_id": "table-1"},
+    )
+
+    update_capacity_response = await client.put(
+        f"/api/events/{event_id}/tables/table-1",
+        json={"capacity": 1},
+    )
+    assert update_capacity_response.status_code == 400
+    assert "capacidad no puede ser menor" in update_capacity_response.json()["detail"]

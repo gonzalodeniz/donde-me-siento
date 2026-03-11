@@ -12,8 +12,9 @@ from backend.app.schemas.events import (
     EventSummaryResponse,
     GuestAssignmentRequest,
     GuestCreate,
-    GuestResponse,
     GuestUpdate,
+    TableCapacityUpdate,
+    TableSummaryResponse,
     ValidationResponse,
     build_event_response,
     build_validation_response,
@@ -184,3 +185,37 @@ async def get_event_validation(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evento no encontrado") from exc
 
     return build_validation_response(event)
+
+
+@router.get("/{event_id}/tables/summary", response_model=list[TableSummaryResponse])
+async def get_tables_summary(
+    event_id: str,
+    service: EventService = Depends(get_event_service),
+) -> list[TableSummaryResponse]:
+    """Devuelve el resumen de mesas para el panel de control."""
+
+    try:
+        event = service.get_event(event_id)
+    except EventNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evento no encontrado") from exc
+
+    return build_validation_response(event).tables
+
+
+@router.put("/{event_id}/tables/{table_id}", response_model=EventResponse)
+async def update_table_capacity(
+    event_id: str,
+    table_id: str,
+    payload: TableCapacityUpdate,
+    service: EventService = Depends(get_event_service),
+) -> EventResponse:
+    """Ajusta la capacidad individual de una mesa."""
+
+    try:
+        event = service.update_table_capacity(event_id, table_id, payload.capacity)
+    except EventNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evento no encontrado") from exc
+    except DomainError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return build_event_response(event)
