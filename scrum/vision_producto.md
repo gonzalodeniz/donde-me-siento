@@ -4,6 +4,8 @@
 
 Donde-me-siento ayuda a los organizadores de bodas y eventos a **pasar de una lista de invitados a una distribución completa, validada y lista para compartir**, de forma visual, rápida y con confianza.
 
+Donde-me-siento no debe sentirse como una hoja de cálculo con mesas, sino como una herramienta visual y tranquila que ayuda a tomar decisiones con confianza.
+
 ## Problema que resuelve
 
 Organizar la distribución de mesas en una boda suele hacerse con hojas de cálculo o en papel, lo que dificulta:
