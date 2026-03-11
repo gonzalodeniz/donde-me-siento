@@ -27,6 +27,9 @@ Este repositorio contiene el arranque de la Fase 1 del MVP:
 │   │   ├── core/
 │   │   └── domains/
 │   └── tests/
+├── frontend/
+│   ├── src/
+│   └── package.json
 ├── reports/
 ├── scrum/
 ├── AGENT.md
@@ -47,6 +50,50 @@ El dominio inicial cubre:
 - deteccion de conflictos de agrupacion;
 - resumen reactivo del estado del evento.
 
+La API actual cubre:
+
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
+- `POST /api/events`
+- `GET /api/events`
+- `GET /api/events/{event_id}`
+- `DELETE /api/events/{event_id}`
+- `POST /api/events/{event_id}/guests`
+- `PUT /api/events/{event_id}/guests/{guest_id}`
+- `DELETE /api/events/{event_id}/guests/{guest_id}`
+- `PUT /api/events/{event_id}/guests/{guest_id}/assignment`
+- `DELETE /api/events/{event_id}/guests/{guest_id}/assignment`
+- `GET /api/events/{event_id}/tables/summary`
+- `PUT /api/events/{event_id}/tables/{table_id}`
+- `GET /api/events/{event_id}/validation`
+- `GET /api/events/{event_id}/workspace`
+
+Todos los endpoints de eventos requieren autenticacion Bearer.
+
+El frontend en `frontend/` consume `GET /api/events/{event_id}/workspace` como fuente principal de estado inicial del workspace.
+Tambien permite:
+
+- crear y eliminar eventos desde la UI;
+- anadir, editar y eliminar invitados;
+- asignar y desasignar invitados desde la UI;
+- asignar invitados por drag & drop desde la lista al plano del salon;
+- ajustar capacidad individual de mesas;
+- visualizar un plano interactivo del salon con mesas redondas e invitados alrededor;
+- resaltar conflictos de agrupacion y mesas seleccionadas en el plano;
+- mostrar un panel de control con resumen de ocupacion por mesa y detalle de la mesa seleccionada;
+- refrescar el workspace tras cada mutacion sobre backend.
+
+## Credenciales locales por defecto
+
+- Usuario: `admin`
+- Contrasena: `admin1234`
+
+Se pueden cambiar con:
+
+- `DMS_DEFAULT_ADMIN_USERNAME`
+- `DMS_DEFAULT_ADMIN_PASSWORD`
+
 ## Preparacion del entorno
 
 ```bash
@@ -61,6 +108,26 @@ pip install -r requirements.txt
 pytest
 pytest --cov=backend/app --cov-report=term-missing
 ```
+
+## Ejecutar backend y frontend
+
+En dos terminales distintas:
+
+```bash
+make run-backend
+make run-frontend
+```
+
+Vite queda configurado con proxy a `http://127.0.0.1:8000` para las rutas `/api`.
+
+## Ejecutar E2E
+
+```bash
+make install-e2e
+make test-e2e
+```
+
+El flujo E2E actual cubre: login, creacion de evento, alta de invitados, asignacion por drag & drop y recarga del evento guardado.
 
 ## Siguientes pasos recomendados
 

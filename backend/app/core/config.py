@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 
 
@@ -14,6 +15,24 @@ class Settings:
     environment: str = "development"
     data_dir: Path = Path("data")
     database_url: str = "sqlite:///data/donde_me_siento.db"
+    default_admin_username: str = "admin"
+    default_admin_password: str = "admin1234"
 
 
-settings = Settings()
+def load_settings() -> Settings:
+    """Carga configuracion desde variables de entorno con defaults seguros."""
+
+    data_dir = Path(os.getenv("DMS_DATA_DIR", "data"))
+    database_url = os.getenv("DMS_DATABASE_URL", f"sqlite:///{data_dir / 'donde_me_siento.db'}")
+
+    return Settings(
+        app_name=os.getenv("DMS_APP_NAME", "Donde me siento API"),
+        environment=os.getenv("DMS_ENVIRONMENT", "development"),
+        data_dir=data_dir,
+        database_url=database_url,
+        default_admin_username=os.getenv("DMS_DEFAULT_ADMIN_USERNAME", "admin"),
+        default_admin_password=os.getenv("DMS_DEFAULT_ADMIN_PASSWORD", "admin1234"),
+    )
+
+
+settings = load_settings()

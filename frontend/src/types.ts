@@ -1,0 +1,62 @@
+export type EventSummary = {
+  id: string;
+  name: string;
+  date: string | null;
+  default_table_capacity: number;
+  table_count: number;
+  guest_count: number;
+};
+
+export type Guest = {
+  id: string;
+  name: string;
+  guest_type: string;
+  group_id: string | null;
+  table_id: string | null;
+};
+
+export type WorkspaceTable = {
+  id: string;
+  number: number;
+  capacity: number;
+  position_x: number;
+  position_y: number;
+  occupied: number;
+  available: number;
+  guests: Guest[];
+};
+
+export type ValidationTable = {
+  table_id: string;
+  table_number: number;
+  capacity: number;
+  occupied: number;
+  available: number;
+};
+
+export type Workspace = {
+  event_id: string;
+  name: string;
+  date: string | null;
+  default_table_capacity: number;
+  tables: WorkspaceTable[];
+  guests: {
+    assigned: Guest[];
+    unassigned: Guest[];
+  };
+  validation: {
+    grouping_conflicts: Record<string, string[]>;
+    tables: ValidationTable[];
+    assigned_guests: number;
+    unassigned_guests: number;
+  };
+};
+
+export type LoginResponse = {
+  access_token: string;
+  token_type: string;
+  user: {
+    id: string;
+    username: string;
+  };
+};

@@ -1,4 +1,14 @@
+# Byte-compiled / optimized / DLL files
+.coverage
+
+# Python
 .venv/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/playwright-report/
+frontend/test-results/
+frontend/*.tsbuildinfo
 __pycache__/
 *.pyc
 *.pyo
