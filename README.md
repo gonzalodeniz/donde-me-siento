@@ -64,6 +64,7 @@ La API actual cubre:
 - `GET /api/events/{event_id}/tables/summary`
 - `PUT /api/events/{event_id}/tables/{table_id}`
 - `GET /api/events/{event_id}/validation`
+- `GET /api/events/{event_id}/workspace`
 
 Todos los endpoints de eventos requieren autenticacion Bearer.
 

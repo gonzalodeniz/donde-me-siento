@@ -302,3 +302,52 @@ async def test_capacity_update_rejects_value_below_current_occupancy(client: Asy
     )
     assert update_capacity_response.status_code == 400
     assert "capacidad no puede ser menor" in update_capacity_response.json()["detail"]
+
+
+@pytest.mark.anyio
+async def test_workspace_endpoint_returns_aggregated_state_for_frontend(client: AsyncClient) -> None:
+    create_event_response = await client.post(
+        "/api/events",
+        json={
+            "name": "Evento workspace",
+            "default_table_capacity": 3,
+            "table_count": 2,
+            "guests": [
+                {"id": "guest-1", "name": "Ana", "guest_type": "adulto", "group_id": "g1"},
+                {"id": "guest-2", "name": "Luis", "guest_type": "adulto", "group_id": "g1"},
+                {"id": "guest-3", "name": "Marta", "guest_type": "adulto"},
+            ],
+        },
+    )
+    assert create_event_response.status_code == 201
+    event_id = create_event_response.json()["id"]
+
+    await client.put(
+        f"/api/events/{event_id}/guests/guest-1/assignment",
+        json={"table_id": "table-1"},
+    )
+    await client.put(
+        f"/api/events/{event_id}/guests/guest-2/assignment",
+        json={"table_id": "table-2"},
+    )
+
+    workspace_response = await client.get(f"/api/events/{event_id}/workspace")
+    assert workspace_response.status_code == 200
+    workspace = workspace_response.json()
+
+    assert workspace["event_id"] == event_id
+    assert workspace["name"] == "Evento workspace"
+    assert [guest["id"] for guest in workspace["guests"]["assigned"]] == ["guest-1", "guest-2"]
+    assert [guest["id"] for guest in workspace["guests"]["unassigned"]] == ["guest-3"]
+
+    first_table = workspace["tables"][0]
+    second_table = workspace["tables"][1]
+    assert first_table["id"] == "table-1"
+    assert first_table["occupied"] == 1
+    assert first_table["available"] == 2
+    assert [guest["id"] for guest in first_table["guests"]] == ["guest-1"]
+    assert [guest["id"] for guest in second_table["guests"]] == ["guest-2"]
+
+    assert workspace["validation"]["grouping_conflicts"] == {"g1": ["guest-1", "guest-2"]}
+    assert workspace["validation"]["assigned_guests"] == 2
+    assert workspace["validation"]["unassigned_guests"] == 1

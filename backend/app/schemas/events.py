@@ -116,6 +116,38 @@ class ValidationResponse(BaseModel):
     unassigned_guests: int
 
 
+class GuestListsResponse(BaseModel):
+    """Listas de invitados separadas para el workspace."""
+
+    assigned: list[GuestResponse]
+    unassigned: list[GuestResponse]
+
+
+class WorkspaceTableResponse(BaseModel):
+    """Mesa enriquecida con invitados para el workspace del frontend."""
+
+    id: str
+    number: int
+    capacity: int
+    position_x: float
+    position_y: float
+    occupied: int
+    available: int
+    guests: list[GuestResponse]
+
+
+class WorkspaceResponse(BaseModel):
+    """Estado agregado del evento listo para pintar el workspace."""
+
+    event_id: str
+    name: str
+    date: str | None
+    default_table_capacity: int
+    tables: list[WorkspaceTableResponse]
+    guests: GuestListsResponse
+    validation: ValidationResponse
+
+
 def build_event_response(event: Event) -> EventResponse:
     """Convierte el agregado de dominio a la respuesta HTTP."""
 
@@ -162,4 +194,70 @@ def build_validation_response(event: Event) -> ValidationResponse:
         ],
         assigned_guests=validation["assigned_guests"],
         unassigned_guests=validation["unassigned_guests"],
+    )
+
+
+def build_workspace_response(event: Event) -> WorkspaceResponse:
+    """Compone la vista agregada del workspace para el frontend."""
+
+    validation = build_validation_response(event)
+    assigned_guests = [
+        GuestResponse(
+            id=guest.id,
+            name=guest.name,
+            guest_type=guest.guest_type.value,
+            group_id=guest.group_id,
+            table_id=guest.table_id,
+        )
+        for guest in event.guests_with_table()
+    ]
+    unassigned_guests = [
+        GuestResponse(
+            id=guest.id,
+            name=guest.name,
+            guest_type=guest.guest_type.value,
+            group_id=guest.group_id,
+            table_id=guest.table_id,
+        )
+        for guest in event.guests_without_table()
+    ]
+
+    tables: list[WorkspaceTableResponse] = []
+    validation_by_table = {table.table_id: table for table in validation.tables}
+    for table in sorted(event.tables.values(), key=lambda current: current.number):
+        table_validation = validation_by_table[table.id]
+        seated_guests = [
+            GuestResponse(
+                id=guest.id,
+                name=guest.name,
+                guest_type=guest.guest_type.value,
+                group_id=guest.group_id,
+                table_id=guest.table_id,
+            )
+            for guest in sorted(
+                (guest for guest in event.guests.values() if guest.table_id == table.id),
+                key=lambda current: current.name.casefold(),
+            )
+        ]
+        tables.append(
+            WorkspaceTableResponse(
+                id=table.id,
+                number=table.number,
+                capacity=table.capacity,
+                position_x=table.position_x,
+                position_y=table.position_y,
+                occupied=table_validation.occupied,
+                available=table_validation.available,
+                guests=seated_guests,
+            )
+        )
+
+    return WorkspaceResponse(
+        event_id=event.id,
+        name=event.name,
+        date=event.date,
+        default_table_capacity=event.default_table_capacity,
+        tables=tables,
+        guests=GuestListsResponse(assigned=assigned_guests, unassigned=unassigned_guests),
+        validation=validation,
     )

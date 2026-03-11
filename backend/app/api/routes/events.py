@@ -18,6 +18,8 @@ from backend.app.schemas.events import (
     ValidationResponse,
     build_event_response,
     build_validation_response,
+    build_workspace_response,
+    WorkspaceResponse,
 )
 from backend.app.services.events import EventNotFoundError, EventService
 
@@ -185,6 +187,21 @@ async def get_event_validation(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evento no encontrado") from exc
 
     return build_validation_response(event)
+
+
+@router.get("/{event_id}/workspace", response_model=WorkspaceResponse)
+async def get_event_workspace(
+    event_id: str,
+    service: EventService = Depends(get_event_service),
+) -> WorkspaceResponse:
+    """Devuelve el estado agregado del workspace listo para UI."""
+
+    try:
+        event = service.get_event(event_id)
+    except EventNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evento no encontrado") from exc
+
+    return build_workspace_response(event)
 
 
 @router.get("/{event_id}/tables/summary", response_model=list[TableSummaryResponse])
