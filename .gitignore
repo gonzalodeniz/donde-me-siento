@@ -1,3 +1,7 @@
+# Byte-compiled / optimized / DLL files
+.coverage
+
+# Python
 .venv/
 __pycache__/
 *.pyc
