@@ -383,7 +383,7 @@ export function App() {
         <div className="login-screen__glow login-screen__glow--one" />
         <div className="login-screen__glow login-screen__glow--two" />
         <section className="login-screen__panel">
-          <p className="eyebrow">Acceso privado</p>
+          <p className="eyebrow">Solo para los novios</p>
           <h1 className="login-screen__title">dónde me siento</h1>
           <p className="login-screen__copy">
             Diseña el espacio donde tus seres queridos compartirán nuestra gran historia.
