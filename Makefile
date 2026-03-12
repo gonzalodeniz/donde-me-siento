@@ -3,6 +3,9 @@ PIP ?= pip
 VENV_BIN ?= .venv/bin
 PYTEST ?= $(VENV_BIN)/pytest
 UVICORN ?= $(VENV_BIN)/uvicorn
+BACKEND_PORT ?= 8000
+FRONTEND_PORT ?= 5173
+API_PROXY_TARGET ?= http://127.0.0.1:$(BACKEND_PORT)
 
 .PHONY: help install test test-cov run-backend install-frontend run-frontend run-app build-frontend test-e2e install-e2e lint clean
 
@@ -30,18 +33,58 @@ test-cov:
 	$(PYTEST) --cov=backend/app --cov-report=term-missing
 
 run-backend:
-	$(UVICORN) backend.app.main:app --reload
+	$(UVICORN) backend.app.main:app --reload --port $(BACKEND_PORT)
 
 install-frontend:
 	cd frontend && npm install
 
 run-frontend:
-	cd frontend && npm run dev
+	cd frontend && VITE_API_PROXY_TARGET=$(API_PROXY_TARGET) npm run dev -- --port $(FRONTEND_PORT)
 
 run-app:
 	@trap 'kill 0' INT TERM EXIT; \
-	$(UVICORN) backend.app.main:app --reload & \
-	cd frontend && npm run dev & \
+	backend_pid=$$(lsof -tiTCP:$(BACKEND_PORT) -sTCP:LISTEN || true); \
+	if [ -n "$$backend_pid" ]; then \
+		backend_cmd=$$(ps -p $$backend_pid -o args= || true); \
+		case "$$backend_cmd" in \
+			*".venv/bin/uvicorn backend.app.main:app --reload"*) \
+				printf "Cerrando backend previo del proyecto en el puerto $(BACKEND_PORT) (PID %s)\n" "$$backend_pid"; \
+				kill $$backend_pid; \
+				sleep 1; \
+				if kill -0 $$backend_pid 2>/dev/null; then \
+					printf "Forzando cierre del backend previo (PID %s)\n" "$$backend_pid"; \
+					kill -9 $$backend_pid; \
+					sleep 1; \
+				fi; \
+				;; \
+			*) \
+				printf "El puerto $(BACKEND_PORT) ya esta en uso por otro proceso:\n%s\n" "$$backend_cmd"; \
+				exit 1; \
+				;; \
+		esac; \
+	fi; \
+	frontend_pid=$$(lsof -tiTCP:$(FRONTEND_PORT) -sTCP:LISTEN || true); \
+	if [ -n "$$frontend_pid" ]; then \
+		frontend_cmd=$$(ps -p $$frontend_pid -o args= || true); \
+		case "$$frontend_cmd" in \
+			*"$(CURDIR)/frontend/node_modules/.bin/vite"*) \
+				printf "Cerrando frontend previo del proyecto en el puerto $(FRONTEND_PORT) (PID %s)\n" "$$frontend_pid"; \
+				kill $$frontend_pid; \
+				sleep 1; \
+				if kill -0 $$frontend_pid 2>/dev/null; then \
+					printf "Forzando cierre del frontend previo (PID %s)\n" "$$frontend_pid"; \
+					kill -9 $$frontend_pid; \
+					sleep 1; \
+				fi; \
+				;; \
+			*) \
+				printf "El puerto $(FRONTEND_PORT) ya esta en uso por otro proceso:\n%s\n" "$$frontend_cmd"; \
+				exit 1; \
+				;; \
+		esac; \
+	fi; \
+	$(UVICORN) backend.app.main:app --reload --port $(BACKEND_PORT) & \
+	cd frontend && VITE_API_PROXY_TARGET=$(API_PROXY_TARGET) npm run dev -- --port $(FRONTEND_PORT) & \
 	wait
 
 build-frontend:
