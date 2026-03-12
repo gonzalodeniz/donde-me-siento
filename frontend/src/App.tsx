@@ -8,7 +8,6 @@ import {
   deleteTable,
   fetchWorkspace,
   login,
-  unassignGuest,
   updateDefaultTableCapacity,
   updateGuest,
   updateTableCapacity,
@@ -187,10 +186,6 @@ export function App() {
       workspace?.tables.filter((table) => table.available === 0 || conflictTableIds.has(table.id)).length ?? 0,
     [conflictTableIds, workspace],
   );
-  const selectedTableHasConflict = selectedTable
-    ? selectedTable.guests.some((guest) => conflictGuestIds.has(guest.id))
-    : false;
-  const selectedTableIsFull = selectedTable ? selectedTable.available === 0 : false;
   const guestSectionBusy =
     loadingWorkspace ||
     submittingAction === "create-guest" ||
@@ -862,69 +857,6 @@ export function App() {
           </div>
 
           <div className={`lists-panel ${guestSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={guestSectionBusy}>
-            <section className="control-card">
-              <div className="list-card__header">
-                <h3>Invitados de la mesa</h3>
-                <span>{selectedTable ? `Mesa ${selectedTable.number}` : "Sin seleccion"}</span>
-              </div>
-              {selectedTable ? (
-                <div className="selected-table-panel">
-                  <div className={`selected-table-panel__hero ${selectedTableHasConflict ? "selected-table-panel__hero--conflict" : ""} ${selectedTableIsFull ? "selected-table-panel__hero--full" : ""}`}>
-                    <strong>{selectedTable.occupied}/{selectedTable.capacity}</strong>
-                    <span>{selectedTable.available} asientos libres</span>
-                  </div>
-                  {(selectedTableHasConflict || selectedTableIsFull) ? (
-                    <div className="selected-table-panel__alerts">
-                      {selectedTableHasConflict ? (
-                        <div className="inline-notice inline-notice--error">
-                          Esta mesa tiene invitados con conflicto de agrupacion. Revisa la composicion antes de cerrar.
-                        </div>
-                      ) : null}
-                      {selectedTableIsFull ? (
-                        <div className="inline-notice inline-notice--info">
-                          Esta mesa esta completa. Para seguir asignando aqui necesitas liberar asiento o subir capacidad.
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  <p className="selected-table-panel__hint">
-                    Desde aquí puedes devolver invitados a la lista pendiente cuando necesites rehacer la distribución.
-                  </p>
-                  <div className="selected-table-panel__guests">
-                    {selectedTable.guests.length > 0 ? (
-                      selectedTable.guests.map((guest) => (
-                        <article className={`selected-guest ${conflictGuestIds.has(guest.id) ? "selected-guest--conflict" : ""}`} key={guest.id}>
-                          <div>
-                            <strong>{guest.name}</strong>
-                            <span>{guest.group_id ? `Agrupacion ${guest.group_id}` : guest.guest_type}</span>
-                          </div>
-                          <button
-                            className="button button--ghost button--small"
-                            disabled={isActionRunning(`unassign-${guest.id}`)}
-                            onClick={() =>
-                              void runWorkspaceAction(
-                                `unassign-${guest.id}`,
-                                "tables",
-                                () => unassignGuest(guest.id, token ?? ""),
-                                `${guest.name} vuelve a la lista sin asignar.`,
-                              )
-                            }
-                            type="button"
-                          >
-                            {isActionRunning(`unassign-${guest.id}`) ? "Quitando..." : "Quitar de mesa"}
-                          </button>
-                        </article>
-                      ))
-                    ) : (
-                      <p className="empty-state">La mesa seleccionada todavia no tiene invitados.</p>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <p className="empty-state">Selecciona una mesa desde el plano o el resumen.</p>
-              )}
-            </section>
-
             <section className="list-card list-card--guests">
               <div data-testid="unassigned-guests-panel">
                 {sectionNotices.guests ? (
