@@ -15,6 +15,7 @@ class GuestCreate(BaseModel):
     guest_type: str = Field(min_length=1, max_length=32)
     group_id: str | None = Field(default=None, max_length=64)
     table_id: str | None = Field(default=None, max_length=64)
+    seat_index: int | None = Field(default=None, ge=0)
 
 class TableResponse(BaseModel):
     """Mesa serializada para la API."""
@@ -38,6 +39,7 @@ class GuestResponse(BaseModel):
     guest_type: str
     group_id: str | None
     table_id: str | None
+    seat_index: int | None
 
 
 class EventResponse(BaseModel):
@@ -64,6 +66,7 @@ class GuestAssignmentRequest(BaseModel):
     """Payload para asignar un invitado a una mesa."""
 
     table_id: str = Field(min_length=1, max_length=64)
+    seat_index: int | None = Field(default=None, ge=0)
 
 
 class TableCapacityUpdate(BaseModel):
@@ -154,6 +157,7 @@ def build_event_response(event: Event) -> EventResponse:
                 guest_type=guest.guest_type.value,
                 group_id=guest.group_id,
                 table_id=guest.table_id,
+                seat_index=guest.seat_index,
             )
             for guest in sorted(event.guests.values(), key=lambda current: current.name.casefold())
         ],
@@ -189,6 +193,7 @@ def build_workspace_response(event: Event) -> WorkspaceResponse:
             guest_type=guest.guest_type.value,
             group_id=guest.group_id,
             table_id=guest.table_id,
+            seat_index=guest.seat_index,
         )
         for guest in event.guests_with_table()
     ]
@@ -199,6 +204,7 @@ def build_workspace_response(event: Event) -> WorkspaceResponse:
             guest_type=guest.guest_type.value,
             group_id=guest.group_id,
             table_id=guest.table_id,
+            seat_index=guest.seat_index,
         )
         for guest in event.guests_without_table()
     ]
@@ -214,10 +220,14 @@ def build_workspace_response(event: Event) -> WorkspaceResponse:
                 guest_type=guest.guest_type.value,
                 group_id=guest.group_id,
                 table_id=guest.table_id,
+                seat_index=guest.seat_index,
             )
             for guest in sorted(
                 (guest for guest in event.guests.values() if guest.table_id == table.id),
-                key=lambda current: current.name.casefold(),
+                key=lambda current: (
+                    current.seat_index if current.seat_index is not None else 10_000,
+                    current.name.casefold(),
+                ),
             )
         ]
         tables.append(

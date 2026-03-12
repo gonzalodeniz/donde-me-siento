@@ -99,6 +99,7 @@ class EventRepository:
                     guest_type=guest.guest_type.value,
                     group_id=guest.group_id,
                     table_id=guest.table_id,
+                    seat_index=guest.seat_index,
                 )
                 for guest in event.guests.values()
             ],
@@ -129,6 +130,7 @@ class EventRepository:
                 guest_type=GuestType(guest.guest_type),
                 group_id=guest.group_id,
                 table_id=guest.table_id,
+                seat_index=guest.seat_index,
             )
             for guest in model.guests
         }

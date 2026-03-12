@@ -56,5 +56,6 @@ class GuestModel(Base):
     guest_type: Mapped[str] = mapped_column(String(32), nullable=False)
     group_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     table_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    seat_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     event: Mapped[EventModel] = relationship(back_populates="guests")

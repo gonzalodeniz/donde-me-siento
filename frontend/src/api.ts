@@ -75,6 +75,7 @@ export async function deleteGuest(guestId: string, token: string): Promise<void>
 export async function assignGuest(
   guestId: string,
   tableId: string,
+  seatIndex: number | null,
   token: string,
 ): Promise<void> {
   await request(`/api/guests/${guestId}/assignment`, {
@@ -83,7 +84,7 @@ export async function assignGuest(
       ...API_HEADERS,
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ table_id: tableId }),
+    body: JSON.stringify({ table_id: tableId, seat_index: seatIndex }),
   });
 }
 

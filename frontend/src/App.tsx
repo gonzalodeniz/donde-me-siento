@@ -23,6 +23,10 @@ type SectionNotice = {
   tone: SectionTone;
   message: string;
 };
+type SeatTarget = {
+  tableId: string;
+  seatIndex: number;
+};
 
 function normalizeText(value: string) {
   return value.trim();
@@ -116,7 +120,7 @@ export function App() {
   const [selectedTableId, setSelectedTableId] = useState<string | null | undefined>(undefined);
   const [pendingTableRemovalId, setPendingTableRemovalId] = useState<string | null>(null);
   const [draggedGuestId, setDraggedGuestId] = useState<string | null>(null);
-  const [activeDropTableId, setActiveDropTableId] = useState<string | null>(null);
+  const [activeDropSeat, setActiveDropSeat] = useState<SeatTarget | null>(null);
   const [sectionNotices, setSectionNotices] = useState<Record<SectionKey, SectionNotice | null>>({
     guests: null,
     tables: null,
@@ -248,7 +252,7 @@ export function App() {
   useEffect(() => {
     if (!workspace) {
       setSelectedTableId(undefined);
-      setActiveDropTableId(null);
+      setActiveDropSeat(null);
       setDraggedGuestId(null);
       return;
     }
@@ -413,7 +417,7 @@ export function App() {
     return submittingAction === actionKey;
   }
 
-  function handleGuestDragStart(event: DragEvent<HTMLElement>, guestId: string) {
+  function handleGuestDragStart(event: DragEvent<Element>, guestId: string) {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", guestId);
     setDraggedGuestId(guestId);
@@ -422,14 +426,14 @@ export function App() {
 
   function handleGuestDragEnd() {
     setDraggedGuestId(null);
-    setActiveDropTableId(null);
+    setActiveDropSeat(null);
   }
 
-  function handleTableDragEnter(tableId: string) {
+  function handleSeatDragEnter(tableId: string, seatIndex: number) {
     if (!draggedGuestId) {
       return;
     }
-    setActiveDropTableId(tableId);
+    setActiveDropSeat({ tableId, seatIndex });
     setSelectedTableId(tableId);
   }
 
@@ -438,21 +442,23 @@ export function App() {
     setSelectedTableId((currentSelected) => (currentSelected === tableId ? null : tableId));
   }
 
-  function handleTableDragLeave(tableId: string) {
-    if (activeDropTableId === tableId) {
-      setActiveDropTableId(null);
+  function handleSeatDragLeave(tableId: string, seatIndex: number) {
+    if (activeDropSeat?.tableId === tableId && activeDropSeat.seatIndex === seatIndex) {
+      setActiveDropSeat(null);
     }
   }
 
-  function handleTableDrop(tableId: string, droppedGuestIdFromEvent: string | null) {
+  function handleSeatDrop(tableId: string, seatIndex: number, droppedGuestIdFromEvent: string | null) {
     const droppedGuestId = droppedGuestIdFromEvent ?? draggedGuestId;
     if (!workspace || !droppedGuestId) {
       return;
     }
 
-    const guest = workspace.guests.unassigned.find((currentGuest) => currentGuest.id === droppedGuestId);
+    const guest =
+      workspace.guests.unassigned.find((currentGuest) => currentGuest.id === droppedGuestId) ??
+      workspace.guests.assigned.find((currentGuest) => currentGuest.id === droppedGuestId);
     setDraggedGuestId(null);
-    setActiveDropTableId(null);
+    setActiveDropSeat(null);
 
     if (!guest) {
       return;
@@ -461,8 +467,8 @@ export function App() {
     void runWorkspaceAction(
       `assign-dnd-${droppedGuestId}`,
       "tables",
-      () => assignGuest(droppedGuestId, tableId, token ?? ""),
-      `${guest.name} asignado mediante arrastrar y soltar.`,
+      () => assignGuest(droppedGuestId, tableId, seatIndex, token ?? ""),
+      `${guest.name} colocado mediante arrastrar y soltar.`,
     );
   }
 
@@ -807,12 +813,14 @@ export function App() {
             ) : null}
             {workspace ? (
               <SeatingPlan
-                activeDropTableId={activeDropTableId}
+                activeDropSeat={activeDropSeat}
                 draggedGuestName={draggedGuest?.name ?? null}
+                onGuestDragEnd={handleGuestDragEnd}
+                onGuestDragStart={handleGuestDragStart}
                 onSelectTable={selectOrClearTable}
-                onTableDragEnter={handleTableDragEnter}
-                onTableDragLeave={handleTableDragLeave}
-                onTableDrop={handleTableDrop}
+                onSeatDragEnter={handleSeatDragEnter}
+                onSeatDragLeave={handleSeatDragLeave}
+                onSeatDrop={handleSeatDrop}
                 selectedTableId={selectedTableId ?? null}
                 workspace={workspace}
               />
@@ -936,7 +944,7 @@ export function App() {
                               void runWorkspaceAction(
                                 `assign-${guest.id}`,
                                 "guests",
-                                () => assignGuest(guest.id, assignmentValues[guest.id], token ?? ""),
+                                () => assignGuest(guest.id, assignmentValues[guest.id], null, token ?? ""),
                                 `${guest.name} asignado correctamente.`,
                               )
                             }

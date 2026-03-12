@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from backend.app.core.config import Settings, settings
@@ -29,6 +29,16 @@ def init_db(current_engine=engine) -> None:
     """Inicializa el esquema de base de datos."""
 
     Base.metadata.create_all(bind=current_engine)
+    inspector = inspect(current_engine)
+    if "guests" not in inspector.get_table_names():
+        return
+
+    guest_columns = {column["name"] for column in inspector.get_columns("guests")}
+    if "seat_index" in guest_columns:
+        return
+
+    with current_engine.begin() as connection:
+        connection.execute(text("ALTER TABLE guests ADD COLUMN seat_index INTEGER"))
 
 
 async def get_db_session():

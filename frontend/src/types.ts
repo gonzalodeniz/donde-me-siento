@@ -4,6 +4,7 @@ export type Guest = {
   guest_type: string;
   group_id: string | null;
   table_id: string | null;
+  seat_index: number | null;
 };
 
 export type WorkspaceTable = {
