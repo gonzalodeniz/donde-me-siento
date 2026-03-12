@@ -25,28 +25,28 @@ Implementar autenticación con usuario/contraseña sobre backend. Proteger todas
 
 ---
 
-## Épica 2 — Gestión del evento y configuración del salón
+## Épica 2 — Workspace único y configuración del salón
 
-### CU-02 · Crear evento · MVP
-**Como** organizador, **quiero** crear un nuevo evento indicando su nombre **para** poder gestionar la distribución de invitados de forma independiente para cada celebración.
+### CU-02 · Abrir workspace único · MVP
+**Como** organizador, **quiero** entrar siempre al mismo workspace persistente **para** continuar la distribucion sin elegir ni gestionar eventos.
 
 Criterios de aceptación:
-- Se puede crear un evento con nombre.
-- El evento queda guardado y es seleccionable desde la pantalla principal.
-- Se puede tener más de un evento guardado.
+- Tras iniciar sesion se abre siempre el mismo workspace.
+- No existe lista de eventos ni selector de evento.
+- El estado persistido se recupera automaticamente.
 
 ### CU-03 · Configurar número de mesas · MVP
-**Como** organizador, **quiero** indicar cuántas mesas habrá en el salón **para** que el plano se genere con la configuración correcta.
+**Como** organizador, **quiero** indicar cuantas mesas habra en el salon **para** que el plano se genere con la configuracion correcta.
 
 Criterios de aceptación:
-- Se puede definir el número de mesas al crear o editar el evento.
+- Se puede definir el numero de mesas dentro del workspace unico.
 - El plano refleja inmediatamente el número de mesas configuradas.
 
 ### CU-04 · Configurar capacidad por defecto de las mesas · MVP
-**Como** organizador, **quiero** indicar un número de asientos por defecto **para** que todas las mesas partan de esa capacidad sin tener que configurarlas una a una.
+**Como** organizador, **quiero** indicar un numero de asientos por defecto **para** que todas las mesas partan de esa capacidad sin tener que configurarlas una a una.
 
 Criterios de aceptación:
-- Se puede indicar un número de asientos por defecto al configurar el evento.
+- Se puede indicar un numero de asientos por defecto al configurar el workspace.
 - Todas las mesas nuevas se crean con ese valor.
 
 ### CU-05 · Ajustar capacidad individual de cada mesa · MVP
@@ -57,15 +57,15 @@ Criterios de aceptación:
 - El plano refleja el aforo actualizado de cada mesa.
 - No se puede asignar más invitados que el aforo de la mesa; se muestra advertencia si se intenta.
 
-### TT-02 · Modelo de datos del evento y configuración del salón · MVP
-Definir la estructura de datos para: evento (nombre, fecha opcional), mesas (id, capacidad, posición en el plano), configuración de capacidad por defecto.
+### TT-02 · Modelo de datos del workspace y configuración del salón · MVP
+Definir la estructura de datos para: workspace unico persistente (nombre fijo, fecha opcional), mesas (id, capacidad, posicion en el plano), configuracion de capacidad por defecto.
 
 ---
 
 ## Épica 3 — Gestión de invitados
 
 ### CU-06 · Añadir invitado · MVP
-**Como** organizador, **quiero** añadir invitados a la lista **para** gestionar quién asistirá al evento.
+**Como** organizador, **quiero** añadir invitados a la lista **para** gestionar quien asistira al workspace activo.
 
 Criterios de aceptación:
 - Se puede añadir un invitado con nombre y tipo (adulto, adolescente, niño).
@@ -204,38 +204,37 @@ Implementar panel lateral o modal con tabla de mesas: número de mesa, capacidad
 
 ## Épica 7 — Persistencia y gestión de ficheros
 
-### CU-21 · Guardar el estado del evento · MVP
-**Como** organizador, **quiero** guardar el estado actual del evento (mesas, invitados, asignaciones) **para** poder continuar más adelante o revisarlo.
+### CU-21 · Guardar el estado del workspace · MVP
+**Como** organizador, **quiero** guardar el estado actual del workspace (mesas, invitados, asignaciones) **para** poder continuar mas adelante o revisarlo.
 
 Criterios de aceptación:
-- Se puede guardar el estado del evento en cualquier momento.
-- El guardado incluye: configuración del salón, lista de invitados, agrupaciones, asignaciones.
+- Se puede guardar el estado del workspace en cualquier momento.
+- El guardado incluye: configuracion del salon, lista de invitados, agrupaciones, asignaciones.
 
-### CU-22 · Cargar un evento guardado · MVP
-**Como** organizador, **quiero** cargar un evento previamente guardado **para** continuar trabajando en él o revisarlo.
-
-Criterios de aceptación:
-- Se puede seleccionar y cargar cualquier evento guardado.
-- Al cargar, el plano, las listas y el panel de control reflejan el estado guardado.
-
-### CU-23 · Eliminar un evento guardado · MVP
-**Como** organizador, **quiero** eliminar un evento guardado que ya no necesito **para** mantener la lista de eventos limpia.
+### CU-22 · Recuperar workspace persistido · MVP
+**Como** organizador, **quiero** recuperar automaticamente el workspace persistido **para** continuar trabajando sin seleccionar eventos.
 
 Criterios de aceptación:
-- Se puede eliminar un evento desde la lista de eventos guardados.
-- Se solicita confirmación antes de borrar.
-- El evento eliminado desaparece de la lista.
+- Al iniciar sesion o recargar, el plano, las listas y el panel de control reflejan el estado guardado.
 
-### CU-24 · Guardar múltiples versiones de un evento · v2
-**Como** organizador, **quiero** guardar distintas versiones de la distribución de un mismo evento **para** poder comparar alternativas antes de decidir la definitiva.
+### CU-23 · Restaurar workspace base · v2
+**Como** organizador, **quiero** restaurar el workspace a un estado base controlado **para** empezar de nuevo sin gestionar eventos distintos.
 
 Criterios de aceptación:
-- Se puede crear una nueva versión a partir del estado actual.
-- Cada versión tiene un nombre o marca de tiempo identificativa.
-- Se puede cargar cualquier versión guardada.
+- Existe una accion explicita de reseteo del workspace.
+- Se solicita confirmacion antes de restaurar.
+- El workspace vuelve a un estado inicial coherente.
 
-### TT-07 · Capa de persistencia de eventos · MVP
-Implementar persistencia en backend con base de datos en disco para guardar, cargar y eliminar eventos. Definir formato de serialización del estado completo y contratos API. Gestionar múltiples eventos y versiones sin depender de almacenamiento local del navegador.
+### CU-24 · Guardar múltiples versiones del workspace · v2
+**Como** organizador, **quiero** guardar distintas versiones de la distribucion dentro del mismo workspace **para** poder comparar alternativas antes de decidir la definitiva.
+
+Criterios de aceptación:
+- Se puede crear una nueva version a partir del estado actual.
+- Cada version tiene un nombre o marca de tiempo identificativa.
+- Se puede cargar cualquier version guardada.
+
+### TT-07 · Capa de persistencia de workspace único · MVP
+Implementar persistencia en backend con base de datos en disco para guardar y recuperar un workspace unico. Definir formato de serializacion del estado completo y contratos API sin depender de almacenamiento local del navegador.
 
 ---
 

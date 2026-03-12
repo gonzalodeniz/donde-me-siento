@@ -1,4 +1,4 @@
-import type { EventSummary, LoginResponse, Workspace } from "./types";
+import type { LoginResponse, Workspace } from "./types";
 
 const API_HEADERS = {
   "Content-Type": "application/json",
@@ -27,51 +27,18 @@ export async function login(username: string, password: string): Promise<LoginRe
   });
 }
 
-export async function fetchEvents(token: string): Promise<EventSummary[]> {
-  return request<EventSummary[]>("/api/events", {
+export async function fetchWorkspace(token: string): Promise<Workspace> {
+  return request<Workspace>("/api/workspace", {
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
 }
-
-export async function fetchWorkspace(eventId: string, token: string): Promise<Workspace> {
-  return request<Workspace>(`/api/events/${eventId}/workspace`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-}
-
-export async function createEvent(
-  token: string,
-  payload: { name: string; default_table_capacity: number; table_count: number },
-): Promise<{ id: string }> {
-  return request<{ id: string }>("/api/events", {
-    method: "POST",
-    headers: {
-      ...API_HEADERS,
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function deleteEvent(eventId: string, token: string): Promise<void> {
-  await request(`/api/events/${eventId}`, {
-    method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-}
-
 export async function createGuest(
-  eventId: string,
   token: string,
   payload: { name: string; guest_type: string; group_id: string | null },
 ): Promise<void> {
-  await request(`/api/events/${eventId}/guests`, {
+  await request("/api/guests", {
     method: "POST",
     headers: {
       ...API_HEADERS,
@@ -82,12 +49,11 @@ export async function createGuest(
 }
 
 export async function updateGuest(
-  eventId: string,
   guestId: string,
   token: string,
   payload: { name?: string; guest_type?: string; group_id?: string | null },
 ): Promise<void> {
-  await request(`/api/events/${eventId}/guests/${guestId}`, {
+  await request(`/api/guests/${guestId}`, {
     method: "PUT",
     headers: {
       ...API_HEADERS,
@@ -97,8 +63,8 @@ export async function updateGuest(
   });
 }
 
-export async function deleteGuest(eventId: string, guestId: string, token: string): Promise<void> {
-  await request(`/api/events/${eventId}/guests/${guestId}`, {
+export async function deleteGuest(guestId: string, token: string): Promise<void> {
+  await request(`/api/guests/${guestId}`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -107,12 +73,11 @@ export async function deleteGuest(eventId: string, guestId: string, token: strin
 }
 
 export async function assignGuest(
-  eventId: string,
   guestId: string,
   tableId: string,
   token: string,
 ): Promise<void> {
-  await request(`/api/events/${eventId}/guests/${guestId}/assignment`, {
+  await request(`/api/guests/${guestId}/assignment`, {
     method: "PUT",
     headers: {
       ...API_HEADERS,
@@ -122,8 +87,8 @@ export async function assignGuest(
   });
 }
 
-export async function unassignGuest(eventId: string, guestId: string, token: string): Promise<void> {
-  await request(`/api/events/${eventId}/guests/${guestId}/assignment`, {
+export async function unassignGuest(guestId: string, token: string): Promise<void> {
+  await request(`/api/guests/${guestId}/assignment`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -132,12 +97,11 @@ export async function unassignGuest(eventId: string, guestId: string, token: str
 }
 
 export async function updateTableCapacity(
-  eventId: string,
   tableId: string,
   capacity: number,
   token: string,
 ): Promise<void> {
-  await request(`/api/events/${eventId}/tables/${tableId}`, {
+  await request(`/api/tables/${tableId}`, {
     method: "PUT",
     headers: {
       ...API_HEADERS,

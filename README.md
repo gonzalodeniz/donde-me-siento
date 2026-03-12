@@ -1,6 +1,6 @@
 # Donde me siento
 
-Aplicacion para gestionar la distribucion de invitados en bodas y eventos, con validacion de conflictos, control de aforo y persistencia del estado del evento.
+Aplicacion para gestionar la distribucion de invitados con validacion de conflictos, control de aforo y persistencia sobre un unico workspace.
 
 ## Estado actual
 
@@ -8,7 +8,7 @@ Este repositorio contiene el arranque de la Fase 1 del MVP:
 
 - base documental del proyecto;
 - estructura inicial del backend;
-- modelo de dominio para eventos, mesas e invitados;
+- modelo de dominio para workspace, mesas e invitados;
 - tests unitarios del dominio.
 
 ## Stack objetivo
@@ -42,39 +42,33 @@ Este repositorio contiene el arranque de la Fase 1 del MVP:
 
 El dominio inicial cubre:
 
-- creacion de eventos con nombre y capacidad por defecto;
 - generacion de mesas con posicion base para el plano;
 - alta, edicion y baja de invitados;
 - asignacion y desasignacion de invitados a mesas;
 - validacion de aforo por mesa;
 - deteccion de conflictos de agrupacion;
-- resumen reactivo del estado del evento.
+- resumen reactivo del estado del workspace.
 
 La API actual cubre:
 
 - `POST /api/auth/login`
 - `GET /api/auth/me`
 - `POST /api/auth/logout`
-- `POST /api/events`
-- `GET /api/events`
-- `GET /api/events/{event_id}`
-- `DELETE /api/events/{event_id}`
-- `POST /api/events/{event_id}/guests`
-- `PUT /api/events/{event_id}/guests/{guest_id}`
-- `DELETE /api/events/{event_id}/guests/{guest_id}`
-- `PUT /api/events/{event_id}/guests/{guest_id}/assignment`
-- `DELETE /api/events/{event_id}/guests/{guest_id}/assignment`
-- `GET /api/events/{event_id}/tables/summary`
-- `PUT /api/events/{event_id}/tables/{table_id}`
-- `GET /api/events/{event_id}/validation`
-- `GET /api/events/{event_id}/workspace`
+- `GET /api/workspace`
+- `POST /api/guests`
+- `PUT /api/guests/{guest_id}`
+- `DELETE /api/guests/{guest_id}`
+- `PUT /api/guests/{guest_id}/assignment`
+- `DELETE /api/guests/{guest_id}/assignment`
+- `GET /api/tables/summary`
+- `PUT /api/tables/{table_id}`
+- `GET /api/validation`
 
-Todos los endpoints de eventos requieren autenticacion Bearer.
+Todos los endpoints del workspace requieren autenticacion Bearer.
 
-El frontend en `frontend/` consume `GET /api/events/{event_id}/workspace` como fuente principal de estado inicial del workspace.
+El frontend en `frontend/` consume `GET /api/workspace` como fuente principal de estado inicial.
 Tambien permite:
 
-- crear y eliminar eventos desde la UI;
 - anadir, editar y eliminar invitados;
 - asignar y desasignar invitados desde la UI;
 - asignar invitados por drag & drop desde la lista al plano del salon;
@@ -127,11 +121,10 @@ make install-e2e
 make test-e2e
 ```
 
-El flujo E2E actual cubre: login, creacion de evento, alta de invitados, asignacion por drag & drop y recarga del evento guardado.
+El flujo E2E actual cubre: login, alta de invitados, asignacion por drag & drop, recarga del workspace y estados UX de conflicto/aforo.
 
 ## Siguientes pasos recomendados
 
-1. Añadir `backend/app/main.py` con la API FastAPI y endpoint de salud.
-2. Incorporar esquemas y repositorios para persistencia en SQLite.
-3. Implementar autenticacion basica y primeros endpoints de eventos.
-4. Conectar el frontend una vez esten cerrados los contratos de API.
+1. Limpiar funcionalidades residuales de multievento que ya no se usan.
+2. Preparar una operacion explicita de reseteo de workspace si se necesita en v2.
+3. Mantener alineados contratos, tests y documentacion del workspace unico.

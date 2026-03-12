@@ -2,7 +2,7 @@
 
 ## Propósito
 
-Donde-me-siento ayuda a los organizadores de bodas y eventos a **pasar de una lista de invitados a una distribución completa, validada y lista para compartir**, de forma visual, rápida y con confianza.
+Donde-me-siento ayuda a los organizadores de bodas y eventos a **pasar de una lista de invitados a una distribucion completa, validada y lista para compartir** dentro de un unico workspace persistente, de forma visual, rapida y con confianza.
 
 Donde-me-siento no debe sentirse como una hoja de cálculo con mesas, sino como una herramienta visual y tranquila que ayuda a tomar decisiones con confianza.
 
@@ -17,7 +17,7 @@ Organizar la distribución de mesas en una boda suele hacerse con hojas de cálc
 
 ## Propuesta de valor
 
-Donde-me-siento permite crear, revisar y ajustar la distribución de invitados de un evento de forma visual, rápida y fiable, combinando:
+Donde-me-siento permite revisar y ajustar la distribucion de invitados dentro de un unico workspace de forma visual, rapida y fiable, combinando:
 
 - **plano interactivo** del salón con mesas redondas configurables;
 - **reglas de relación entre invitados** (juntos, separados, preferencia);
@@ -37,6 +37,6 @@ Donde-me-siento permite crear, revisar y ajustar la distribución de invitados d
 - **No bloquear el flujo de trabajo**: las advertencias de conflicto deben ser visibles sin impedir seguir operando.
 - **Confianza operativa**: el sistema debe hacer visibles inconsistencias, aforos superados y restricciones violadas antes de que se conviertan en errores.
 - **Relaciones explícitas**: las agrupaciones y restricciones entre invitados deben ser identificables a simple vista tanto en el diagrama como en las listas.
-- **Persistencia fiable**: el estado completo de la distribución debe poder guardarse y recuperarse sin pérdida de datos mediante backend y almacenamiento persistente en disco.
+- **Persistencia fiable**: el estado completo de la distribucion debe poder guardarse y recuperarse sin perdida de datos mediante backend y almacenamiento persistente en disco.
 - **Experiencia agradable**: sensación de orden y calma, jerarquía tipográfica clara, color funcional, estados vacíos bien diseñados y transiciones suaves al reorganizar invitados o mesas.
 - **Seguridad por defecto**: acceso restringido mediante login; sesión controlada por el usuario.

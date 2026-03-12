@@ -1,12 +1,9 @@
-import { DragEvent, FormEvent, useEffect, useMemo, useState, startTransition } from "react";
+import { DragEvent, FormEvent, startTransition, useEffect, useMemo, useState } from "react";
 
 import {
   assignGuest,
-  createEvent,
   createGuest,
-  deleteEvent,
   deleteGuest,
-  fetchEvents,
   fetchWorkspace,
   login,
   unassignGuest,
@@ -14,44 +11,29 @@ import {
   updateTableCapacity,
 } from "./api";
 import { SeatingPlan } from "./components/SeatingPlan";
-import type { EventSummary, Guest, Workspace } from "./types";
+import type { Guest, Workspace } from "./types";
 
 const TOKEN_STORAGE_KEY = "dms.auth.token";
 type SectionTone = "success" | "error" | "info";
-type SectionKey = "events" | "guests" | "tables";
+type SectionKey = "guests" | "tables";
 type SectionNotice = {
   tone: SectionTone;
   message: string;
 };
 
-function metricLabel(total: number, singular: string, plural: string) {
-  return `${total} ${total === 1 ? singular : plural}`;
-}
-
 function normalizeText(value: string) {
   return value.trim();
-}
-
-function parsePositiveInteger(value: string) {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 export function App() {
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("admin1234");
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_STORAGE_KEY));
-  const [events, setEvents] = useState<EventSummary[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(false);
   const [loadingWorkspace, setLoadingWorkspace] = useState(false);
   const [submittingAction, setSubmittingAction] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [eventName, setEventName] = useState("");
-  const [eventTableCount, setEventTableCount] = useState("8");
-  const [eventDefaultCapacity, setEventDefaultCapacity] = useState("10");
-  const [eventFormError, setEventFormError] = useState<string | null>(null);
   const [guestName, setGuestName] = useState("");
   const [guestType, setGuestType] = useState("adulto");
   const [guestGroupId, setGuestGroupId] = useState("");
@@ -66,9 +48,7 @@ export function App() {
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [draggedGuestId, setDraggedGuestId] = useState<string | null>(null);
   const [activeDropTableId, setActiveDropTableId] = useState<string | null>(null);
-  const [eventPendingDeleteId, setEventPendingDeleteId] = useState<string | null>(null);
   const [sectionNotices, setSectionNotices] = useState<Record<SectionKey, SectionNotice | null>>({
-    events: null,
     guests: null,
     tables: null,
   });
@@ -85,7 +65,6 @@ export function App() {
     () => workspace?.tables.find((table) => table.id === selectedTableId) ?? null,
     [selectedTableId, workspace],
   );
-  const activeWorkspaceEventId = workspace?.event_id ?? null;
   const draggedGuest = useMemo(
     () =>
       workspace?.guests.unassigned.find((guest) => guest.id === draggedGuestId) ??
@@ -124,10 +103,6 @@ export function App() {
     ? selectedTable.guests.some((guest) => conflictGuestIds.has(guest.id))
     : false;
   const selectedTableIsFull = selectedTable ? selectedTable.available === 0 : false;
-  const railBusy =
-    loadingAuth ||
-    submittingAction === "create-event" ||
-    (submittingAction !== null && submittingAction.startsWith("delete-event-"));
   const guestSectionBusy =
     loadingWorkspace ||
     submittingAction === "create-guest" ||
@@ -144,55 +119,18 @@ export function App() {
 
   useEffect(() => {
     if (!token) {
-      setEvents([]);
-      setSelectedEventId(null);
       setWorkspace(null);
-      setSectionNotices({ events: null, guests: null, tables: null });
+      setSectionNotices({ guests: null, tables: null });
       return;
     }
 
     const activeToken = token;
-    let cancelled = false;
-
-    async function loadEvents() {
-      try {
-        const nextEvents = await fetchEvents(activeToken);
-        if (cancelled) {
-          return;
-        }
-        setEvents(nextEvents);
-        setSelectedEventId((currentSelected) => currentSelected ?? nextEvents[0]?.id ?? null);
-        setErrorMessage(null);
-        setSectionNotices((current) => ({ ...current, events: null }));
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-        setErrorMessage(error instanceof Error ? error.message : "No se pudieron cargar los eventos.");
-      }
-    }
-
-    void loadEvents();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
-
-  useEffect(() => {
-    if (!token || !selectedEventId) {
-      setWorkspace(null);
-      return;
-    }
-
-    const activeToken = token;
-    const activeEventId = selectedEventId;
     let cancelled = false;
     setLoadingWorkspace(true);
 
     async function loadWorkspace() {
       try {
-        const nextWorkspace = await fetchWorkspace(activeEventId, activeToken);
+        const nextWorkspace = await fetchWorkspace(activeToken);
         if (cancelled) {
           return;
         }
@@ -204,12 +142,11 @@ export function App() {
         );
         setSelectedTableId((currentSelected) => currentSelected ?? nextWorkspace.tables[0]?.id ?? null);
         setErrorMessage(null);
-        setSectionNotices((current) => ({ ...current, guests: null, tables: null }));
+        setSectionNotices({ guests: null, tables: null });
       } catch (error) {
-        if (cancelled) {
-          return;
+        if (!cancelled) {
+          setErrorMessage(error instanceof Error ? error.message : "No se pudo cargar el workspace.");
         }
-        setErrorMessage(error instanceof Error ? error.message : "No se pudo cargar el workspace.");
       } finally {
         if (!cancelled) {
           setLoadingWorkspace(false);
@@ -218,11 +155,10 @@ export function App() {
     }
 
     void loadWorkspace();
-
     return () => {
       cancelled = true;
     };
-  }, [selectedEventId, token]);
+  }, [token]);
 
   useEffect(() => {
     if (!workspace) {
@@ -258,11 +194,9 @@ export function App() {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     setToken(null);
     setErrorMessage(null);
-    setEventFormError(null);
     setGuestFormError(null);
     setEditingGuestError(null);
-    setSectionNotices({ events: null, guests: null, tables: null });
-    setEventPendingDeleteId(null);
+    setSectionNotices({ guests: null, tables: null });
   }
 
   function beginGuestEdit(guest: Guest) {
@@ -281,41 +215,22 @@ export function App() {
   }
 
   function setSectionNotice(section: SectionKey, tone: SectionTone, message: string) {
-    setSectionNotices((current) => ({
-      ...current,
-      [section]: { tone, message },
-    }));
+    setSectionNotices((current) => ({ ...current, [section]: { tone, message } }));
   }
 
   function clearSectionNotice(section: SectionKey) {
-    setSectionNotices((current) => ({
-      ...current,
-      [section]: null,
-    }));
+    setSectionNotices((current) => ({ ...current, [section]: null }));
   }
 
-  async function refreshWorkspaceState(activeEventId: string, activeToken: string) {
-    const [nextEvents, nextWorkspace] = await Promise.all([
-      fetchEvents(activeToken),
-      fetchWorkspace(activeEventId, activeToken),
-    ]);
+  async function refreshWorkspaceState(activeToken: string) {
+    const nextWorkspace = await fetchWorkspace(activeToken);
     startTransition(() => {
-      setEvents(nextEvents);
       setWorkspace(nextWorkspace);
-      setSelectedEventId(activeEventId);
     });
     setCapacityValues(
       Object.fromEntries(nextWorkspace.tables.map((table) => [table.id, String(table.capacity)])),
     );
     setSelectedTableId((currentSelected) => currentSelected ?? nextWorkspace.tables[0]?.id ?? null);
-  }
-
-  async function refreshEventsOnly(activeToken: string) {
-    const nextEvents = await fetchEvents(activeToken);
-    startTransition(() => {
-      setEvents(nextEvents);
-    });
-    return nextEvents;
   }
 
   async function runWorkspaceAction(
@@ -324,19 +239,17 @@ export function App() {
     action: () => Promise<void>,
     message: string,
   ) {
-    if (!token || !selectedEventId) {
+    if (!token) {
       return;
     }
 
-    const activeToken = token;
-    const activeEventId = selectedEventId;
     setSubmittingAction(actionKey);
     setErrorMessage(null);
     clearSectionNotice(section);
 
     try {
       await action();
-      await refreshWorkspaceState(activeEventId, activeToken);
+      await refreshWorkspaceState(token);
       setSectionNotice(section, "success", message);
     } catch (error) {
       setSectionNotice(
@@ -351,7 +264,7 @@ export function App() {
 
   async function handleGuestCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!token || !selectedEventId) {
+    if (!token) {
       return;
     }
 
@@ -366,7 +279,7 @@ export function App() {
       "create-guest",
       "guests",
       () =>
-        createGuest(selectedEventId, token, {
+        createGuest(token, {
           name: normalizedGuestName,
           guest_type: guestType,
           group_id: normalizeText(guestGroupId) || null,
@@ -380,7 +293,7 @@ export function App() {
 
   async function handleGuestUpdate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!token || !selectedEventId || !editingGuestId) {
+    if (!token || !editingGuestId) {
       return;
     }
 
@@ -395,7 +308,7 @@ export function App() {
       `update-${editingGuestId}`,
       "guests",
       () =>
-        updateGuest(selectedEventId, editingGuestId, token, {
+        updateGuest(editingGuestId, token, {
           name: normalizedGuestName,
           guest_type: editingGuestType,
           group_id: normalizeText(editingGuestGroupId) || null,
@@ -407,94 +320,6 @@ export function App() {
 
   function isActionRunning(actionKey: string) {
     return submittingAction === actionKey;
-  }
-
-  async function handleEventCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!token) {
-      return;
-    }
-
-    const activeToken = token;
-    setSubmittingAction("create-event");
-    setErrorMessage(null);
-    clearSectionNotice("events");
-
-    const normalizedEventName = normalizeText(eventName);
-    const parsedTableCount = parsePositiveInteger(eventTableCount);
-    const parsedDefaultCapacity = parsePositiveInteger(eventDefaultCapacity);
-
-    if (!normalizedEventName) {
-      setEventFormError("El evento necesita un nombre visible en el rail.");
-      setSubmittingAction(null);
-      return;
-    }
-
-    if (!parsedTableCount || !parsedDefaultCapacity) {
-      setEventFormError("Mesas y capacidad base deben ser enteros mayores que cero.");
-      setSubmittingAction(null);
-      return;
-    }
-
-    setEventFormError(null);
-
-    try {
-      const createdEvent = await createEvent(activeToken, {
-        name: normalizedEventName,
-        table_count: parsedTableCount,
-        default_table_capacity: parsedDefaultCapacity,
-      });
-      await refreshEventsOnly(activeToken);
-      setSelectedEventId(createdEvent.id);
-      setEventName("");
-      setEventTableCount("8");
-      setEventDefaultCapacity("10");
-      setSectionNotice("events", "success", "Evento creado correctamente.");
-    } catch (error) {
-      setSectionNotice(
-        "events",
-        "error",
-        error instanceof Error ? error.message : "No se pudo crear el evento.",
-      );
-    } finally {
-      setSubmittingAction(null);
-    }
-  }
-
-  async function handleEventDelete(eventId: string) {
-    if (!token) {
-      return;
-    }
-
-    const activeToken = token;
-    setSubmittingAction(`delete-event-${eventId}`);
-    setErrorMessage(null);
-    clearSectionNotice("events");
-
-    try {
-      await deleteEvent(eventId, activeToken);
-      const nextEvents = await refreshEventsOnly(activeToken);
-      const fallbackEventId =
-        selectedEventId === eventId
-          ? nextEvents[0]?.id ?? null
-          : nextEvents.find((currentEvent) => currentEvent.id === selectedEventId)?.id ?? nextEvents[0]?.id ?? null;
-      startTransition(() => {
-        setSelectedEventId(fallbackEventId);
-        if (!fallbackEventId) {
-          setWorkspace(null);
-        }
-      });
-      setEventPendingDeleteId(null);
-      setSectionNotice("events", "success", "Evento eliminado.");
-    } catch (error) {
-      setSectionNotice(
-        "events",
-        "error",
-        error instanceof Error ? error.message : "No se pudo eliminar el evento.",
-      );
-    } finally {
-      setSubmittingAction(null);
-    }
   }
 
   function handleGuestDragStart(event: DragEvent<HTMLElement>, guestId: string) {
@@ -540,7 +365,7 @@ export function App() {
     void runWorkspaceAction(
       `assign-dnd-${droppedGuestId}`,
       "tables",
-      () => assignGuest(workspace.event_id, droppedGuestId, tableId, token ?? ""),
+      () => assignGuest(droppedGuestId, tableId, token ?? ""),
       `${guest.name} asignado mediante arrastrar y soltar.`,
     );
   }
@@ -549,11 +374,11 @@ export function App() {
     <div className="shell">
       <div className="shell__backdrop shell__backdrop--one" />
       <div className="shell__backdrop shell__backdrop--two" />
-      <aside className={`rail ${railBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={railBusy}>
+      <aside className="rail">
         <p className="eyebrow">Donde me siento</p>
         <h1 className="rail__title">Sala de direccion de seating</h1>
         <p className="rail__copy">
-          El frontend consume el workspace agregado del backend como fuente principal de estado.
+          El frontend trabaja siempre sobre un unico workspace persistente del backend.
         </p>
 
         {!token ? (
@@ -564,11 +389,7 @@ export function App() {
             </label>
             <label className="field">
               <span>Contrasena</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-              />
+              <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
             </label>
             <button className="button button--primary" disabled={loadingAuth} type="submit">
               {loadingAuth ? "Entrando..." : "Abrir workspace"}
@@ -576,173 +397,53 @@ export function App() {
             <p className="hint">Credenciales locales por defecto: admin / admin1234</p>
           </form>
         ) : (
-          <div className="session-card">
-            <div>
-              <p className="session-card__label">Sesion activa</p>
-              <p className="session-card__value">Backend autenticado</p>
+          <>
+            <div className="session-card">
+              <div>
+                <p className="session-card__label">Sesion activa</p>
+                <p className="session-card__value">Backend autenticado</p>
+              </div>
+              <button className="button button--ghost" onClick={handleLogout} type="button">
+                Cerrar sesion
+              </button>
             </div>
-            <button className="button button--ghost" onClick={handleLogout} type="button">
-              Cerrar sesion
-            </button>
-          </div>
+
+            <section className="events-panel">
+              <div className="rail-section rail-section--session">
+                <div className="rail-section__header">
+                  <div>
+                    <p className="eyebrow eyebrow--compact">Workspace</p>
+                    <h2>{workspace?.name ?? "Cargando workspace"}</h2>
+                  </div>
+                </div>
+                <p className="section-copy">
+                  Siempre trabajas sobre el mismo workspace persistente. No hay selector ni borrado de eventos.
+                </p>
+              </div>
+              <div className="rail-divider" />
+              <div className="rail-section">
+                <div className="rail-section__header">
+                  <div>
+                    <p className="eyebrow eyebrow--compact">Resumen</p>
+                    <h2>Estado actual</h2>
+                  </div>
+                </div>
+                <p className="section-copy">
+                  {workspace
+                    ? `${workspace.tables.length} mesas, ${workspace.guests.assigned.length} invitados asignados y ${workspace.guests.unassigned.length} pendientes.`
+                    : "Recuperando datos del workspace unico."}
+                </p>
+              </div>
+            </section>
+          </>
         )}
-
-        <section className="events-panel">
-          <div className="rail-section rail-section--session">
-            <div className="rail-section__header">
-              <div>
-                <p className="eyebrow eyebrow--compact">Sesion</p>
-                <h2>Acceso actual</h2>
-              </div>
-            </div>
-            <p className="section-copy">
-              El rail mantiene la sesion abierta y controla el evento activo del workspace.
-            </p>
-          </div>
-
-          <div className="rail-divider" />
-
-          <div className="rail-section rail-section--create">
-            <div className="rail-section__header">
-              <div>
-                <p className="eyebrow eyebrow--compact">Crear</p>
-                <h2>Nuevo evento</h2>
-              </div>
-              <span className="rail-section__meta">Se abre al instante en el workspace</span>
-            </div>
-          </div>
-          <form className="stack-form stack-form--event" onSubmit={handleEventCreate}>
-            <label className="mini-field">
-              <span>Nombre del evento</span>
-              <input
-                data-testid="event-name-input"
-                value={eventName}
-                aria-invalid={Boolean(eventFormError)}
-                onChange={(event) => setEventName(event.target.value)}
-              />
-            </label>
-            <div className="mini-grid">
-              <label className="mini-field">
-                <span>Mesas</span>
-                <input
-                  data-testid="event-table-count-input"
-                  min={1}
-                  type="number"
-                  value={eventTableCount}
-                  aria-invalid={Boolean(eventFormError)}
-                  onChange={(event) => setEventTableCount(event.target.value)}
-                />
-              </label>
-              <label className="mini-field">
-                <span>Capacidad base</span>
-                <input
-                  data-testid="event-default-capacity-input"
-                  min={1}
-                  type="number"
-                  value={eventDefaultCapacity}
-                  aria-invalid={Boolean(eventFormError)}
-                  onChange={(event) => setEventDefaultCapacity(event.target.value)}
-                />
-              </label>
-            </div>
-            {eventFormError ? <p className="inline-feedback inline-feedback--error">{eventFormError}</p> : null}
-            <button className="button button--primary button--small" disabled={isActionRunning("create-event")} type="submit">
-              {isActionRunning("create-event") ? "Creando..." : "Crear evento"}
-            </button>
-          </form>
-
-          <div className="rail-divider" />
-
-          <div className="events-panel__header events-panel__header--spaced">
-            <div>
-              <p className="eyebrow eyebrow--compact">Gestion</p>
-              <h2>Eventos existentes</h2>
-            </div>
-            <span>{metricLabel(events.length, "evento", "eventos")}</span>
-          </div>
-          {sectionNotices.events ? (
-            <div className={`inline-notice inline-notice--${sectionNotices.events.tone}`}>
-              {sectionNotices.events.message}
-            </div>
-          ) : null}
-          <div className="events-list">
-            {events.length === 0 ? (
-              <p className="empty-state">Crea el primer evento para empezar a construir el seating.</p>
-            ) : (
-              events.map((event) => (
-                <article
-                  key={event.id}
-                  className={`event-card ${selectedEventId === event.id ? "event-card--active" : ""}`}
-                >
-                  <div className="event-card__topline">
-                    <span className="event-card__state">
-                      {selectedEventId === event.id ? "En edicion" : "Disponible"}
-                    </span>
-                    {eventPendingDeleteId === event.id ? (
-                      <span className="event-card__warning">Borrado pendiente</span>
-                    ) : null}
-                  </div>
-                  <button
-                    className="event-card__button"
-                    data-testid={`event-card-${event.id}`}
-                    onClick={() => {
-                      setSelectedEventId(event.id);
-                      setEventPendingDeleteId((current) => (current === event.id ? null : current));
-                    }}
-                    type="button"
-                  >
-                    <span className="event-card__name">{event.name}</span>
-                    <span className="event-card__meta">
-                      {event.table_count} mesas · {event.guest_count} invitados
-                    </span>
-                  </button>
-                  <div className="event-card__actions">
-                    {eventPendingDeleteId === event.id ? (
-                      <>
-                        <p className="event-card__confirm-copy">
-                          Esta accion elimina el evento y su seating guardado.
-                        </p>
-                        <div className="event-card__confirm-actions">
-                          <button
-                            className="button button--danger button--small"
-                            disabled={isActionRunning(`delete-event-${event.id}`)}
-                            onClick={() => void handleEventDelete(event.id)}
-                            type="button"
-                          >
-                            {isActionRunning(`delete-event-${event.id}`) ? "Eliminando..." : "Confirmar borrado"}
-                          </button>
-                          <button
-                            className="button button--ghost button--small"
-                            onClick={() => setEventPendingDeleteId(null)}
-                            type="button"
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <button
-                        className="button button--quiet button--small"
-                        disabled={isActionRunning(`delete-event-${event.id}`)}
-                        onClick={() => setEventPendingDeleteId(event.id)}
-                        type="button"
-                      >
-                        Preparar borrado
-                      </button>
-                    )}
-                  </div>
-                </article>
-              ))
-            )}
-          </div>
-        </section>
       </aside>
 
       <main className="workspace">
         <header className="workspace__hero">
           <div>
             <p className="eyebrow">Workspace agregado</p>
-            <h2>{workspace?.name ?? "Selecciona un evento"}</h2>
+            <h2>{workspace?.name ?? "Workspace unico"}</h2>
             <p className="workspace__copy">
               Mesas, invitados y validacion llegan del backend en una sola llamada.
             </p>
@@ -762,6 +463,7 @@ export function App() {
             </article>
           </div>
         </header>
+
         {workspace ? (
           <section className="attention-strip" aria-label="Alertas de workspace">
             <article className={`attention-strip__item ${groupedConflictCount > 0 ? "attention-strip__item--alert" : ""}`}>
@@ -786,10 +488,7 @@ export function App() {
         {loadingWorkspace ? <div className="banner">Actualizando workspace...</div> : null}
 
         <section className="canvas">
-          <div
-            className={`canvas__tables ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`}
-            aria-busy={tablesSectionBusy}
-          >
+          <div className={`canvas__tables ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
             {sectionNotices.tables ? (
               <div className={`inline-notice inline-notice--${sectionNotices.tables.tone} inline-notice--floating`}>
                 {sectionNotices.tables.message}
@@ -836,10 +535,7 @@ export function App() {
                     <p className="empty-state">Sin invitados asignados.</p>
                   ) : (
                     table.guests.map((guest) => (
-                      <div
-                        className={`guest-chip ${conflictGuestIds.has(guest.id) ? "guest-chip--conflict" : ""}`}
-                        key={guest.id}
-                      >
+                      <div className={`guest-chip ${conflictGuestIds.has(guest.id) ? "guest-chip--conflict" : ""}`} key={guest.id}>
                         <span>{guest.name}</span>
                       </div>
                     ))
@@ -869,11 +565,8 @@ export function App() {
                   <strong>
                     {workspace
                       ? `${Math.round(
-                          workspace.tables.reduce((total, table) => total + table.occupied, 0) /
-                            Math.max(
-                              workspace.tables.reduce((total, table) => total + table.capacity, 0),
-                              1,
-                            ) *
+                          (workspace.tables.reduce((total, table) => total + table.occupied, 0) /
+                            Math.max(workspace.tables.reduce((total, table) => total + table.capacity, 0), 1)) *
                             100,
                         )}%`
                       : "0%"}
@@ -939,11 +632,7 @@ export function App() {
                     onSubmit={(event) => {
                       event.preventDefault();
                       const nextCapacity = Number(capacityValues[selectedTable.id] ?? selectedTable.capacity);
-                      if (
-                        !Number.isInteger(nextCapacity) ||
-                        nextCapacity < selectedTable.occupied ||
-                        nextCapacity <= 0
-                      ) {
+                      if (!Number.isInteger(nextCapacity) || nextCapacity < selectedTable.occupied || nextCapacity <= 0) {
                         setSectionNotice(
                           "tables",
                           "error",
@@ -954,7 +643,7 @@ export function App() {
                       void runWorkspaceAction(
                         `capacity-${selectedTable.id}`,
                         "tables",
-                        () => updateTableCapacity(activeWorkspaceEventId ?? "", selectedTable.id, nextCapacity, token ?? ""),
+                        () => updateTableCapacity(selectedTable.id, nextCapacity, token ?? ""),
                         `Capacidad de la mesa ${selectedTable.number} actualizada.`,
                       );
                     }}
@@ -984,10 +673,7 @@ export function App() {
                   <div className="selected-table-panel__guests">
                     {selectedTable.guests.length > 0 ? (
                       selectedTable.guests.map((guest) => (
-                        <article
-                          className={`selected-guest ${conflictGuestIds.has(guest.id) ? "selected-guest--conflict" : ""}`}
-                          key={guest.id}
-                        >
+                        <article className={`selected-guest ${conflictGuestIds.has(guest.id) ? "selected-guest--conflict" : ""}`} key={guest.id}>
                           <div>
                             <strong>{guest.name}</strong>
                             <span>{guest.group_id ? `Agrupacion ${guest.group_id}` : guest.guest_type}</span>
@@ -999,7 +685,7 @@ export function App() {
                               void runWorkspaceAction(
                                 `unassign-${guest.id}`,
                                 "tables",
-                                () => unassignGuest(activeWorkspaceEventId ?? "", guest.id, token ?? ""),
+                                () => unassignGuest(guest.id, token ?? ""),
                                 `${guest.name} vuelve a la lista sin asignar.`,
                               )
                             }
@@ -1021,136 +707,122 @@ export function App() {
 
             <section className="list-card">
               <div data-testid="unassigned-guests-panel">
-              {sectionNotices.guests ? (
-                <div className={`inline-notice inline-notice--${sectionNotices.guests.tone}`}>
-                  {sectionNotices.guests.message}
+                {sectionNotices.guests ? (
+                  <div className={`inline-notice inline-notice--${sectionNotices.guests.tone}`}>
+                    {sectionNotices.guests.message}
+                  </div>
+                ) : null}
+                <div className="list-card__header">
+                  <h3>Sin asignar</h3>
+                  <span>{workspace?.guests.unassigned.length ?? 0}</span>
                 </div>
-              ) : null}
-              <div className="list-card__header">
-                <h3>Sin asignar</h3>
-                <span>{workspace?.guests.unassigned.length ?? 0}</span>
-              </div>
-              <p className="microcopy">
-                Arrastra un invitado hacia el plano. Cuando entres en modo arrastre, las mesas mostraran su zona de recepcion.
-              </p>
-              <form className="stack-form" onSubmit={handleGuestCreate}>
-                <label className="mini-field">
-                  <span>Nombre</span>
-                  <input
-                    data-testid="guest-name-input"
-                    value={guestName}
-                    aria-invalid={Boolean(guestFormError)}
-                    onChange={(event) => setGuestName(event.target.value)}
-                  />
-                </label>
-                <div className="mini-grid">
+                <p className="microcopy">
+                  Arrastra un invitado hacia el plano. Cuando entres en modo arrastre, las mesas mostraran su zona de recepcion.
+                </p>
+                <form className="stack-form" onSubmit={handleGuestCreate}>
                   <label className="mini-field">
-                    <span>Tipo</span>
-                    <select value={guestType} onChange={(event) => setGuestType(event.target.value)}>
-                      <option value="adulto">adulto</option>
-                      <option value="adolescente">adolescente</option>
-                      <option value="nino">nino</option>
-                    </select>
-                  </label>
-                  <label className="mini-field">
-                    <span>Agrupacion</span>
+                    <span>Nombre</span>
                     <input
-                      placeholder="opcional"
-                      value={guestGroupId}
-                      onChange={(event) => setGuestGroupId(event.target.value)}
+                      data-testid="guest-name-input"
+                      value={guestName}
+                      aria-invalid={Boolean(guestFormError)}
+                      onChange={(event) => setGuestName(event.target.value)}
                     />
                   </label>
+                  <div className="mini-grid">
+                    <label className="mini-field">
+                      <span>Tipo</span>
+                      <select value={guestType} onChange={(event) => setGuestType(event.target.value)}>
+                        <option value="adulto">adulto</option>
+                        <option value="adolescente">adolescente</option>
+                        <option value="nino">nino</option>
+                      </select>
+                    </label>
+                    <label className="mini-field">
+                      <span>Agrupacion</span>
+                      <input placeholder="opcional" value={guestGroupId} onChange={(event) => setGuestGroupId(event.target.value)} />
+                    </label>
+                  </div>
+                  {guestFormError ? <p className="inline-feedback inline-feedback--error">{guestFormError}</p> : null}
+                  <button className="button button--primary button--small" disabled={isActionRunning("create-guest")} type="submit">
+                    {isActionRunning("create-guest") ? "Guardando..." : "Anadir invitado"}
+                  </button>
+                </form>
+                <div className="guest-list">
+                  {workspace && workspace.guests.unassigned.length > 0 ? (
+                    workspace.guests.unassigned.map((guest) => (
+                      <article
+                        className={`guest-card ${conflictGuestIds.has(guest.id) ? "guest-card--conflict" : ""} ${draggedGuestId === guest.id ? "guest-card--dragging" : ""}`}
+                        data-testid={`unassigned-guest-${guest.id}`}
+                        key={guest.id}
+                        draggable
+                        onDragEnd={handleGuestDragEnd}
+                        onDragStart={(event) => handleGuestDragStart(event, guest.id)}
+                      >
+                        <div className="guest-card__header">
+                          <strong>{guest.name}</strong>
+                          <span>{guest.guest_type}</span>
+                        </div>
+                        {draggedGuestId === guest.id ? (
+                          <div className="guest-card__drag-hint">En movimiento: suelta esta tarjeta sobre una mesa.</div>
+                        ) : null}
+                        <div className="guest-card__meta">
+                          <span>{guest.group_id ? `Agrupacion ${guest.group_id}` : "Sin agrupacion"}</span>
+                        </div>
+                        <div className="guest-card__actions">
+                          <select
+                            value={assignmentValues[guest.id] ?? ""}
+                            onChange={(event) =>
+                              setAssignmentValues((current) => ({ ...current, [guest.id]: event.target.value }))
+                            }
+                          >
+                            <option value="">Asignar a mesa</option>
+                            {workspace.tables.map((table) => (
+                              <option key={table.id} value={table.id}>
+                                Mesa {table.number}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            className="button button--ghost button--small"
+                            disabled={!assignmentValues[guest.id] || isActionRunning(`assign-${guest.id}`)}
+                            onClick={() =>
+                              void runWorkspaceAction(
+                                `assign-${guest.id}`,
+                                "guests",
+                                () => assignGuest(guest.id, assignmentValues[guest.id], token ?? ""),
+                                `${guest.name} asignado correctamente.`,
+                              )
+                            }
+                            type="button"
+                          >
+                            Asignar
+                          </button>
+                          <button className="button button--ghost button--small" onClick={() => beginGuestEdit(guest)} type="button">
+                            Editar
+                          </button>
+                          <button
+                            className="button button--ghost button--small"
+                            disabled={isActionRunning(`delete-${guest.id}`)}
+                            onClick={() =>
+                              void runWorkspaceAction(
+                                `delete-${guest.id}`,
+                                "guests",
+                                () => deleteGuest(guest.id, token ?? ""),
+                                `${guest.name} eliminado.`,
+                              )
+                            }
+                            type="button"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </article>
+                    ))
+                  ) : (
+                    <p className="empty-state">Nada pendiente.</p>
+                  )}
                 </div>
-                {guestFormError ? <p className="inline-feedback inline-feedback--error">{guestFormError}</p> : null}
-                <button className="button button--primary button--small" disabled={isActionRunning("create-guest")} type="submit">
-                  {isActionRunning("create-guest") ? "Guardando..." : "Anadir invitado"}
-                </button>
-              </form>
-              <div className="guest-list">
-                {workspace && workspace.guests.unassigned.length > 0 ? (
-                  workspace.guests.unassigned.map((guest) => (
-                    <article
-                      className={`guest-card ${conflictGuestIds.has(guest.id) ? "guest-card--conflict" : ""} ${draggedGuestId === guest.id ? "guest-card--dragging" : ""}`}
-                      data-testid={`unassigned-guest-${guest.id}`}
-                      key={guest.id}
-                      draggable
-                      onDragEnd={handleGuestDragEnd}
-                      onDragStart={(event) => handleGuestDragStart(event, guest.id)}
-                    >
-                      <div className="guest-card__header">
-                        <strong>{guest.name}</strong>
-                        <span>{guest.guest_type}</span>
-                      </div>
-                      {draggedGuestId === guest.id ? (
-                        <div className="guest-card__drag-hint">En movimiento: suelta esta tarjeta sobre una mesa.</div>
-                      ) : null}
-                      <div className="guest-card__meta">
-                        <span>{guest.group_id ? `Agrupacion ${guest.group_id}` : "Sin agrupacion"}</span>
-                      </div>
-                      <div className="guest-card__actions">
-                        <select
-                          value={assignmentValues[guest.id] ?? ""}
-                          onChange={(event) =>
-                            setAssignmentValues((current) => ({ ...current, [guest.id]: event.target.value }))
-                          }
-                        >
-                          <option value="">Asignar a mesa</option>
-                          {workspace.tables.map((table) => (
-                            <option key={table.id} value={table.id}>
-                              Mesa {table.number}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          className="button button--ghost button--small"
-                          disabled={!assignmentValues[guest.id] || isActionRunning(`assign-${guest.id}`)}
-                          onClick={() =>
-                            void runWorkspaceAction(
-                              `assign-${guest.id}`,
-                              "guests",
-                              () =>
-                                assignGuest(
-                                  workspace.event_id,
-                                  guest.id,
-                                  assignmentValues[guest.id],
-                                  token ?? "",
-                                ),
-                              `${guest.name} asignado correctamente.`,
-                            )
-                          }
-                          type="button"
-                        >
-                          Asignar
-                        </button>
-                        <button
-                          className="button button--ghost button--small"
-                          onClick={() => beginGuestEdit(guest)}
-                          type="button"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          className="button button--ghost button--small"
-                          disabled={isActionRunning(`delete-${guest.id}`)}
-                          onClick={() =>
-                            void runWorkspaceAction(
-                              `delete-${guest.id}`,
-                              "guests",
-                              () => deleteGuest(workspace.event_id, guest.id, token ?? ""),
-                              `${guest.name} eliminado.`,
-                            )
-                          }
-                          type="button"
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    </article>
-                  ))
-                ) : (
-                  <p className="empty-state">Nada pendiente.</p>
-                )}
-              </div>
               </div>
             </section>
 
@@ -1208,19 +880,12 @@ export function App() {
             <form className="stack-form" onSubmit={handleGuestUpdate}>
               <label className="mini-field">
                 <span>Nombre</span>
-                <input
-                  value={editingGuestName}
-                  aria-invalid={Boolean(editingGuestError)}
-                  onChange={(event) => setEditingGuestName(event.target.value)}
-                />
+                <input value={editingGuestName} aria-invalid={Boolean(editingGuestError)} onChange={(event) => setEditingGuestName(event.target.value)} />
               </label>
               <div className="mini-grid">
                 <label className="mini-field">
                   <span>Tipo</span>
-                  <select
-                    value={editingGuestType}
-                    onChange={(event) => setEditingGuestType(event.target.value)}
-                  >
+                  <select value={editingGuestType} onChange={(event) => setEditingGuestType(event.target.value)}>
                     <option value="adulto">adulto</option>
                     <option value="adolescente">adolescente</option>
                     <option value="nino">nino</option>
@@ -1228,18 +893,11 @@ export function App() {
                 </label>
                 <label className="mini-field">
                   <span>Agrupacion</span>
-                  <input
-                    value={editingGuestGroupId}
-                    onChange={(event) => setEditingGuestGroupId(event.target.value)}
-                  />
+                  <input value={editingGuestGroupId} onChange={(event) => setEditingGuestGroupId(event.target.value)} />
                 </label>
               </div>
               {editingGuestError ? <p className="inline-feedback inline-feedback--error">{editingGuestError}</p> : null}
-              <button
-                className="button button--primary button--small"
-                disabled={isActionRunning(`update-${editingGuestId}`)}
-                type="submit"
-              >
+              <button className="button button--primary button--small" disabled={isActionRunning(`update-${editingGuestId}`)} type="submit">
                 {isActionRunning(`update-${editingGuestId}`) ? "Guardando..." : "Guardar cambios"}
               </button>
             </form>

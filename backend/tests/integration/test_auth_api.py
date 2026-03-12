@@ -55,8 +55,8 @@ async def client_with_auth(tmp_path: Path):
 
 
 @pytest.mark.anyio
-async def test_login_me_logout_and_protected_events(client_with_auth: AsyncClient) -> None:
-    unauthorized_response = await client_with_auth.get("/api/events")
+async def test_login_me_logout_and_protected_workspace(client_with_auth: AsyncClient) -> None:
+    unauthorized_response = await client_with_auth.get("/api/workspace")
     assert unauthorized_response.status_code == 401
 
     login_response = await client_with_auth.post(
@@ -74,11 +74,11 @@ async def test_login_me_logout_and_protected_events(client_with_auth: AsyncClien
     assert me_response.status_code == 200
     assert me_response.json()["username"] == "admin"
 
-    authorized_events_response = await client_with_auth.get(
-        "/api/events",
+    authorized_workspace_response = await client_with_auth.get(
+        "/api/workspace",
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert authorized_events_response.status_code == 200
+    assert authorized_workspace_response.status_code == 200
 
     logout_response = await client_with_auth.post(
         "/api/auth/logout",
