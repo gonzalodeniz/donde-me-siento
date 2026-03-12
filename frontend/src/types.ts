@@ -1,12 +1,3 @@
-export type EventSummary = {
-  id: string;
-  name: string;
-  date: string | null;
-  default_table_capacity: number;
-  table_count: number;
-  guest_count: number;
-};
-
 export type Guest = {
   id: string;
   name: string;

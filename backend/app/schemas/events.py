@@ -1,4 +1,4 @@
-"""Esquemas Pydantic para eventos."""
+"""Esquemas Pydantic para el workspace unico."""
 
 from __future__ import annotations
 
@@ -8,24 +8,13 @@ from backend.app.domains.seating import Event
 
 
 class GuestCreate(BaseModel):
-    """Payload de invitado al crear un evento."""
+    """Payload de invitado al crear o restaurar el workspace."""
 
     id: str | None = Field(default=None, min_length=1, max_length=64)
     name: str = Field(min_length=1, max_length=255)
     guest_type: str = Field(min_length=1, max_length=32)
     group_id: str | None = Field(default=None, max_length=64)
     table_id: str | None = Field(default=None, max_length=64)
-
-
-class EventCreate(BaseModel):
-    """Payload para crear un evento."""
-
-    name: str = Field(min_length=1, max_length=255)
-    date: str | None = Field(default=None, max_length=32)
-    default_table_capacity: int = Field(gt=0)
-    table_count: int = Field(gt=0, le=100)
-    guests: list[GuestCreate] = Field(default_factory=list)
-
 
 class TableResponse(BaseModel):
     """Mesa serializada para la API."""
@@ -63,20 +52,6 @@ class EventResponse(BaseModel):
     tables: list[TableResponse]
     guests: list[GuestResponse]
 
-
-class EventSummaryResponse(BaseModel):
-    """Listado resumido de eventos."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    name: str
-    date: str | None
-    default_table_capacity: int
-    table_count: int
-    guest_count: int
-
-
 class GuestUpdate(BaseModel):
     """Payload para actualizar un invitado."""
 
@@ -97,6 +72,12 @@ class TableCapacityUpdate(BaseModel):
     capacity: int = Field(gt=0)
 
 
+class DefaultTableCapacityUpdate(BaseModel):
+    """Payload para ajustar el aforo por defecto de mesas nuevas."""
+
+    capacity: int = Field(gt=0)
+
+
 class TableSummaryResponse(BaseModel):
     """Resumen de una mesa para panel y validacion."""
 
@@ -108,7 +89,7 @@ class TableSummaryResponse(BaseModel):
 
 
 class ValidationResponse(BaseModel):
-    """Estado de validacion del evento listo para frontend."""
+    """Estado de validacion del workspace listo para frontend."""
 
     grouping_conflicts: dict[str, list[str]]
     tables: list[TableSummaryResponse]
@@ -137,7 +118,7 @@ class WorkspaceTableResponse(BaseModel):
 
 
 class WorkspaceResponse(BaseModel):
-    """Estado agregado del evento listo para pintar el workspace."""
+    """Estado agregado del workspace listo para pintar la UI."""
 
     event_id: str
     name: str

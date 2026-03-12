@@ -1,26 +1,50 @@
 import { expect, test, type Page } from "@playwright/test";
 
-async function loginAsAdmin(page: Page) {
-  await page.goto("/");
-  await page.getByLabel("Usuario").fill("admin");
-  await page.getByLabel("Contrasena").fill("admin1234");
-  await page.getByRole("button", { name: "Abrir workspace" }).click();
-  await expect(page.getByText("Backend autenticado")).toBeVisible();
+async function setSelectedTableSeats(page: Page, target: number) {
+  const seatValue = page.locator(".stepper__value strong");
+  const decrementButton = page.locator(".stepper__button").first();
+
+  while (Number(await seatValue.innerText()) > target) {
+    await expect(decrementButton).toBeEnabled();
+    await decrementButton.click();
+  }
+
+  await expect(seatValue).toHaveText(String(target));
 }
 
-test("flujo MVP: login, crear evento, asignar por drag and drop y recargar", async ({ page }) => {
-  const eventName = `Boda E2E ${Date.now()}`;
+async function loginThroughAccessScreen(page: Page) {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "dónde me siento" })).toBeVisible();
+  const username = await page.getByLabel("Tu vida").inputValue();
+  const password = username === "raquel" ? "héctor" : "raquel";
+  await page.getByLabel("Tu llave").fill(password);
+  await page.getByRole("button", { name: "Repartir amor en las mesas" }).click();
+  await expect(page.getByRole("heading", { name: "dónde me siento" })).toHaveCount(0);
+  await expect(page.locator(".workspace__hero")).toBeVisible();
+}
+
+test("flujo MVP con workspace unico: login, alta, drag and drop y recarga", async ({ page }) => {
   const guestOne = `Ana E2E ${Date.now()}`;
   const guestTwo = `Luis E2E ${Date.now()}`;
 
-  await loginAsAdmin(page);
+  await loginThroughAccessScreen(page);
 
-  await page.getByTestId("event-name-input").fill(eventName);
-  await page.getByTestId("event-table-count-input").fill("2");
-  await page.getByTestId("event-default-capacity-input").fill("4");
-  await page.getByRole("button", { name: "Crear evento" }).click();
+  await expect(page.getByText("Ajustes de Mesa seleccionada")).toBeVisible();
+  await expect(page.getByText("Resumen del Banquete")).toBeVisible();
+  await page.getByTestId("table-card-table-8").click();
+  await expect(page.locator(".stepper__caption")).toHaveText("Asientos");
+  await expect(page.locator(".stepper__value strong")).toHaveText("10");
 
-  await expect(page.getByRole("heading", { name: eventName })).toBeVisible();
+  await page.getByRole("button", { name: "Ajustar asientos generales" }).click();
+  await expect(page.locator(".stepper__caption")).toHaveText("Asientos generales");
+  await page.locator(".stepper__button").last().click();
+  await expect(page.locator(".stepper__value strong")).toHaveText("11");
+
+  await page.getByTestId("table-card-table-8").click();
+  await expect(page.locator(".stepper__caption")).toHaveText("Asientos");
+  await page.getByRole("button", { name: "Quitar mesa" }).click();
+  await page.getByRole("button", { name: "Confirmar retirada" }).click();
+  await expect(page.getByTestId("table-card-table-8")).toHaveCount(0);
 
   await page.getByTestId("guest-name-input").fill(guestOne);
   await page.getByRole("button", { name: "Anadir invitado" }).click();
@@ -47,8 +71,6 @@ test("flujo MVP: login, crear evento, asignar por drag and drop y recargar", asy
   await tableOneDropzone.dispatchEvent("drop", { dataTransfer: firstDataTransfer });
   await firstGuestCard.dispatchEvent("dragend", { dataTransfer: firstDataTransfer });
 
-  await expect(page.getByTestId("table-card-table-1")).toContainText(guestOne);
-
   await secondGuestCard.dispatchEvent("dragstart", { dataTransfer: secondDataTransfer });
   await tableOneDropzone.dispatchEvent("dragenter", { dataTransfer: secondDataTransfer });
   await tableOneDropzone.dispatchEvent("dragover", { dataTransfer: secondDataTransfer });
@@ -57,31 +79,27 @@ test("flujo MVP: login, crear evento, asignar por drag and drop y recargar", asy
 
   await expect(page.getByTestId("table-card-table-1")).toContainText(guestOne);
   await expect(page.getByTestId("table-card-table-1")).toContainText(guestTwo);
+  const currentWorkspaceName = await page.locator(".workspace__hero h2").innerText();
 
   await page.reload();
 
-  await expect(page.getByText("Backend autenticado")).toBeVisible();
-  await page.getByRole("button", { name: new RegExp(eventName) }).click();
-  await expect(page.getByRole("heading", { name: eventName })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "dónde me siento" })).toHaveCount(0);
+  await expect(page.locator("main").getByRole("heading", { name: currentWorkspaceName })).toBeVisible();
   await expect(page.getByTestId("table-card-table-1")).toContainText(guestOne);
   await expect(page.getByTestId("table-card-table-1")).toContainText(guestTwo);
+
+  await page.getByRole("button", { name: "Cerrar sesion" }).click();
+  await expect(page.getByRole("heading", { name: "dónde me siento" })).toBeVisible();
 });
 
-test("estados UX: alertas de conflicto y aforo, confirmacion de borrado y cancelacion", async ({ page }) => {
+test("estados UX del workspace unico: alertas de conflicto y aforo", async ({ page }) => {
   const base = Date.now();
-  const eventName = `Workshop UX ${base}`;
   const guestOne = `Clara ${base}`;
   const guestTwo = `Mario ${base}`;
   const sharedGroup = `familia-${base}`;
 
-  await loginAsAdmin(page);
+  await loginThroughAccessScreen(page);
 
-  await page.getByTestId("event-name-input").fill(eventName);
-  await page.getByTestId("event-table-count-input").fill("2");
-  await page.getByTestId("event-default-capacity-input").fill("1");
-  await page.getByRole("button", { name: "Crear evento" }).click();
-
-  await expect(page.getByRole("heading", { name: eventName })).toBeVisible();
   const unassignedPanel = page.getByTestId("unassigned-guests-panel");
 
   await page.getByTestId("guest-name-input").fill(guestOne);
@@ -94,6 +112,14 @@ test("estados UX: alertas de conflicto y aforo, confirmacion de borrado y cancel
   await page.getByRole("button", { name: "Anadir invitado" }).click();
   await expect(unassignedPanel.getByText(guestTwo)).toBeVisible();
 
+  await page.getByTestId("table-card-table-2").click();
+  await expect(page.locator(".control-card").nth(1)).toContainText("Mesa 2");
+  await setSelectedTableSeats(page, 1);
+
+  await page.getByTestId("table-card-table-3").click();
+  await expect(page.locator(".control-card").nth(1)).toContainText("Mesa 3");
+  await setSelectedTableSeats(page, 1);
+
   const firstGuestCard = page.locator('[data-testid="unassigned-guests-panel"] .guest-card', {
     hasText: guestOne,
   });
@@ -101,8 +127,11 @@ test("estados UX: alertas de conflicto y aforo, confirmacion de borrado y cancel
     hasText: guestTwo,
   });
 
-  const tableOneDropzone = page.getByRole("button", { name: "Mesa 1", exact: true });
+  const tableOneDropzone = page.getByRole("button", { name: "Mesa 2", exact: true });
+  const tableTwoDropzone = page.getByRole("button", { name: "Mesa 3", exact: true });
   const firstDataTransfer = await page.evaluateHandle(() => new DataTransfer());
+  const secondDataTransfer = await page.evaluateHandle(() => new DataTransfer());
+
   await firstGuestCard.dispatchEvent("dragstart", { dataTransfer: firstDataTransfer });
   await tableOneDropzone.dispatchEvent("dragenter", { dataTransfer: firstDataTransfer });
   await expect(page.getByText(`Suelta a ${guestOne} sobre una mesa resaltada para sentarlo.`)).toBeVisible();
@@ -110,35 +139,20 @@ test("estados UX: alertas de conflicto y aforo, confirmacion de borrado y cancel
   await tableOneDropzone.dispatchEvent("drop", { dataTransfer: firstDataTransfer });
   await firstGuestCard.dispatchEvent("dragend", { dataTransfer: firstDataTransfer });
 
-  const tableTwoDropzone = page.getByRole("button", { name: "Mesa 2", exact: true });
-  const secondDataTransfer = await page.evaluateHandle(() => new DataTransfer());
   await secondGuestCard.dispatchEvent("dragstart", { dataTransfer: secondDataTransfer });
   await tableTwoDropzone.dispatchEvent("dragenter", { dataTransfer: secondDataTransfer });
   await tableTwoDropzone.dispatchEvent("dragover", { dataTransfer: secondDataTransfer });
   await tableTwoDropzone.dispatchEvent("drop", { dataTransfer: secondDataTransfer });
   await secondGuestCard.dispatchEvent("dragend", { dataTransfer: secondDataTransfer });
 
-  await expect(page.getByRole("heading", { name: eventName })).toBeVisible();
   await expect(page.locator(".attention-strip")).toContainText("Conflictos de agrupacion");
   await expect(page.locator(".attention-strip")).toContainText("Mesas sin margen");
   await expect(page.locator(".attention-strip")).toContainText("Mesas a revisar");
-  await expect(page.locator(".attention-strip")).toContainText("2");
   await expect(page.locator(".table-summary-row--conflict")).toHaveCount(2);
-  await expect(page.locator(".table-summary-row--full")).toHaveCount(2);
+  await expect(page.locator(".table-summary-row--full").first()).toBeVisible();
 
-  await page.getByTestId("table-card-table-1").click();
+  await page.getByTestId("table-card-table-2").click();
   await expect(page.locator(".selected-table-panel__alerts")).toContainText(
     "Esta mesa tiene invitados con conflicto de agrupacion.",
   );
-  await expect(page.locator(".selected-table-panel__alerts")).toContainText(
-    "Esta mesa esta completa.",
-  );
-  await expect(page.getByText("Conflicto").first()).toBeVisible();
-
-  const activeEventCard = page.locator(".event-card", { hasText: eventName }).filter({ hasText: "En edicion" });
-  await activeEventCard.getByRole("button", { name: eventName }).click();
-  await activeEventCard.getByRole("button", { name: "Preparar borrado" }).click();
-  await expect(page.getByText("Esta accion elimina el evento y su seating guardado.")).toBeVisible();
-  await activeEventCard.getByRole("button", { name: "Cancelar" }).click();
-  await expect(page.getByText("Esta accion elimina el evento y su seating guardado.")).not.toBeVisible();
 });

@@ -11,7 +11,9 @@ from backend.app.api.routes.events import router as events_router
 from backend.app.core.config import settings
 from backend.app.db.session import SessionLocal, init_db
 from backend.app.repositories.auth import SessionRepository, UserRepository
+from backend.app.repositories.events import EventRepository
 from backend.app.services.auth import AuthService
+from backend.app.services.events import EventService
 
 
 @asynccontextmanager
@@ -22,7 +24,8 @@ async def lifespan(_: FastAPI):
     session = SessionLocal()
     try:
         auth_service = AuthService(UserRepository(session), SessionRepository(session))
-        auth_service.ensure_default_user(settings.default_admin_username, settings.default_admin_password)
+        auth_service.ensure_pair_users()
+        EventService(EventRepository(session)).ensure_workspace()
         yield
     finally:
         session.close()

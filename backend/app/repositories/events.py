@@ -22,6 +22,18 @@ class EventRepository:
         self.session.refresh(model)
         return self._to_domain(model)
 
+    def get_singleton(self) -> Event | None:
+        statement = (
+            select(EventModel)
+            .order_by(EventModel.id.asc())
+            .limit(1)
+            .options(selectinload(EventModel.tables), selectinload(EventModel.guests))
+        )
+        model = self.session.scalar(statement)
+        if model is None:
+            return None
+        return self._to_domain(model)
+
     def list(self) -> list[Event]:
         statement = select(EventModel).options(
             selectinload(EventModel.tables),
