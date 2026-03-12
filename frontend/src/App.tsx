@@ -121,6 +121,7 @@ export function App() {
   const [pendingTableRemovalId, setPendingTableRemovalId] = useState<string | null>(null);
   const [draggedGuestId, setDraggedGuestId] = useState<string | null>(null);
   const [activeDropSeat, setActiveDropSeat] = useState<SeatTarget | null>(null);
+  const [isRailOpen, setIsRailOpen] = useState(true);
   const [sectionNotices, setSectionNotices] = useState<Record<SectionKey, SectionNotice | null>>({
     guests: null,
     tables: null,
@@ -507,257 +508,283 @@ export function App() {
   }
 
   return (
-    <div className="shell">
+    <div className={`shell ${isRailOpen ? "" : "shell--rail-collapsed"}`}>
       <div className="shell__backdrop shell__backdrop--one" />
       <div className="shell__backdrop shell__backdrop--two" />
-      <aside className="rail">
-        <p className="eyebrow">Donde me siento</p>
-        <h1 className="rail__title">Diseño del Salón</h1>
+      <aside className={`rail ${isRailOpen ? "" : "rail--collapsed"}`}>
+        <div className="rail__inner">
+          <p className="eyebrow">Donde me siento</p>
+          <h1 className="rail__title">Diseño del Salón</h1>
 
-        <section className="events-panel">
-          {sectionNotices.tables ? (
-            <div className={`inline-notice inline-notice--${sectionNotices.tables.tone}`}>
-              {sectionNotices.tables.message}
-            </div>
-          ) : null}
-          <div className="rail-section">
-            <div className="rail-section__header">
-              <div>
-                <p className="eyebrow eyebrow--compact">Mesa seleccionada</p>
-                <h2>Ajustes de Mesa seleccionada</h2>
+          <section className="events-panel">
+            {sectionNotices.tables ? (
+              <div className={`inline-notice inline-notice--${sectionNotices.tables.tone}`}>
+                {sectionNotices.tables.message}
               </div>
-            </div>
-            {selectedTable ? (
-              <div className="rail-table-settings">
-                <div className="rail-table-settings__meta">
-                  <span>Mesa {selectedTable.number}</span>
-                  <strong>{selectedTable.occupied} sentados</strong>
+            ) : null}
+            <div className="rail-section">
+              <div className="rail-section__header">
+                <div>
+                  <p className="eyebrow eyebrow--compact">Mesa seleccionada</p>
+                  <h2>Ajustes de Mesa seleccionada</h2>
                 </div>
-                <button
-                  className="button button--link button--small"
-                  onClick={() => setSelectedTableId(null)}
-                  type="button"
-                >
-                  Ajustar asientos generales
-                </button>
-                <div className="stepper" aria-label="Asientos">
-                  <button
-                    className="stepper__button"
-                    disabled={
-                      isActionRunning(`capacity-${selectedTable.id}`) || selectedTable.capacity <= selectedTable.occupied
-                    }
-                    onClick={() =>
-                      void runWorkspaceAction(
-                        `capacity-${selectedTable.id}`,
-                        "tables",
-                        () => updateTableCapacity(selectedTable.id, selectedTable.capacity - 1, token ?? ""),
-                        `Los asientos de la mesa ${selectedTable.number} se han ajustado.`,
-                      )
-                    }
-                    type="button"
-                  >
-                    -
-                  </button>
-                  <div className="stepper__value stepper__value--stacked">
-                    <span className="stepper__caption">Asientos</span>
-                    <strong>{selectedTable.capacity}</strong>
+              </div>
+              {selectedTable ? (
+                <div className="rail-table-settings">
+                  <div className="rail-table-settings__meta">
+                    <span>Mesa {selectedTable.number}</span>
+                    <strong>{selectedTable.occupied} sentados</strong>
                   </div>
                   <button
-                    className="stepper__button"
-                    disabled={isActionRunning(`capacity-${selectedTable.id}`)}
-                    onClick={() =>
-                      void runWorkspaceAction(
-                        `capacity-${selectedTable.id}`,
-                        "tables",
-                        () => updateTableCapacity(selectedTable.id, selectedTable.capacity + 1, token ?? ""),
-                        `Los asientos de la mesa ${selectedTable.number} se han ajustado.`,
-                      )
-                    }
+                    className="button button--link button--small"
+                    onClick={() => setSelectedTableId(null)}
                     type="button"
                   >
-                    +
+                    Ajustar asientos generales
                   </button>
-                </div>
-                {pendingTableRemovalId === selectedTable.id ? (
-                  <div className="rail-table-settings__confirm">
+                  <div className="stepper" aria-label="Asientos">
                     <button
-                      className="button button--quiet button--small"
-                      onClick={() => setPendingTableRemovalId(null)}
-                      type="button"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      className="button button--ghost button--small"
-                      disabled={isActionRunning(`remove-table-${selectedTable.id}`)}
+                      className="stepper__button"
+                      disabled={
+                        isActionRunning(`capacity-${selectedTable.id}`) || selectedTable.capacity <= selectedTable.occupied
+                      }
                       onClick={() =>
                         void runWorkspaceAction(
-                          `remove-table-${selectedTable.id}`,
+                          `capacity-${selectedTable.id}`,
                           "tables",
-                          async () => {
-                            await deleteTable(selectedTable.id, token ?? "");
-                            setPendingTableRemovalId(null);
-                          },
-                          `La mesa ${selectedTable.number} se ha retirado del salón.`,
+                          () => updateTableCapacity(selectedTable.id, selectedTable.capacity - 1, token ?? ""),
+                          `Los asientos de la mesa ${selectedTable.number} se han ajustado.`,
                         )
                       }
                       type="button"
                     >
-                      {isActionRunning(`remove-table-${selectedTable.id}`) ? "Quitando..." : "Confirmar retirada"}
+                      -
+                    </button>
+                    <div className="stepper__value stepper__value--stacked">
+                      <span className="stepper__caption">Asientos</span>
+                      <strong>{selectedTable.capacity}</strong>
+                    </div>
+                    <button
+                      className="stepper__button"
+                      disabled={isActionRunning(`capacity-${selectedTable.id}`)}
+                      onClick={() =>
+                        void runWorkspaceAction(
+                          `capacity-${selectedTable.id}`,
+                          "tables",
+                          () => updateTableCapacity(selectedTable.id, selectedTable.capacity + 1, token ?? ""),
+                          `Los asientos de la mesa ${selectedTable.number} se han ajustado.`,
+                        )
+                      }
+                      type="button"
+                    >
+                      +
                     </button>
                   </div>
-                ) : (
+                  {pendingTableRemovalId === selectedTable.id ? (
+                    <div className="rail-table-settings__confirm">
+                      <button
+                        className="button button--quiet button--small"
+                        onClick={() => setPendingTableRemovalId(null)}
+                        type="button"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        className="button button--ghost button--small"
+                        disabled={isActionRunning(`remove-table-${selectedTable.id}`)}
+                        onClick={() =>
+                          void runWorkspaceAction(
+                            `remove-table-${selectedTable.id}`,
+                            "tables",
+                            async () => {
+                              await deleteTable(selectedTable.id, token ?? "");
+                              setPendingTableRemovalId(null);
+                            },
+                            `La mesa ${selectedTable.number} se ha retirado del salón.`,
+                          )
+                        }
+                        type="button"
+                      >
+                        {isActionRunning(`remove-table-${selectedTable.id}`) ? "Quitando..." : "Confirmar retirada"}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="button button--quiet button--small"
+                      onClick={() => setPendingTableRemovalId(selectedTable.id)}
+                      type="button"
+                    >
+                      Quitar mesa
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="rail-table-settings">
+                  <p className="section-copy">Sin mesa seleccionada. Estos asientos se aplicarán a cada mesa nueva.</p>
                   <button
-                    className="button button--quiet button--small"
-                    onClick={() => setPendingTableRemovalId(selectedTable.id)}
-                    type="button"
-                  >
-                    Quitar mesa
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="rail-table-settings">
-                <p className="section-copy">Sin mesa seleccionada. Estos asientos se aplicarán a cada mesa nueva.</p>
-                <button
-                  className="button button--ghost button--small"
-                  disabled={isActionRunning("create-table")}
-                  onClick={() =>
-                    void runWorkspaceAction(
-                      "create-table",
-                      "tables",
-                      () => createTable(token ?? ""),
-                      "Nuestra nueva mesa ya forma parte del salón.",
-                    )
-                  }
-                  type="button"
-                >
-                  {isActionRunning("create-table") ? "Creando mesa..." : "Crear Nuestra Mesa"}
-                </button>
-                <div className="stepper" aria-label="Asientos generales">
-                  <button
-                    className="stepper__button"
-                    disabled={isActionRunning("default-table-capacity") || (workspace?.default_table_capacity ?? 1) <= 1}
+                    className="button button--ghost button--small"
+                    disabled={isActionRunning("create-table")}
                     onClick={() =>
                       void runWorkspaceAction(
-                        "default-table-capacity",
+                        "create-table",
                         "tables",
-                        () => updateDefaultTableCapacity((workspace?.default_table_capacity ?? 1) - 1, token ?? ""),
-                        "Los asientos generales para nuevas mesas se han ajustado.",
+                        () => createTable(token ?? ""),
+                        "Nuestra nueva mesa ya forma parte del salón.",
                       )
                     }
                     type="button"
                   >
-                    -
+                    {isActionRunning("create-table") ? "Creando mesa..." : "Crear Nuestra Mesa"}
                   </button>
-                  <div className="stepper__value stepper__value--stacked">
-                    <span className="stepper__caption">Asientos generales</span>
-                    <strong>{workspace?.default_table_capacity ?? 0}</strong>
+                  <div className="stepper" aria-label="Asientos generales">
+                    <button
+                      className="stepper__button"
+                      disabled={isActionRunning("default-table-capacity") || (workspace?.default_table_capacity ?? 1) <= 1}
+                      onClick={() =>
+                        void runWorkspaceAction(
+                          "default-table-capacity",
+                          "tables",
+                          () => updateDefaultTableCapacity((workspace?.default_table_capacity ?? 1) - 1, token ?? ""),
+                          "Los asientos generales para nuevas mesas se han ajustado.",
+                        )
+                      }
+                      type="button"
+                    >
+                      -
+                    </button>
+                    <div className="stepper__value stepper__value--stacked">
+                      <span className="stepper__caption">Asientos generales</span>
+                      <strong>{workspace?.default_table_capacity ?? 0}</strong>
+                    </div>
+                    <button
+                      className="stepper__button"
+                      disabled={isActionRunning("default-table-capacity")}
+                      onClick={() =>
+                        void runWorkspaceAction(
+                          "default-table-capacity",
+                          "tables",
+                          () => updateDefaultTableCapacity((workspace?.default_table_capacity ?? 0) + 1, token ?? ""),
+                          "Los asientos generales para nuevas mesas se han ajustado.",
+                        )
+                      }
+                      type="button"
+                    >
+                      +
+                    </button>
                   </div>
-                  <button
-                    className="stepper__button"
-                    disabled={isActionRunning("default-table-capacity")}
-                    onClick={() =>
-                      void runWorkspaceAction(
-                        "default-table-capacity",
-                        "tables",
-                        () => updateDefaultTableCapacity((workspace?.default_table_capacity ?? 0) + 1, token ?? ""),
-                        "Los asientos generales para nuevas mesas se han ajustado.",
-                      )
-                    }
-                    type="button"
-                  >
-                    +
-                  </button>
+                </div>
+              )}
+            </div>
+            <div className="rail-divider" />
+            <div className="rail-section">
+              <div className="rail-section__header">
+                <div>
+                  <p className="eyebrow eyebrow--compact">Banquete</p>
+                  <h2>Resumen del Banquete</h2>
                 </div>
               </div>
-            )}
-          </div>
-          <div className="rail-divider" />
-          <div className="rail-section">
-            <div className="rail-section__header">
-              <div>
-                <p className="eyebrow eyebrow--compact">Banquete</p>
-                <h2>Resumen del Banquete</h2>
-              </div>
+              <dl className="banquet-summary">
+                <div className="banquet-summary__row">
+                  <dt>Invitados sentados</dt>
+                  <dd>{workspace?.guests.assigned.length ?? 0}</dd>
+                </div>
+                <div className="banquet-summary__row banquet-summary__row--accent">
+                  <dt>Invitados pendientes</dt>
+                  <dd>{pendingGuestsCount}</dd>
+                </div>
+              </dl>
             </div>
-            <dl className="banquet-summary">
-              <div className="banquet-summary__row">
-                <dt>Invitados sentados</dt>
-                <dd>{workspace?.guests.assigned.length ?? 0}</dd>
+            <div className="rail-divider" />
+            <section className={`control-card ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
+              <div className="list-card__header">
+                <h3>Panel de control</h3>
+                <span>{workspace?.tables.length ?? 0} mesas</span>
               </div>
-              <div className="banquet-summary__row banquet-summary__row--accent">
-                <dt>Invitados pendientes</dt>
-                <dd>{pendingGuestsCount}</dd>
+              <div className="control-metrics">
+                <article className="control-metric">
+                  <span>Mesas completas</span>
+                  <strong>{fullTablesCount}</strong>
+                </article>
+                <article className="control-metric control-metric--alert">
+                  <span>Mesas con conflicto</span>
+                  <strong>{conflictTableIds.size}</strong>
+                </article>
+                <article className="control-metric">
+                  <span>Ocupacion media</span>
+                  <strong>
+                    {workspace
+                      ? `${Math.round(
+                          (workspace.tables.reduce((total, table) => total + table.occupied, 0) /
+                            Math.max(workspace.tables.reduce((total, table) => total + table.capacity, 0), 1)) *
+                            100,
+                        )}%`
+                      : "0%"}
+                  </strong>
+                </article>
               </div>
-            </dl>
-          </div>
-          <div className="rail-divider" />
-          <section className={`control-card ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
-            <div className="list-card__header">
-              <h3>Panel de control</h3>
-              <span>{workspace?.tables.length ?? 0} mesas</span>
-            </div>
-            <div className="control-metrics">
-              <article className="control-metric">
-                <span>Mesas completas</span>
-                <strong>{fullTablesCount}</strong>
-              </article>
-              <article className="control-metric control-metric--alert">
-                <span>Mesas con conflicto</span>
-                <strong>{conflictTableIds.size}</strong>
-              </article>
-              <article className="control-metric">
-                <span>Ocupacion media</span>
-                <strong>
-                  {workspace
-                    ? `${Math.round(
-                        (workspace.tables.reduce((total, table) => total + table.occupied, 0) /
-                          Math.max(workspace.tables.reduce((total, table) => total + table.capacity, 0), 1)) *
-                          100,
-                      )}%`
-                    : "0%"}
-                </strong>
-              </article>
-            </div>
-            <div className="table-summary-list">
-              {occupancyTables.map((table) => {
-                const ratio = table.capacity === 0 ? 0 : Math.round((table.occupied / table.capacity) * 100);
-                return (
-                  <button
-                    key={table.id}
-                    className={`table-summary-row ${selectedTableId === table.id ? "table-summary-row--active" : ""} ${table.available === 0 ? "table-summary-row--full" : ""} ${conflictTableIds.has(table.id) ? "table-summary-row--conflict" : ""}`}
-                    onClick={() => selectOrClearTable(table.id)}
-                    type="button"
-                  >
-                    <div>
-                      <strong>Mesa {table.number}</strong>
-                      <span>
-                        {table.occupied}/{table.capacity} ocupados
-                      </span>
-                      <div className="table-summary-row__flags">
-                        {conflictTableIds.has(table.id) ? <i className="status-flag status-flag--conflict">Conflicto</i> : null}
-                        {table.available === 0 ? <i className="status-flag status-flag--full">Completa</i> : null}
+              <div className="table-summary-list">
+                {occupancyTables.map((table) => {
+                  const ratio = table.capacity === 0 ? 0 : Math.round((table.occupied / table.capacity) * 100);
+                  return (
+                    <button
+                      key={table.id}
+                      className={`table-summary-row ${selectedTableId === table.id ? "table-summary-row--active" : ""} ${table.available === 0 ? "table-summary-row--full" : ""} ${conflictTableIds.has(table.id) ? "table-summary-row--conflict" : ""}`}
+                      onClick={() => selectOrClearTable(table.id)}
+                      type="button"
+                    >
+                      <div>
+                        <strong>Mesa {table.number}</strong>
+                        <span>
+                          {table.occupied}/{table.capacity} ocupados
+                        </span>
+                        <div className="table-summary-row__flags">
+                          {conflictTableIds.has(table.id) ? <i className="status-flag status-flag--conflict">Conflicto</i> : null}
+                          {table.available === 0 ? <i className="status-flag status-flag--full">Completa</i> : null}
+                        </div>
                       </div>
-                    </div>
-                    <div className="table-summary-row__meter">
-                      <i style={{ width: `${ratio}%` }} />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                      <div className="table-summary-row__meter">
+                        <i style={{ width: `${ratio}%` }} />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
           </section>
-        </section>
+        </div>
       </aside>
 
       <main className="workspace">
-        <div className="workspace__utility">
-          <button className="button button--link" onClick={handleLogout} type="button">
-            Cerrar sesion
-          </button>
-        </div>
-        <header className="workspace__hero">
+        <header className="topbar">
+          <div className="topbar__brand">
+            <span className="topbar__logo">dónde me siento</span>
+          </div>
+          <div className="topbar__center">
+            <button
+              aria-expanded={isRailOpen}
+              className="topbar__toggle"
+              onClick={() => setIsRailOpen((current) => !current)}
+              type="button"
+            >
+              <span aria-hidden="true" className="topbar__toggle-icon">
+                <i />
+                <i />
+                <i />
+              </span>
+              <span>Configurar Salón</span>
+            </button>
+          </div>
+          <div className="topbar__session">
+            <div>
+              <strong>Héctor & Raquel</strong>
+            </div>
+            <button className="button button--link button--small" onClick={handleLogout} type="button">
+              Salir
+            </button>
+          </div>
+        </header>
+
+        <header className="workspace__hero workspace__hero--airy">
           <div>
             <p className="eyebrow">Plano principal</p>
             <h2>{workspace?.name ?? "Nuestro salón"}</h2>
@@ -765,21 +792,22 @@ export function App() {
               Reordena el salón y revisa cómo se reparte el banquete con una vista clara y serena.
             </p>
           </div>
-          <div className="metrics">
-            <article className="metric-tile">
-              <span>Asignados</span>
-              <strong>{workspace?.validation.assigned_guests ?? 0}</strong>
-            </article>
-            <article className="metric-tile">
-              <span>Sin asiento</span>
-              <strong>{workspace?.validation.unassigned_guests ?? 0}</strong>
-            </article>
-            <article className="metric-tile metric-tile--accent">
-              <span>Conflictos</span>
-              <strong>{groupedConflictCount}</strong>
-            </article>
-          </div>
         </header>
+
+        <div className="metrics metrics--airy">
+          <article className="metric-tile">
+            <span>Asignados</span>
+            <strong>{workspace?.validation.assigned_guests ?? 0}</strong>
+          </article>
+          <article className="metric-tile">
+            <span>Sin asiento</span>
+            <strong>{workspace?.validation.unassigned_guests ?? 0}</strong>
+          </article>
+          <article className="metric-tile metric-tile--accent">
+            <span>Conflictos</span>
+            <strong>{groupedConflictCount}</strong>
+          </article>
+        </div>
 
         {workspace ? (
           <section className="attention-strip" aria-label="Alertas de workspace">
