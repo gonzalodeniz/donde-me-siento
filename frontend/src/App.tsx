@@ -401,9 +401,6 @@ export function App() {
             <button className="button button--primary" disabled={loadingAuth} type="submit">
               {loadingAuth ? "Entrando..." : "Abrir workspace"}
             </button>
-            <p className="hint">
-              El usuario aparece automaticamente. La contrasena valida es siempre el nombre opuesto.
-            </p>
           </form>
         ) : (
           <>
