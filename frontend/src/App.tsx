@@ -691,6 +691,62 @@ export function App() {
               </div>
             </dl>
           </div>
+          <div className="rail-divider" />
+          <section className={`control-card ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
+            <div className="list-card__header">
+              <h3>Panel de control</h3>
+              <span>{workspace?.tables.length ?? 0} mesas</span>
+            </div>
+            <div className="control-metrics">
+              <article className="control-metric">
+                <span>Mesas completas</span>
+                <strong>{fullTablesCount}</strong>
+              </article>
+              <article className="control-metric control-metric--alert">
+                <span>Mesas con conflicto</span>
+                <strong>{conflictTableIds.size}</strong>
+              </article>
+              <article className="control-metric">
+                <span>Ocupacion media</span>
+                <strong>
+                  {workspace
+                    ? `${Math.round(
+                        (workspace.tables.reduce((total, table) => total + table.occupied, 0) /
+                          Math.max(workspace.tables.reduce((total, table) => total + table.capacity, 0), 1)) *
+                          100,
+                      )}%`
+                    : "0%"}
+                </strong>
+              </article>
+            </div>
+            <div className="table-summary-list">
+              {occupancyTables.map((table) => {
+                const ratio = table.capacity === 0 ? 0 : Math.round((table.occupied / table.capacity) * 100);
+                return (
+                  <button
+                    key={table.id}
+                    className={`table-summary-row ${selectedTableId === table.id ? "table-summary-row--active" : ""} ${table.available === 0 ? "table-summary-row--full" : ""} ${conflictTableIds.has(table.id) ? "table-summary-row--conflict" : ""}`}
+                    onClick={() => selectOrClearTable(table.id)}
+                    type="button"
+                  >
+                    <div>
+                      <strong>Mesa {table.number}</strong>
+                      <span>
+                        {table.occupied}/{table.capacity} ocupados
+                      </span>
+                      <div className="table-summary-row__flags">
+                        {conflictTableIds.has(table.id) ? <i className="status-flag status-flag--conflict">Conflicto</i> : null}
+                        {table.available === 0 ? <i className="status-flag status-flag--full">Completa</i> : null}
+                      </div>
+                    </div>
+                    <div className="table-summary-row__meter">
+                      <i style={{ width: `${ratio}%` }} />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
         </section>
       </aside>
 
@@ -806,62 +862,6 @@ export function App() {
           </div>
 
           <div className={`lists-panel ${guestSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={guestSectionBusy}>
-            <section className="control-card">
-              <div className="list-card__header">
-                <h3>Panel de control</h3>
-                <span>{workspace?.tables.length ?? 0} mesas</span>
-              </div>
-              <div className="control-metrics">
-                <article className="control-metric">
-                  <span>Mesas completas</span>
-                  <strong>{fullTablesCount}</strong>
-                </article>
-                <article className="control-metric control-metric--alert">
-                  <span>Mesas con conflicto</span>
-                  <strong>{conflictTableIds.size}</strong>
-                </article>
-                <article className="control-metric">
-                  <span>Ocupacion media</span>
-                  <strong>
-                    {workspace
-                      ? `${Math.round(
-                          (workspace.tables.reduce((total, table) => total + table.occupied, 0) /
-                            Math.max(workspace.tables.reduce((total, table) => total + table.capacity, 0), 1)) *
-                            100,
-                        )}%`
-                      : "0%"}
-                  </strong>
-                </article>
-              </div>
-              <div className="table-summary-list">
-                {occupancyTables.map((table) => {
-                  const ratio = table.capacity === 0 ? 0 : Math.round((table.occupied / table.capacity) * 100);
-                  return (
-                    <button
-                      key={table.id}
-                      className={`table-summary-row ${selectedTableId === table.id ? "table-summary-row--active" : ""} ${table.available === 0 ? "table-summary-row--full" : ""} ${conflictTableIds.has(table.id) ? "table-summary-row--conflict" : ""}`}
-                      onClick={() => selectOrClearTable(table.id)}
-                      type="button"
-                    >
-                      <div>
-                        <strong>Mesa {table.number}</strong>
-                        <span>
-                          {table.occupied}/{table.capacity} ocupados
-                        </span>
-                        <div className="table-summary-row__flags">
-                          {conflictTableIds.has(table.id) ? <i className="status-flag status-flag--conflict">Conflicto</i> : null}
-                          {table.available === 0 ? <i className="status-flag status-flag--full">Completa</i> : null}
-                        </div>
-                      </div>
-                      <div className="table-summary-row__meter">
-                        <i style={{ width: `${ratio}%` }} />
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
             <section className="control-card">
               <div className="list-card__header">
                 <h3>Invitados de la mesa</h3>
