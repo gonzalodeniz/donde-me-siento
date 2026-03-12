@@ -390,9 +390,12 @@ export function App() {
 
         {!token ? (
           <form className="auth-card" onSubmit={handleLogin}>
-            <label className="field">
-              <span>Usuario</span>
-              <input readOnly value={username} />
+            <label className="field field--readonly">
+              <span>
+                Usuario
+                <small className="field__meta">automatico</small>
+              </span>
+              <input aria-readonly="true" readOnly value={username} />
             </label>
             <label className="field">
               <span>Contrasena</span>

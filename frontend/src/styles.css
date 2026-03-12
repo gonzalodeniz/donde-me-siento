@@ -181,11 +181,30 @@ select {
   color: var(--muted);
 }
 
+.field__meta {
+  margin-left: 0.45rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .field input {
   border: 1px solid rgba(36, 24, 20, 0.14);
   background: rgba(255, 255, 255, 0.74);
   padding: 0.85rem 0.9rem;
   border-radius: 0.9rem;
+  outline: none;
+}
+
+.field--readonly input[readonly] {
+  background: rgba(113, 93, 81, 0.1);
+  border-style: dashed;
+  color: #5e473d;
+  cursor: default;
+  box-shadow: inset 0 0 0 1px rgba(113, 93, 81, 0.05);
+}
+
+.field--readonly input[readonly]:focus {
   outline: none;
 }
 
