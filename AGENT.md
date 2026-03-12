@@ -58,17 +58,15 @@ El frontend en `frontend/`:
 - usa `GET /api/workspace` como fuente principal del estado inicial;
 - pinta metricas, mesas, invitados sin asignar y conflictos de agrupacion.
 
-## Credenciales locales por defecto
+## Credenciales locales
 
-- Usuario: `admin`
-- Contrasena: `admin1234`
+- Usuario: `raquel` / Contrasena: `hector`
+- Usuario: `hector` / Contrasena: `raquel`
 
 Variables de entorno soportadas:
 
 - `DMS_DATABASE_URL`
 - `DMS_DATA_DIR`
-- `DMS_DEFAULT_ADMIN_USERNAME`
-- `DMS_DEFAULT_ADMIN_PASSWORD`
 
 ## Comandos utiles
 

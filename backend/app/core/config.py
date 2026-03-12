@@ -15,8 +15,6 @@ class Settings:
     environment: str = "development"
     data_dir: Path = Path("data")
     database_url: str = "sqlite:///data/donde_me_siento.db"
-    default_admin_username: str = "admin"
-    default_admin_password: str = "admin1234"
     default_workspace_id: str = "workspace-main"
     default_workspace_name: str = "Workspace principal"
     default_workspace_table_count: int = 8
@@ -34,8 +32,6 @@ def load_settings() -> Settings:
         environment=os.getenv("DMS_ENVIRONMENT", "development"),
         data_dir=data_dir,
         database_url=database_url,
-        default_admin_username=os.getenv("DMS_DEFAULT_ADMIN_USERNAME", "admin"),
-        default_admin_password=os.getenv("DMS_DEFAULT_ADMIN_PASSWORD", "admin1234"),
         default_workspace_id=os.getenv("DMS_DEFAULT_WORKSPACE_ID", "workspace-main"),
         default_workspace_name=os.getenv("DMS_DEFAULT_WORKSPACE_NAME", "Workspace principal"),
         default_workspace_table_count=int(os.getenv("DMS_DEFAULT_WORKSPACE_TABLE_COUNT", "8")),

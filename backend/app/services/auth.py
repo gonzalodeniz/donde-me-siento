@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from uuid import uuid4
 
 from backend.app.core.security import (
@@ -18,28 +19,44 @@ class AuthenticationError(ValueError):
     """Las credenciales o la sesion no son validas."""
 
 
+@dataclass(frozen=True, slots=True)
+class LoginIdentity:
+    """Par usuario-contrasena permitido por el sistema."""
+
+    username: str
+    password: str
+
+
 class AuthService:
     """Gestiona login, sesion y usuario autenticado."""
+
+    VALID_IDENTITIES = (
+        LoginIdentity(username="raquel", password="hector"),
+        LoginIdentity(username="hector", password="raquel"),
+    )
 
     def __init__(self, user_repository: UserRepository, session_repository: SessionRepository) -> None:
         self.user_repository = user_repository
         self.session_repository = session_repository
 
-    def ensure_default_user(self, username: str, password: str) -> AuthUser:
-        existing_user = self.user_repository.get_by_username(username)
-        if existing_user is not None:
-            return existing_user
-
-        salt = generate_salt()
-        user = AuthUser(
-            id=f"user-{uuid4().hex[:12]}",
-            username=username,
-            password_hash=hash_password(password, salt),
-            password_salt=salt,
-        )
-        return self.user_repository.create(user)
+    def ensure_pair_users(self) -> list[AuthUser]:
+        users: list[AuthUser] = []
+        for identity in self.VALID_IDENTITIES:
+            existing_user = self.user_repository.get_by_username(identity.username)
+            salt = generate_salt()
+            user = AuthUser(
+                id=existing_user.id if existing_user is not None else f"user-{uuid4().hex[:12]}",
+                username=identity.username,
+                password_hash=hash_password(identity.password, salt),
+                password_salt=salt,
+            )
+            users.append(self.user_repository.save(user))
+        return users
 
     def login(self, username: str, password: str) -> tuple[str, AuthUser]:
+        if not self._is_valid_identity(username, password):
+            raise AuthenticationError("Credenciales invalidas")
+
         user = self.user_repository.get_by_username(username)
         if user is None or not verify_password(password, user.password_salt, user.password_hash):
             raise AuthenticationError("Credenciales invalidas")
@@ -62,3 +79,7 @@ class AuthService:
         deleted = self.session_repository.delete_by_token_hash(hash_session_token(token))
         if not deleted:
             raise AuthenticationError("Sesion invalida")
+
+    @classmethod
+    def _is_valid_identity(cls, username: str, password: str) -> bool:
+        return any(identity.username == username and identity.password == password for identity in cls.VALID_IDENTITIES)

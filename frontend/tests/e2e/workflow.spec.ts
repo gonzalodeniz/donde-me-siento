@@ -2,8 +2,9 @@ import { expect, test, type Page } from "@playwright/test";
 
 async function loginAsAdmin(page: Page) {
   await page.goto("/");
-  await page.getByLabel("Usuario").fill("admin");
-  await page.getByLabel("Contrasena").fill("admin1234");
+  const username = await page.getByLabel("Usuario").inputValue();
+  const password = username === "raquel" ? "hector" : "raquel";
+  await page.getByLabel("Contrasena").fill(password);
   await page.getByRole("button", { name: "Abrir workspace" }).click();
   await expect(page.getByText("Backend autenticado")).toBeVisible();
 }

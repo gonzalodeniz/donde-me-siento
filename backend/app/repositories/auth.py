@@ -50,6 +50,17 @@ class UserRepository:
         self.session.commit()
         return self._to_entity(model)
 
+    def save(self, user: AuthUser) -> AuthUser:
+        model = self.session.get(UserModel, user.id)
+        if model is None:
+            return self.create(user)
+
+        model.username = user.username
+        model.password_hash = user.password_hash
+        model.password_salt = user.password_salt
+        self.session.commit()
+        return self._to_entity(model)
+
     @staticmethod
     def _to_entity(model: UserModel) -> AuthUser:
         return AuthUser(

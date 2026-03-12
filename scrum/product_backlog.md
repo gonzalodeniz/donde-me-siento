@@ -15,13 +15,17 @@ Cada ítem sigue el formato:
 **Como** organizador, **quiero** iniciar sesión con usuario y contraseña **para** acceder a la aplicación de forma segura.
 
 Criterios de aceptación:
+- El usuario visible en la pantalla de login no se puede editar.
+- La pantalla muestra automaticamente y al azar `raquel` o `hector`.
+- Si el usuario mostrado es `raquel`, la unica contrasena valida es `hector`.
+- Si el usuario mostrado es `hector`, la unica contrasena valida es `raquel`.
 - Si las credenciales son incorrectas, se muestra un mensaje de error y no se permite el acceso.
-- Si las credenciales son correctas, se inicia sesión y se mantiene activa durante toda la sesión del navegador.
+- Si las credenciales son correctas, se inicia sesion y se mantiene activa durante toda la sesion del navegador.
 - Existe un botón de cierre de sesión visible en todo momento.
-- Tras cerrar sesión, no se puede acceder a ninguna pantalla protegida sin volver a autenticarse.
+- Tras cerrar sesion, no se puede acceder a ninguna pantalla protegida sin volver a autenticarse.
 
 ### TT-01 · Implementar sistema de autenticación básico · MVP
-Implementar autenticación con usuario/contraseña sobre backend. Proteger todas las rutas de la aplicación y los endpoints privados. Gestionar sesión activa y cierre manual. Almacenar credenciales de forma segura (hash + sal) y exponer un mecanismo de sesión seguro para el cliente.
+Implementar autenticacion con dos identidades fijas sobre backend. Proteger todas las rutas de la aplicacion y los endpoints privados. Gestionar sesion activa y cierre manual. El cliente debe recibir automaticamente uno de los dos usuarios posibles sin permitir editarlo.
 
 ---
 

@@ -26,8 +26,6 @@ async def client_with_auth(tmp_path: Path):
         environment="test",
         data_dir=tmp_path,
         database_url=f"sqlite:///{tmp_path / 'auth-test.db'}",
-        default_admin_username="admin",
-        default_admin_password="admin1234",
     )
     engine = create_engine_from_settings(app_settings)
     Base.metadata.create_all(bind=engine)
@@ -35,7 +33,7 @@ async def client_with_auth(tmp_path: Path):
     session = testing_session_local()
 
     auth_service = AuthService(UserRepository(session), SessionRepository(session))
-    auth_service.ensure_default_user("admin", "admin1234")
+    auth_service.ensure_pair_users()
 
     app = create_app()
     async def override_get_auth_service() -> AuthService:
@@ -61,7 +59,7 @@ async def test_login_me_logout_and_protected_workspace(client_with_auth: AsyncCl
 
     login_response = await client_with_auth.post(
         "/api/auth/login",
-        json={"username": "admin", "password": "admin1234"},
+        json={"username": "raquel", "password": "hector"},
     )
     assert login_response.status_code == 200
     payload = login_response.json()
@@ -72,7 +70,7 @@ async def test_login_me_logout_and_protected_workspace(client_with_auth: AsyncCl
         headers={"Authorization": f"Bearer {token}"},
     )
     assert me_response.status_code == 200
-    assert me_response.json()["username"] == "admin"
+    assert me_response.json()["username"] == "raquel"
 
     authorized_workspace_response = await client_with_auth.get(
         "/api/workspace",
@@ -97,7 +95,29 @@ async def test_login_me_logout_and_protected_workspace(client_with_auth: AsyncCl
 async def test_login_rejects_invalid_credentials(client_with_auth: AsyncClient) -> None:
     response = await client_with_auth.post(
         "/api/auth/login",
-        json={"username": "admin", "password": "incorrecta"},
+        json={"username": "raquel", "password": "incorrecta"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Credenciales invalidas"
+
+
+@pytest.mark.anyio
+async def test_login_accepts_crossed_credentials_for_hector(client_with_auth: AsyncClient) -> None:
+    response = await client_with_auth.post(
+        "/api/auth/login",
+        json={"username": "hector", "password": "raquel"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["user"]["username"] == "hector"
+
+
+@pytest.mark.anyio
+async def test_login_rejects_unknown_username(client_with_auth: AsyncClient) -> None:
+    response = await client_with_auth.post(
+        "/api/auth/login",
+        json={"username": "invitado", "password": "raquel"},
     )
 
     assert response.status_code == 401

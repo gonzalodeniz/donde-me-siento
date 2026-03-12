@@ -78,15 +78,14 @@ Tambien permite:
 - mostrar un panel de control con resumen de ocupacion por mesa y detalle de la mesa seleccionada;
 - refrescar el workspace tras cada mutacion sobre backend.
 
-## Credenciales locales por defecto
+## Credenciales locales
 
-- Usuario: `admin`
-- Contrasena: `admin1234`
+El login solo admite dos combinaciones fijas:
 
-Se pueden cambiar con:
+- Usuario: `raquel` / Contrasena: `hector`
+- Usuario: `hector` / Contrasena: `raquel`
 
-- `DMS_DEFAULT_ADMIN_USERNAME`
-- `DMS_DEFAULT_ADMIN_PASSWORD`
+En la interfaz, el usuario aparece automaticamente y de forma aleatoria entre esos dos nombres. Solo hay que escribir la contrasena opuesta.
 
 ## Preparacion del entorno
 

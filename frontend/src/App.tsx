@@ -14,6 +14,7 @@ import { SeatingPlan } from "./components/SeatingPlan";
 import type { Guest, Workspace } from "./types";
 
 const TOKEN_STORAGE_KEY = "dms.auth.token";
+const LOGIN_NAMES = ["raquel", "hector"] as const;
 type SectionTone = "success" | "error" | "info";
 type SectionKey = "guests" | "tables";
 type SectionNotice = {
@@ -25,9 +26,13 @@ function normalizeText(value: string) {
   return value.trim();
 }
 
+function randomLoginName() {
+  return LOGIN_NAMES[Math.floor(Math.random() * LOGIN_NAMES.length)];
+}
+
 export function App() {
-  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("admin1234");
+  const [username, setUsername] = useState<string>(() => randomLoginName());
+  const [password, setPassword] = useState("");
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_STORAGE_KEY));
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(false);
@@ -121,6 +126,8 @@ export function App() {
     if (!token) {
       setWorkspace(null);
       setSectionNotices({ guests: null, tables: null });
+      setUsername(randomLoginName());
+      setPassword("");
       return;
     }
 
@@ -385,7 +392,7 @@ export function App() {
           <form className="auth-card" onSubmit={handleLogin}>
             <label className="field">
               <span>Usuario</span>
-              <input value={username} onChange={(event) => setUsername(event.target.value)} />
+              <input readOnly value={username} />
             </label>
             <label className="field">
               <span>Contrasena</span>
@@ -394,7 +401,9 @@ export function App() {
             <button className="button button--primary" disabled={loadingAuth} type="submit">
               {loadingAuth ? "Entrando..." : "Abrir workspace"}
             </button>
-            <p className="hint">Credenciales locales por defecto: admin / admin1234</p>
+            <p className="hint">
+              El usuario aparece automaticamente. La contrasena valida es siempre el nombre opuesto.
+            </p>
           </form>
         ) : (
           <>

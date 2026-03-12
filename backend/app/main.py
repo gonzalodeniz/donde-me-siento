@@ -24,7 +24,7 @@ async def lifespan(_: FastAPI):
     session = SessionLocal()
     try:
         auth_service = AuthService(UserRepository(session), SessionRepository(session))
-        auth_service.ensure_default_user(settings.default_admin_username, settings.default_admin_password)
+        auth_service.ensure_pair_users()
         EventService(EventRepository(session)).ensure_workspace()
         yield
     finally:

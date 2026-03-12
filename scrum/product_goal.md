@@ -27,7 +27,7 @@ Convertir Donde-me-siento en la herramienta de referencia para la gestión del s
 - detectar y advertir automáticamente cuando se violan restricciones o se supera el aforo;
 - exportar e imprimir planos y listados (por mesa, alfabético, para el salón);
 - guardar el workspace unico con persistencia fiable en backend y recuperarlo sin perdida de datos;
-- acceder de forma segura mediante autenticación de usuario contra backend.
+- acceder de forma segura mediante un login cerrado de pareja contra backend.
 
 ## Alcance por fases
 
