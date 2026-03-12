@@ -934,18 +934,11 @@ export function App() {
                 ) : null}
                 <div className="list-card__header list-card__header--guests">
                   <div>
-                    <p className="eyebrow eyebrow--compact">Nuestros invitados</p>
                     <h3>Nuestros Invitados</h3>
                   </div>
                   <span>{(workspace?.guests.unassigned.length ?? 0) + (workspace?.guests.assigned.length ?? 0)}</span>
                 </div>
-                <p className="microcopy microcopy--guests">
-                  Busca con calma, arrastra una etiqueta al salón y revisa quién sigue esperando su sitio.
-                </p>
                 <label className="guest-search">
-                  <span aria-hidden="true" className="guest-search__icon">
-                    ⌕
-                  </span>
                   <input
                     onChange={(event) => setGuestSearchQuery(event.target.value)}
                     placeholder="Encuentra a un ser querido..."
@@ -953,35 +946,6 @@ export function App() {
                     value={guestSearchQuery}
                   />
                 </label>
-                <form className="stack-form stack-form--guest-salon" onSubmit={handleGuestCreate}>
-                  <label className="mini-field">
-                    <span>Nombre</span>
-                    <input
-                      data-testid="guest-name-input"
-                      value={guestName}
-                      aria-invalid={Boolean(guestFormError)}
-                      onChange={(event) => setGuestName(event.target.value)}
-                    />
-                  </label>
-                  <div className="mini-grid">
-                    <label className="mini-field">
-                      <span>Tipo</span>
-                      <select value={guestType} onChange={(event) => setGuestType(event.target.value)}>
-                        <option value="adulto">adulto</option>
-                        <option value="adolescente">adolescente</option>
-                        <option value="nino">nino</option>
-                      </select>
-                    </label>
-                    <label className="mini-field">
-                      <span>Agrupacion</span>
-                      <input placeholder="opcional" value={guestGroupId} onChange={(event) => setGuestGroupId(event.target.value)} />
-                    </label>
-                  </div>
-                  {guestFormError ? <p className="inline-feedback inline-feedback--error">{guestFormError}</p> : null}
-                  <button className="button button--primary button--small" disabled={isActionRunning("create-guest")} type="submit">
-                    {isActionRunning("create-guest") ? "Guardando..." : "Añadir invitado"}
-                  </button>
-                </form>
                 <section className="guest-salon__section">
                   <div className="guest-salon__section-header">
                     <div>
@@ -1016,7 +980,7 @@ export function App() {
                         {draggedGuestId === guest.id ? (
                           <div className="guest-card__drag-hint">En movimiento: suelta esta tarjeta sobre una mesa.</div>
                         ) : (
-                          <p className="guest-card__dragline">Pieza delicada lista para colocar.</p>
+                          <p className="guest-card__dragline">Lista para llevar al salón.</p>
                         )}
                         <div className="guest-card__actions guest-card__actions--paper">
                           <select
@@ -1077,44 +1041,84 @@ export function App() {
                   </div>
                 </section>
 
-                <section className="guest-salon__section guest-salon__section--compact">
-                  <div className="guest-salon__section-header">
+                <details className="guest-collapse guest-salon__section guest-salon__section--compact">
+                  <summary className="guest-collapse__summary">
                     <div>
                       <h4>Ya ubicados</h4>
-                      <p>Una vista serena de quienes ya tienen mesa.</p>
+                      <p>Un bloque discreto para quienes ya tienen mesa.</p>
                     </div>
                     <span>
                       {filteredAssignedGuests.length}/{workspace?.guests.assigned.length ?? 0}
                     </span>
-                  </div>
-                  <div className="guest-list guest-list--compact">
-                    {filteredAssignedGuests.length > 0 ? (
-                      filteredAssignedGuests.map((guest) => {
-                        const tableNumber = guest.table_id ? tableNumberById.get(guest.table_id) : null;
+                  </summary>
+                  <div className="guest-collapse__content">
+                    <div className="guest-list guest-list--compact">
+                      {filteredAssignedGuests.length > 0 ? (
+                        filteredAssignedGuests.map((guest) => {
+                          const tableNumber = guest.table_id ? tableNumberById.get(guest.table_id) : null;
 
-                        return (
-                          <article
-                            className={`guest-row guest-row--placed ${conflictGuestIds.has(guest.id) ? "guest-row--conflict" : ""}`}
-                            key={guest.id}
-                          >
-                            <div className="guest-row__identity">
-                              <div className="guest-card__nameplate">
-                                <strong>{guest.name}</strong>
-                                <GuestSignal guest={guest} />
+                          return (
+                            <article
+                              className={`guest-row guest-row--placed ${conflictGuestIds.has(guest.id) ? "guest-row--conflict" : ""}`}
+                              key={guest.id}
+                            >
+                              <div className="guest-row__identity">
+                                <div className="guest-card__nameplate">
+                                  <strong>{guest.name}</strong>
+                                  <GuestSignal guest={guest} />
+                                </div>
+                                <span>{guest.group_id ? `Agrupación ${guest.group_id}` : formatGuestTypeLabel(guest.guest_type)}</span>
                               </div>
-                              <span>{guest.group_id ? `Agrupación ${guest.group_id}` : formatGuestTypeLabel(guest.guest_type)}</span>
-                            </div>
-                            <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
-                          </article>
-                        );
-                      })
-                    ) : (
-                      <p className="empty-state empty-state--paper">
-                        {guestSearchQuery ? "No hay invitados ubicados con esa búsqueda." : "Todavía no hay invitados sentados."}
-                      </p>
-                    )}
+                              <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
+                            </article>
+                          );
+                        })
+                      ) : (
+                        <p className="empty-state empty-state--paper">
+                          {guestSearchQuery ? "No hay invitados ubicados con esa búsqueda." : "Todavía no hay invitados sentados."}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </section>
+                </details>
+
+                <details className="guest-composer">
+                  <summary className="guest-collapse__summary guest-collapse__summary--muted">
+                    <div>
+                      <h4>Añadir invitado</h4>
+                      <p>Solo si necesitas incorporar a alguien manualmente.</p>
+                    </div>
+                  </summary>
+                  <form className="stack-form stack-form--guest-salon" onSubmit={handleGuestCreate}>
+                    <label className="mini-field">
+                      <span>Nombre</span>
+                      <input
+                        data-testid="guest-name-input"
+                        value={guestName}
+                        aria-invalid={Boolean(guestFormError)}
+                        onChange={(event) => setGuestName(event.target.value)}
+                      />
+                    </label>
+                    <div className="mini-grid">
+                      <label className="mini-field">
+                        <span>Tipo</span>
+                        <select value={guestType} onChange={(event) => setGuestType(event.target.value)}>
+                          <option value="adulto">adulto</option>
+                          <option value="adolescente">adolescente</option>
+                          <option value="nino">nino</option>
+                        </select>
+                      </label>
+                      <label className="mini-field">
+                        <span>Agrupacion</span>
+                        <input placeholder="opcional" value={guestGroupId} onChange={(event) => setGuestGroupId(event.target.value)} />
+                      </label>
+                    </div>
+                    {guestFormError ? <p className="inline-feedback inline-feedback--error">{guestFormError}</p> : null}
+                    <button className="button button--primary button--small" disabled={isActionRunning("create-guest")} type="submit">
+                      {isActionRunning("create-guest") ? "Guardando..." : "Añadir invitado"}
+                    </button>
+                  </form>
+                </details>
               </div>
             </section>
 

@@ -42,11 +42,11 @@ export function SeatingPlan({
       <div className="plan-card__header">
         <div>
           <p className="eyebrow">Plano interactivo</p>
-          <h3>Salon y mesas</h3>
+          <h3>Salón y mesas</h3>
           <p className="plan-card__lead">
             {isDraggingGuest
-              ? `Suelta a ${draggedGuestName} sobre una mesa resaltada para sentarlo.`
-              : "Selecciona una mesa o arrastra un invitado hasta el plano para asignarlo."}
+              ? `Desliza a ${draggedGuestName} desde la columna derecha y suéltalo sobre una mesa.`
+              : "Las mesas muestran a sus invitados en torno a cada círculo para que la composición se lea de un vistazo."}
           </p>
         </div>
         <div className="plan-legend">
@@ -69,11 +69,11 @@ export function SeatingPlan({
         {isDraggingGuest ? (
           <div className="plan-stage__guide" aria-live="polite">
             <strong>{draggedGuestName}</strong>
-            <span>Busca una mesa con anillo cobre y suelta dentro del circulo marcado.</span>
+            <span>Busca un círculo resaltado y suelta dentro del anillo suave de la mesa elegida.</span>
           </div>
         ) : null}
         <svg
-          aria-label="Plano del salon"
+          aria-label="Plano del salón"
           className="plan-stage__svg"
           viewBox={`${minX} ${minY} ${width} ${height}`}
           role="img"
@@ -159,7 +159,7 @@ export function SeatingPlan({
                     x={table.position_x}
                     y={table.position_y - 92}
                   >
-                    {isDropTarget ? "Soltar aqui" : "Destino"}
+                    {isDropTarget ? "Soltar aquí" : "Destino"}
                   </text>
                 ) : null}
 
