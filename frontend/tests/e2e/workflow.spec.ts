@@ -1,5 +1,17 @@
 import { expect, test, type Page } from "@playwright/test";
 
+async function setSelectedTableSeats(page: Page, target: number) {
+  const seatValue = page.locator(".stepper__value strong");
+  const decrementButton = page.locator(".stepper__button").first();
+
+  while (Number(await seatValue.innerText()) > target) {
+    await expect(decrementButton).toBeEnabled();
+    await decrementButton.click();
+  }
+
+  await expect(seatValue).toHaveText(String(target));
+}
+
 async function loginThroughAccessScreen(page: Page) {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "dónde me siento" })).toBeVisible();
@@ -17,17 +29,17 @@ test("flujo MVP con workspace unico: login, alta, drag and drop y recarga", asyn
 
   await loginThroughAccessScreen(page);
 
-  await expect(page.getByRole("button", { name: "Crear Nuestra Mesa" })).toBeVisible();
-  await expect(page.getByText("Asientos estándar")).toBeVisible();
-  await expect(page.getByText("Nuestro Banquete")).toBeVisible();
-  await expect(page.locator(".stepper__value")).toHaveText("10");
+  await expect(page.getByText("Ajustes de Mesa seleccionada")).toBeVisible();
+  await expect(page.getByText("Resumen del Banquete")).toBeVisible();
+  await expect(page.locator(".stepper__caption")).toHaveText("Asientos");
+  await expect(page.locator(".stepper__value strong")).toHaveText("10");
 
-  await page.getByRole("button", { name: "Crear Nuestra Mesa" }).click();
-  await expect(page.getByTestId("table-card-table-9")).toBeVisible();
-  await page.getByTestId("table-card-table-9").click();
-  await page.getByRole("button", { name: "Preparar retirada de mesa" }).click();
+  await page.locator(".stepper__button").last().click();
+  await expect(page.locator(".stepper__value strong")).toHaveText("11");
+
+  await page.getByRole("button", { name: "Quitar mesa" }).click();
   await page.getByRole("button", { name: "Confirmar retirada" }).click();
-  await expect(page.getByTestId("table-card-table-9")).toHaveCount(0);
+  await expect(page.getByTestId("table-card-table-8")).toHaveCount(0);
 
   await page.getByTestId("guest-name-input").fill(guestOne);
   await page.getByRole("button", { name: "Anadir invitado" }).click();
@@ -83,9 +95,6 @@ test("estados UX del workspace unico: alertas de conflicto y aforo", async ({ pa
 
   await loginThroughAccessScreen(page);
 
-  await page.locator(".stepper__button").last().click();
-  await expect(page.locator(".stepper__value")).toHaveText("11");
-
   const unassignedPanel = page.getByTestId("unassigned-guests-panel");
 
   await page.getByTestId("guest-name-input").fill(guestOne);
@@ -98,15 +107,13 @@ test("estados UX del workspace unico: alertas de conflicto y aforo", async ({ pa
   await page.getByRole("button", { name: "Anadir invitado" }).click();
   await expect(unassignedPanel.getByText(guestTwo)).toBeVisible();
 
-  await page.getByTestId("table-card-table-1").click();
-  await expect(page.locator(".control-card").nth(1)).toContainText("Mesa 1");
-  await page.getByLabel("Capacidad de trabajo").fill("1");
-  await page.getByRole("button", { name: "Guardar capacidad" }).click();
-
   await page.getByTestId("table-card-table-2").click();
   await expect(page.locator(".control-card").nth(1)).toContainText("Mesa 2");
-  await page.getByLabel("Capacidad de trabajo").fill("1");
-  await page.getByRole("button", { name: "Guardar capacidad" }).click();
+  await setSelectedTableSeats(page, 1);
+
+  await page.getByTestId("table-card-table-3").click();
+  await expect(page.locator(".control-card").nth(1)).toContainText("Mesa 3");
+  await setSelectedTableSeats(page, 1);
 
   const firstGuestCard = page.locator('[data-testid="unassigned-guests-panel"] .guest-card', {
     hasText: guestOne,
@@ -115,8 +122,8 @@ test("estados UX del workspace unico: alertas de conflicto y aforo", async ({ pa
     hasText: guestTwo,
   });
 
-  const tableOneDropzone = page.getByRole("button", { name: "Mesa 1", exact: true });
-  const tableTwoDropzone = page.getByRole("button", { name: "Mesa 2", exact: true });
+  const tableOneDropzone = page.getByRole("button", { name: "Mesa 2", exact: true });
+  const tableTwoDropzone = page.getByRole("button", { name: "Mesa 3", exact: true });
   const firstDataTransfer = await page.evaluateHandle(() => new DataTransfer());
   const secondDataTransfer = await page.evaluateHandle(() => new DataTransfer());
 
@@ -139,7 +146,7 @@ test("estados UX del workspace unico: alertas de conflicto y aforo", async ({ pa
   await expect(page.locator(".table-summary-row--conflict")).toHaveCount(2);
   await expect(page.locator(".table-summary-row--full").first()).toBeVisible();
 
-  await page.getByTestId("table-card-table-1").click();
+  await page.getByTestId("table-card-table-2").click();
   await expect(page.locator(".selected-table-panel__alerts")).toContainText(
     "Esta mesa tiene invitados con conflicto de agrupacion.",
   );

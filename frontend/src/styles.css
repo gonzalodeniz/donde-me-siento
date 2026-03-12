@@ -322,31 +322,6 @@ select {
   color: var(--ink);
 }
 
-.button--outline {
-  width: 100%;
-  border: 1px solid rgba(36, 24, 20, 0.18);
-  background: rgba(255, 255, 255, 0.82);
-  color: var(--ink);
-}
-
-.button--left {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 0.7rem;
-}
-
-.button__icon {
-  width: 1.6rem;
-  height: 1.6rem;
-  border-radius: 999px;
-  display: inline-grid;
-  place-items: center;
-  background: rgba(154, 79, 36, 0.09);
-  color: var(--accent);
-  font-weight: 700;
-}
-
 .button--danger {
   color: #fff5f1;
   background: linear-gradient(135deg, #9f4524, #7d2f1f);
@@ -436,6 +411,42 @@ select {
   display: grid;
   place-items: center;
   font-size: 1.1rem;
+}
+
+.stepper__value--stacked {
+  gap: 0.1rem;
+  text-align: center;
+}
+
+.stepper__caption {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.rail-table-settings {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.rail-table-settings__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.rail-table-settings__meta span {
+  color: var(--muted);
+}
+
+.rail-table-settings__meta strong {
+  font-size: 1.2rem;
+}
+
+.rail-table-settings__confirm {
+  display: flex;
+  gap: 0.7rem;
+  flex-wrap: wrap;
 }
 
 .banquet-summary {
@@ -1279,10 +1290,6 @@ select {
   gap: 0.9rem;
 }
 
-.selected-table-panel__controls {
-  align-items: flex-end;
-}
-
 .selected-table-panel__hero {
   padding: 1rem;
   border-radius: 1rem;
@@ -1312,23 +1319,6 @@ select {
   margin: 0;
   color: var(--muted);
   font-size: 0.84rem;
-}
-
-.selected-table-panel__table-actions {
-  display: grid;
-  gap: 0.7rem;
-}
-
-.selected-table-panel__warning {
-  margin: 0;
-  color: #8b4d31;
-  font-size: 0.84rem;
-}
-
-.selected-table-panel__confirm-actions {
-  display: flex;
-  gap: 0.7rem;
-  flex-wrap: wrap;
 }
 
 .selected-table-panel__alerts {
