@@ -386,7 +386,9 @@ export function App() {
           <p className="eyebrow">Solo para los novios</p>
           <h1 className="login-screen__title">dónde me siento</h1>
           <p className="login-screen__copy">
-            Diseña el espacio donde tus seres queridos compartirán nuestra gran historia.
+            Diseña el espacio donde tus seres queridos
+            <br />
+            compartirán nuestra gran historia.
           </p>
           <form className="auth-card auth-card--standalone" onSubmit={handleLogin}>
             <label className="field field--readonly">
