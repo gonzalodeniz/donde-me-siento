@@ -418,23 +418,8 @@ export function App() {
       <aside className="rail">
         <p className="eyebrow">Donde me siento</p>
         <h1 className="rail__title">Diseño del Salón</h1>
-        <p className="rail__copy">
-          El frontend trabaja siempre sobre un unico workspace persistente del backend.
-        </p>
 
         <section className="events-panel">
-          <div className="rail-section rail-section--session">
-            <div className="rail-section__header">
-              <div>
-                <p className="eyebrow eyebrow--compact">Workspace</p>
-                <h2>{workspace?.name ?? "Cargando workspace"}</h2>
-              </div>
-            </div>
-            <p className="section-copy">
-              Siempre trabajas sobre el mismo workspace persistente. No hay selector ni borrado de eventos.
-            </p>
-          </div>
-          <div className="rail-divider" />
           <div className="rail-section">
             <div className="rail-section__header">
               <div>
