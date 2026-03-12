@@ -391,13 +391,12 @@ export function App() {
           <form className="auth-card auth-card--standalone" onSubmit={handleLogin}>
             <label className="field field--readonly">
               <span>
-                Usuario
-                <small className="field__meta">automatico</small>
+                El amor de tu vida
               </span>
               <input aria-readonly="true" readOnly value={username} />
             </label>
             <label className="field">
-              <span>Contrasena</span>
+              <span>Tu llave</span>
               <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
             </label>
             {errorMessage ? <div className="inline-notice inline-notice--error">{errorMessage}</div> : null}
