@@ -10,10 +10,6 @@ from backend.app.repositories.events import EventRepository
 from backend.app.schemas.events import GuestCreate, GuestUpdate
 
 
-class EventNotFoundError(LookupError):
-    """Compatibilidad residual para consumidores antiguos."""
-
-
 class EventService:
     """Orquesta reglas de dominio y persistencia de un unico workspace."""
 
