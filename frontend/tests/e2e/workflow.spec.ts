@@ -31,12 +31,17 @@ test("flujo MVP con workspace unico: login, alta, drag and drop y recarga", asyn
 
   await expect(page.getByText("Ajustes de Mesa seleccionada")).toBeVisible();
   await expect(page.getByText("Resumen del Banquete")).toBeVisible();
+  await page.getByTestId("table-card-table-8").click();
   await expect(page.locator(".stepper__caption")).toHaveText("Asientos");
   await expect(page.locator(".stepper__value strong")).toHaveText("10");
 
+  await page.getByRole("button", { name: "Ajustar asientos generales" }).click();
+  await expect(page.locator(".stepper__caption")).toHaveText("Asientos generales");
   await page.locator(".stepper__button").last().click();
   await expect(page.locator(".stepper__value strong")).toHaveText("11");
 
+  await page.getByTestId("table-card-table-8").click();
+  await expect(page.locator(".stepper__caption")).toHaveText("Asientos");
   await page.getByRole("button", { name: "Quitar mesa" }).click();
   await page.getByRole("button", { name: "Confirmar retirada" }).click();
   await expect(page.getByTestId("table-card-table-8")).toHaveCount(0);

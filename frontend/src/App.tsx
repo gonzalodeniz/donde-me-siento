@@ -2,12 +2,14 @@ import { DragEvent, FormEvent, startTransition, useEffect, useMemo, useState } f
 
 import {
   assignGuest,
+  createTable,
   createGuest,
   deleteGuest,
   deleteTable,
   fetchWorkspace,
   login,
   unassignGuest,
+  updateDefaultTableCapacity,
   updateGuest,
   updateTableCapacity,
 } from "./api";
@@ -50,7 +52,7 @@ export function App() {
   const [editingGuestGroupId, setEditingGuestGroupId] = useState("");
   const [editingGuestError, setEditingGuestError] = useState<string | null>(null);
   const [assignmentValues, setAssignmentValues] = useState<Record<string, string>>({});
-  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  const [selectedTableId, setSelectedTableId] = useState<string | null | undefined>(undefined);
   const [pendingTableRemovalId, setPendingTableRemovalId] = useState<string | null>(null);
   const [draggedGuestId, setDraggedGuestId] = useState<string | null>(null);
   const [activeDropTableId, setActiveDropTableId] = useState<string | null>(null);
@@ -150,7 +152,9 @@ export function App() {
         startTransition(() => {
           setWorkspace(nextWorkspace);
         });
-        setSelectedTableId((currentSelected) => currentSelected ?? nextWorkspace.tables[0]?.id ?? null);
+        setSelectedTableId((currentSelected) =>
+          currentSelected === undefined ? nextWorkspace.tables[0]?.id ?? null : currentSelected,
+        );
         setErrorMessage(null);
         setSectionNotices({ guests: null, tables: null });
       } catch (error) {
@@ -172,13 +176,16 @@ export function App() {
 
   useEffect(() => {
     if (!workspace) {
-      setSelectedTableId(null);
+      setSelectedTableId(undefined);
       setActiveDropTableId(null);
       setDraggedGuestId(null);
       return;
     }
 
-    const selectedStillExists = workspace.tables.some((table) => table.id === selectedTableId);
+    const selectedStillExists =
+      selectedTableId === null || selectedTableId === undefined
+        ? true
+        : workspace.tables.some((table) => table.id === selectedTableId);
     if (!selectedStillExists) {
       setSelectedTableId(workspace.tables[0]?.id ?? null);
     }
@@ -241,7 +248,9 @@ export function App() {
     startTransition(() => {
       setWorkspace(nextWorkspace);
     });
-    setSelectedTableId((currentSelected) => currentSelected ?? nextWorkspace.tables[0]?.id ?? null);
+    setSelectedTableId((currentSelected) =>
+      currentSelected === undefined ? nextWorkspace.tables[0]?.id ?? null : currentSelected,
+    );
   }
 
   async function runWorkspaceAction(
@@ -353,6 +362,11 @@ export function App() {
     setSelectedTableId(tableId);
   }
 
+  function selectOrClearTable(tableId: string) {
+    setPendingTableRemovalId(null);
+    setSelectedTableId((currentSelected) => (currentSelected === tableId ? null : tableId));
+  }
+
   function handleTableDragLeave(tableId: string) {
     if (activeDropTableId === tableId) {
       setActiveDropTableId(null);
@@ -442,6 +456,13 @@ export function App() {
                   <span>Mesa {selectedTable.number}</span>
                   <strong>{selectedTable.occupied} sentados</strong>
                 </div>
+                <button
+                  className="button button--link button--small"
+                  onClick={() => setSelectedTableId(null)}
+                  type="button"
+                >
+                  Ajustar asientos generales
+                </button>
                 <div className="stepper" aria-label="Asientos">
                   <button
                     className="stepper__button"
@@ -519,7 +540,60 @@ export function App() {
                 )}
               </div>
             ) : (
-              <p className="section-copy">Selecciona una mesa para ajustar sus asientos o retirarla.</p>
+              <div className="rail-table-settings">
+                <p className="section-copy">Sin mesa seleccionada. Estos asientos se aplicarán a cada mesa nueva.</p>
+                <button
+                  className="button button--ghost button--small"
+                  disabled={isActionRunning("create-table")}
+                  onClick={() =>
+                    void runWorkspaceAction(
+                      "create-table",
+                      "tables",
+                      () => createTable(token ?? ""),
+                      "Nuestra nueva mesa ya forma parte del salón.",
+                    )
+                  }
+                  type="button"
+                >
+                  {isActionRunning("create-table") ? "Creando mesa..." : "Crear Nuestra Mesa"}
+                </button>
+                <div className="stepper" aria-label="Asientos generales">
+                  <button
+                    className="stepper__button"
+                    disabled={isActionRunning("default-table-capacity") || (workspace?.default_table_capacity ?? 1) <= 1}
+                    onClick={() =>
+                      void runWorkspaceAction(
+                        "default-table-capacity",
+                        "tables",
+                        () => updateDefaultTableCapacity((workspace?.default_table_capacity ?? 1) - 1, token ?? ""),
+                        "Los asientos generales para nuevas mesas se han ajustado.",
+                      )
+                    }
+                    type="button"
+                  >
+                    -
+                  </button>
+                  <div className="stepper__value stepper__value--stacked">
+                    <span className="stepper__caption">Asientos generales</span>
+                    <strong>{workspace?.default_table_capacity ?? 0}</strong>
+                  </div>
+                  <button
+                    className="stepper__button"
+                    disabled={isActionRunning("default-table-capacity")}
+                    onClick={() =>
+                      void runWorkspaceAction(
+                        "default-table-capacity",
+                        "tables",
+                        () => updateDefaultTableCapacity((workspace?.default_table_capacity ?? 0) + 1, token ?? ""),
+                        "Los asientos generales para nuevas mesas se han ajustado.",
+                      )
+                    }
+                    type="button"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
             )}
           </div>
           <div className="rail-divider" />
@@ -608,11 +682,11 @@ export function App() {
               <SeatingPlan
                 activeDropTableId={activeDropTableId}
                 draggedGuestName={draggedGuest?.name ?? null}
-                onSelectTable={setSelectedTableId}
+                onSelectTable={selectOrClearTable}
                 onTableDragEnter={handleTableDragEnter}
                 onTableDragLeave={handleTableDragLeave}
                 onTableDrop={handleTableDrop}
-                selectedTableId={selectedTableId}
+                selectedTableId={selectedTableId ?? null}
                 workspace={workspace}
               />
             ) : null}
@@ -621,7 +695,7 @@ export function App() {
                 className={`table-card ${selectedTableId === table.id ? "table-card--selected" : ""} ${table.available === 0 ? "table-card--full" : ""} ${conflictTableIds.has(table.id) ? "table-card--conflict" : ""}`}
                 data-testid={`table-card-${table.id}`}
                 key={table.id}
-                onClick={() => setSelectedTableId(table.id)}
+                onClick={() => selectOrClearTable(table.id)}
               >
                 <div className="table-card__header">
                   <div>
@@ -690,7 +764,7 @@ export function App() {
                     <button
                       key={table.id}
                       className={`table-summary-row ${selectedTableId === table.id ? "table-summary-row--active" : ""} ${table.available === 0 ? "table-summary-row--full" : ""} ${conflictTableIds.has(table.id) ? "table-summary-row--conflict" : ""}`}
-                      onClick={() => setSelectedTableId(table.id)}
+                      onClick={() => selectOrClearTable(table.id)}
                       type="button"
                     >
                       <div>
