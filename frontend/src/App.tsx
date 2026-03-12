@@ -402,7 +402,7 @@ export function App() {
             </label>
             {errorMessage ? <div className="inline-notice inline-notice--error">{errorMessage}</div> : null}
             <button className="button button--primary" disabled={loadingAuth} type="submit">
-              {loadingAuth ? "Entrando..." : "Abrir workspace"}
+              {loadingAuth ? "Entrando..." : "Repartir amor en las mesas"}
             </button>
           </form>
         </section>

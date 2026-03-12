@@ -6,7 +6,7 @@ async function loginThroughAccessScreen(page: Page) {
   const username = await page.getByLabel("Usuario").inputValue();
   const password = username === "raquel" ? "héctor" : "raquel";
   await page.getByLabel("Contrasena").fill(password);
-  await page.getByRole("button", { name: "Abrir workspace" }).click();
+  await page.getByRole("button", { name: "Repartir amor en las mesas" }).click();
   await expect(page.getByRole("heading", { name: "dónde me siento" })).toHaveCount(0);
   await expect(page.locator(".workspace__hero")).toBeVisible();
 }
