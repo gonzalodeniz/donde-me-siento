@@ -186,11 +186,6 @@ export function App() {
     () => (workspace?.guests.assigned ?? []).filter((guest) => matchesGuestSearch(guest, deferredGuestSearchQuery)),
     [deferredGuestSearchQuery, workspace],
   );
-  const attentionTableCount = useMemo(
-    () =>
-      workspace?.tables.filter((table) => table.available === 0 || conflictTableIds.has(table.id)).length ?? 0,
-    [conflictTableIds, workspace],
-  );
   const guestSectionBusy =
     loadingWorkspace ||
     submittingAction === "create-guest" ||
@@ -788,46 +783,8 @@ export function App() {
           <div>
             <p className="eyebrow">Plano principal</p>
             <h2>{workspace?.name ?? "Nuestro salón"}</h2>
-            <p className="workspace__copy">
-              Reordena el salón y revisa cómo se reparte el banquete con una vista clara y serena.
-            </p>
           </div>
         </header>
-
-        <div className="metrics metrics--airy">
-          <article className="metric-tile">
-            <span>Asignados</span>
-            <strong>{workspace?.validation.assigned_guests ?? 0}</strong>
-          </article>
-          <article className="metric-tile">
-            <span>Sin asiento</span>
-            <strong>{workspace?.validation.unassigned_guests ?? 0}</strong>
-          </article>
-          <article className="metric-tile metric-tile--accent">
-            <span>Conflictos</span>
-            <strong>{groupedConflictCount}</strong>
-          </article>
-        </div>
-
-        {workspace ? (
-          <section className="attention-strip" aria-label="Alertas de workspace">
-            <article className={`attention-strip__item ${groupedConflictCount > 0 ? "attention-strip__item--alert" : ""}`}>
-              <span>Conflictos de agrupacion</span>
-              <strong>{groupedConflictCount}</strong>
-              <p>{groupedConflictCount > 0 ? "Revisa mesas con invitados marcados en cobre." : "No hay separaciones activas."}</p>
-            </article>
-            <article className={`attention-strip__item ${fullTablesCount > 0 ? "attention-strip__item--alert" : ""}`}>
-              <span>Mesas sin margen</span>
-              <strong>{fullTablesCount}</strong>
-              <p>{fullTablesCount > 0 ? "No admiten mas invitados sin tocar capacidad." : "Todas mantienen al menos un asiento libre."}</p>
-            </article>
-            <article className={`attention-strip__item ${attentionTableCount > 0 ? "attention-strip__item--accent" : ""}`}>
-              <span>Mesas a revisar</span>
-              <strong>{attentionTableCount}</strong>
-              <p>{attentionTableCount > 0 ? "El resumen prioriza conflicto y aforo completo." : "El salon esta estable ahora mismo."}</p>
-            </article>
-          </section>
-        ) : null}
 
         {errorMessage ? <div className="banner banner--error">{errorMessage}</div> : null}
         {loadingWorkspace ? <div className="banner">Actualizando workspace...</div> : null}
