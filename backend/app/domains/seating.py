@@ -42,6 +42,7 @@ class Guest:
     guest_type: GuestType
     group_id: str | None = None
     table_id: str | None = None
+    seat_index: int | None = None
 
     def __post_init__(self) -> None:
         normalized_name = self.name.strip()
@@ -170,25 +171,22 @@ class Event:
     def remove_guest(self, guest_id: str) -> Guest:
         guest = self._get_guest(guest_id)
         guest.table_id = None
+        guest.seat_index = None
         return self.guests.pop(guest_id)
 
-    def assign_guest_to_table(self, guest_id: str, table_id: str) -> Guest:
+    def assign_guest_to_table(self, guest_id: str, table_id: str, seat_index: int | None = None) -> Guest:
         guest = self._get_guest(guest_id)
         table = self._get_table(table_id)
-
-        if guest.table_id == table.id:
-            return guest
-
-        occupancy = self.table_occupancy(table.id)
-        if occupancy >= table.capacity:
-            raise DomainError(f"La mesa {table.number} no tiene asientos libres.")
+        target_seat_index = self._resolve_target_seat_index(guest, table, seat_index)
 
         guest.table_id = table.id
+        guest.seat_index = target_seat_index
         return guest
 
     def unassign_guest(self, guest_id: str) -> Guest:
         guest = self._get_guest(guest_id)
         guest.table_id = None
+        guest.seat_index = None
         return guest
 
     def update_table_capacity(self, table_id: str, capacity: int) -> Table:
@@ -203,7 +201,11 @@ class Event:
     def guests_with_table(self) -> list[Guest]:
         return sorted(
             (guest for guest in self.guests.values() if guest.table_id is not None),
-            key=lambda guest: guest.name.casefold(),
+            key=lambda guest: (
+                guest.table_id or "",
+                guest.seat_index if guest.seat_index is not None else 10_000,
+                guest.name.casefold(),
+            ),
         )
 
     def guests_without_table(self) -> list[Guest]:
@@ -260,6 +262,28 @@ class Event:
             return self.guests[guest_id]
         except KeyError as exc:
             raise DomainError(f"No existe el invitado '{guest_id}'.") from exc
+
+    def _resolve_target_seat_index(self, guest: Guest, table: Table, seat_index: int | None) -> int:
+        occupied_seats = {
+            current_guest.seat_index
+            for current_guest in self.guests.values()
+            if current_guest.table_id == table.id
+            and current_guest.id != guest.id
+            and current_guest.seat_index is not None
+        }
+
+        if seat_index is None:
+            for candidate in range(table.capacity):
+                if candidate not in occupied_seats:
+                    return candidate
+            raise DomainError(f"La mesa {table.number} no tiene asientos libres.")
+
+        if seat_index < 0 or seat_index >= table.capacity:
+            raise DomainError(f"La silla seleccionada no existe en la mesa {table.number}.")
+        if seat_index in occupied_seats:
+            raise DomainError(f"La silla seleccionada de la mesa {table.number} ya está ocupada.")
+
+        return seat_index
 
     def _get_table(self, table_id: str) -> Table:
         try:

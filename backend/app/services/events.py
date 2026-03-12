@@ -63,9 +63,9 @@ class EventService:
         event.remove_guest(guest_id)
         return self.repository.save(event)
 
-    def assign_guest_to_table(self, guest_id: str, table_id: str) -> Event:
+    def assign_guest_to_table(self, guest_id: str, table_id: str, seat_index: int | None = None) -> Event:
         event = self.ensure_workspace()
-        event.assign_guest_to_table(guest_id, table_id)
+        event.assign_guest_to_table(guest_id, table_id, seat_index)
         return self.repository.save(event)
 
     def unassign_guest(self, guest_id: str) -> Event:
@@ -97,4 +97,5 @@ class EventService:
             guest_type=self._parse_guest_type(payload.guest_type),
             group_id=payload.group_id,
             table_id=payload.table_id,
+            seat_index=payload.seat_index,
         )

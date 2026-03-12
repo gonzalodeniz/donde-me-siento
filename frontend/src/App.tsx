@@ -1,4 +1,4 @@
-import { DragEvent, FormEvent, startTransition, useEffect, useMemo, useState } from "react";
+import { DragEvent, FormEvent, startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
 
 import {
   assignGuest,
@@ -8,7 +8,6 @@ import {
   deleteTable,
   fetchWorkspace,
   login,
-  unassignGuest,
   updateDefaultTableCapacity,
   updateGuest,
   updateTableCapacity,
@@ -24,13 +23,78 @@ type SectionNotice = {
   tone: SectionTone;
   message: string;
 };
+type SeatTarget = {
+  tableId: string;
+  seatIndex: number;
+};
 
 function normalizeText(value: string) {
   return value.trim();
 }
 
+function normalizeSearchText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 function randomLoginName() {
   return LOGIN_NAMES[Math.floor(Math.random() * LOGIN_NAMES.length)];
+}
+
+function formatGuestTypeLabel(guestType: string) {
+  switch (guestType) {
+    case "adulto":
+      return "Adulto";
+    case "adolescente":
+      return "Adolescente";
+    case "nino":
+      return "Niño";
+    default:
+      return guestType;
+  }
+}
+
+function matchesGuestSearch(guest: Guest, rawQuery: string) {
+  const query = normalizeSearchText(rawQuery);
+  if (!query) {
+    return true;
+  }
+
+  const searchableFields = [
+    guest.name,
+    guest.group_id ?? "",
+    guest.guest_type,
+    guest.table_id ?? "",
+    formatGuestTypeLabel(guest.guest_type),
+  ];
+
+  return searchableFields.some((field) => normalizeSearchText(field).includes(query));
+}
+
+function BabyBottleIcon() {
+  return (
+    <svg aria-hidden="true" className="guest-signal__icon" viewBox="0 0 24 24">
+      <path d="M9 2.75h6v2.1l-1.2.95v1.3l2.8 2.8V20a1.25 1.25 0 0 1-1.25 1.25h-6.7A1.25 1.25 0 0 1 7.4 20V9.9l2.8-2.8V5.8L9 4.85Z" />
+      <path d="M10 5.75h4" />
+      <path d="M9.8 12.1h4.4" />
+      <path d="M9.8 15.4h4.4" />
+    </svg>
+  );
+}
+
+function GuestSignal({ guest }: { guest: Guest }) {
+  if (guest.guest_type !== "nino") {
+    return null;
+  }
+
+  return (
+    <span aria-label="Invitado infantil" className="guest-signal" title="Invitado infantil">
+      <BabyBottleIcon />
+    </span>
+  );
 }
 
 export function App() {
@@ -45,6 +109,7 @@ export function App() {
   const [guestName, setGuestName] = useState("");
   const [guestType, setGuestType] = useState("adulto");
   const [guestGroupId, setGuestGroupId] = useState("");
+  const [guestSearchQuery, setGuestSearchQuery] = useState("");
   const [guestFormError, setGuestFormError] = useState<string | null>(null);
   const [editingGuestId, setEditingGuestId] = useState<string | null>(null);
   const [editingGuestName, setEditingGuestName] = useState("");
@@ -55,11 +120,13 @@ export function App() {
   const [selectedTableId, setSelectedTableId] = useState<string | null | undefined>(undefined);
   const [pendingTableRemovalId, setPendingTableRemovalId] = useState<string | null>(null);
   const [draggedGuestId, setDraggedGuestId] = useState<string | null>(null);
-  const [activeDropTableId, setActiveDropTableId] = useState<string | null>(null);
+  const [activeDropSeat, setActiveDropSeat] = useState<SeatTarget | null>(null);
+  const [isRailOpen, setIsRailOpen] = useState(true);
   const [sectionNotices, setSectionNotices] = useState<Record<SectionKey, SectionNotice | null>>({
     guests: null,
     tables: null,
   });
+  const deferredGuestSearchQuery = useDeferredValue(guestSearchQuery);
 
   const groupedConflictCount = useMemo(
     () => Object.keys(workspace?.validation.grouping_conflicts ?? {}).length,
@@ -106,15 +173,19 @@ export function App() {
       ),
     [conflictGuestIds, workspace],
   );
-  const attentionTableCount = useMemo(
-    () =>
-      workspace?.tables.filter((table) => table.available === 0 || conflictTableIds.has(table.id)).length ?? 0,
-    [conflictTableIds, workspace],
+  const tableNumberById = useMemo(
+    () => new Map((workspace?.tables ?? []).map((table) => [table.id, table.number])),
+    [workspace],
   );
-  const selectedTableHasConflict = selectedTable
-    ? selectedTable.guests.some((guest) => conflictGuestIds.has(guest.id))
-    : false;
-  const selectedTableIsFull = selectedTable ? selectedTable.available === 0 : false;
+  const filteredUnassignedGuests = useMemo(
+    () =>
+      (workspace?.guests.unassigned ?? []).filter((guest) => matchesGuestSearch(guest, deferredGuestSearchQuery)),
+    [deferredGuestSearchQuery, workspace],
+  );
+  const filteredAssignedGuests = useMemo(
+    () => (workspace?.guests.assigned ?? []).filter((guest) => matchesGuestSearch(guest, deferredGuestSearchQuery)),
+    [deferredGuestSearchQuery, workspace],
+  );
   const guestSectionBusy =
     loadingWorkspace ||
     submittingAction === "create-guest" ||
@@ -177,7 +248,7 @@ export function App() {
   useEffect(() => {
     if (!workspace) {
       setSelectedTableId(undefined);
-      setActiveDropTableId(null);
+      setActiveDropSeat(null);
       setDraggedGuestId(null);
       return;
     }
@@ -342,7 +413,7 @@ export function App() {
     return submittingAction === actionKey;
   }
 
-  function handleGuestDragStart(event: DragEvent<HTMLElement>, guestId: string) {
+  function handleGuestDragStart(event: DragEvent<Element>, guestId: string) {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", guestId);
     setDraggedGuestId(guestId);
@@ -351,14 +422,14 @@ export function App() {
 
   function handleGuestDragEnd() {
     setDraggedGuestId(null);
-    setActiveDropTableId(null);
+    setActiveDropSeat(null);
   }
 
-  function handleTableDragEnter(tableId: string) {
+  function handleSeatDragEnter(tableId: string, seatIndex: number) {
     if (!draggedGuestId) {
       return;
     }
-    setActiveDropTableId(tableId);
+    setActiveDropSeat({ tableId, seatIndex });
     setSelectedTableId(tableId);
   }
 
@@ -367,21 +438,23 @@ export function App() {
     setSelectedTableId((currentSelected) => (currentSelected === tableId ? null : tableId));
   }
 
-  function handleTableDragLeave(tableId: string) {
-    if (activeDropTableId === tableId) {
-      setActiveDropTableId(null);
+  function handleSeatDragLeave(tableId: string, seatIndex: number) {
+    if (activeDropSeat?.tableId === tableId && activeDropSeat.seatIndex === seatIndex) {
+      setActiveDropSeat(null);
     }
   }
 
-  function handleTableDrop(tableId: string, droppedGuestIdFromEvent: string | null) {
+  function handleSeatDrop(tableId: string, seatIndex: number, droppedGuestIdFromEvent: string | null) {
     const droppedGuestId = droppedGuestIdFromEvent ?? draggedGuestId;
     if (!workspace || !droppedGuestId) {
       return;
     }
 
-    const guest = workspace.guests.unassigned.find((currentGuest) => currentGuest.id === droppedGuestId);
+    const guest =
+      workspace.guests.unassigned.find((currentGuest) => currentGuest.id === droppedGuestId) ??
+      workspace.guests.assigned.find((currentGuest) => currentGuest.id === droppedGuestId);
     setDraggedGuestId(null);
-    setActiveDropTableId(null);
+    setActiveDropSeat(null);
 
     if (!guest) {
       return;
@@ -390,8 +463,8 @@ export function App() {
     void runWorkspaceAction(
       `assign-dnd-${droppedGuestId}`,
       "tables",
-      () => assignGuest(droppedGuestId, tableId, token ?? ""),
-      `${guest.name} asignado mediante arrastrar y soltar.`,
+      () => assignGuest(droppedGuestId, tableId, seatIndex, token ?? ""),
+      `${guest.name} colocado mediante arrastrar y soltar.`,
     );
   }
 
@@ -430,307 +503,204 @@ export function App() {
   }
 
   return (
-    <div className="shell">
+    <div className={`shell ${isRailOpen ? "" : "shell--rail-collapsed"}`}>
       <div className="shell__backdrop shell__backdrop--one" />
       <div className="shell__backdrop shell__backdrop--two" />
-      <aside className="rail">
-        <p className="eyebrow">Donde me siento</p>
-        <h1 className="rail__title">Diseño del Salón</h1>
+      <aside className={`rail ${isRailOpen ? "" : "rail--collapsed"}`}>
+        <button
+          aria-expanded={isRailOpen}
+          className="rail__toggle"
+          onClick={() => setIsRailOpen((current) => !current)}
+          type="button"
+        >
+          <span aria-hidden="true" className="rail__toggle-triangle">
+            {isRailOpen ? "◀" : "▶"}
+          </span>
+        </button>
+        <div className="rail__inner">
+          <p className="eyebrow">Donde me siento</p>
+          <h1 className="rail__title">Diseño del Salón</h1>
 
-        <section className="events-panel">
-          {sectionNotices.tables ? (
-            <div className={`inline-notice inline-notice--${sectionNotices.tables.tone}`}>
-              {sectionNotices.tables.message}
-            </div>
-          ) : null}
-          <div className="rail-section">
-            <div className="rail-section__header">
-              <div>
-                <p className="eyebrow eyebrow--compact">Mesa seleccionada</p>
-                <h2>Ajustes de Mesa seleccionada</h2>
+          <section className="events-panel">
+            {sectionNotices.tables ? (
+              <div className={`inline-notice inline-notice--${sectionNotices.tables.tone}`}>
+                {sectionNotices.tables.message}
               </div>
-            </div>
-            {selectedTable ? (
-              <div className="rail-table-settings">
-                <div className="rail-table-settings__meta">
-                  <span>Mesa {selectedTable.number}</span>
-                  <strong>{selectedTable.occupied} sentados</strong>
+            ) : null}
+            <div className="rail-section">
+              <div className="rail-section__header">
+                <div>
+                  <p className="eyebrow eyebrow--compact">Mesa seleccionada</p>
+                  <h2>Ajustes de Mesa seleccionada</h2>
                 </div>
-                <button
-                  className="button button--link button--small"
-                  onClick={() => setSelectedTableId(null)}
-                  type="button"
-                >
-                  Ajustar asientos generales
-                </button>
-                <div className="stepper" aria-label="Asientos">
-                  <button
-                    className="stepper__button"
-                    disabled={
-                      isActionRunning(`capacity-${selectedTable.id}`) || selectedTable.capacity <= selectedTable.occupied
-                    }
-                    onClick={() =>
-                      void runWorkspaceAction(
-                        `capacity-${selectedTable.id}`,
-                        "tables",
-                        () => updateTableCapacity(selectedTable.id, selectedTable.capacity - 1, token ?? ""),
-                        `Los asientos de la mesa ${selectedTable.number} se han ajustado.`,
-                      )
-                    }
-                    type="button"
-                  >
-                    -
-                  </button>
-                  <div className="stepper__value stepper__value--stacked">
-                    <span className="stepper__caption">Asientos</span>
-                    <strong>{selectedTable.capacity}</strong>
+              </div>
+              {selectedTable ? (
+                <div className="rail-table-settings">
+                  <div className="rail-table-settings__meta">
+                    <span>Mesa {selectedTable.number}</span>
+                    <strong>{selectedTable.occupied} sentados</strong>
                   </div>
                   <button
-                    className="stepper__button"
-                    disabled={isActionRunning(`capacity-${selectedTable.id}`)}
-                    onClick={() =>
-                      void runWorkspaceAction(
-                        `capacity-${selectedTable.id}`,
-                        "tables",
-                        () => updateTableCapacity(selectedTable.id, selectedTable.capacity + 1, token ?? ""),
-                        `Los asientos de la mesa ${selectedTable.number} se han ajustado.`,
-                      )
-                    }
+                    className="button button--link button--small"
+                    onClick={() => setSelectedTableId(null)}
                     type="button"
                   >
-                    +
+                    Ajustar asientos generales
                   </button>
-                </div>
-                {pendingTableRemovalId === selectedTable.id ? (
-                  <div className="rail-table-settings__confirm">
+                  <div className="stepper" aria-label="Asientos">
                     <button
-                      className="button button--quiet button--small"
-                      onClick={() => setPendingTableRemovalId(null)}
-                      type="button"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      className="button button--ghost button--small"
-                      disabled={isActionRunning(`remove-table-${selectedTable.id}`)}
+                      className="stepper__button"
+                      disabled={
+                        isActionRunning(`capacity-${selectedTable.id}`) || selectedTable.capacity <= selectedTable.occupied
+                      }
                       onClick={() =>
                         void runWorkspaceAction(
-                          `remove-table-${selectedTable.id}`,
+                          `capacity-${selectedTable.id}`,
                           "tables",
-                          async () => {
-                            await deleteTable(selectedTable.id, token ?? "");
-                            setPendingTableRemovalId(null);
-                          },
-                          `La mesa ${selectedTable.number} se ha retirado del salón.`,
+                          () => updateTableCapacity(selectedTable.id, selectedTable.capacity - 1, token ?? ""),
+                          `Los asientos de la mesa ${selectedTable.number} se han ajustado.`,
                         )
                       }
                       type="button"
                     >
-                      {isActionRunning(`remove-table-${selectedTable.id}`) ? "Quitando..." : "Confirmar retirada"}
+                      -
+                    </button>
+                    <div className="stepper__value stepper__value--stacked">
+                      <span className="stepper__caption">Asientos</span>
+                      <strong>{selectedTable.capacity}</strong>
+                    </div>
+                    <button
+                      className="stepper__button"
+                      disabled={isActionRunning(`capacity-${selectedTable.id}`)}
+                      onClick={() =>
+                        void runWorkspaceAction(
+                          `capacity-${selectedTable.id}`,
+                          "tables",
+                          () => updateTableCapacity(selectedTable.id, selectedTable.capacity + 1, token ?? ""),
+                          `Los asientos de la mesa ${selectedTable.number} se han ajustado.`,
+                        )
+                      }
+                      type="button"
+                    >
+                      +
                     </button>
                   </div>
-                ) : (
-                  <button
-                    className="button button--quiet button--small"
-                    onClick={() => setPendingTableRemovalId(selectedTable.id)}
-                    type="button"
-                  >
-                    Quitar mesa
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="rail-table-settings">
-                <p className="section-copy">Sin mesa seleccionada. Estos asientos se aplicarán a cada mesa nueva.</p>
-                <button
-                  className="button button--ghost button--small"
-                  disabled={isActionRunning("create-table")}
-                  onClick={() =>
-                    void runWorkspaceAction(
-                      "create-table",
-                      "tables",
-                      () => createTable(token ?? ""),
-                      "Nuestra nueva mesa ya forma parte del salón.",
-                    )
-                  }
-                  type="button"
-                >
-                  {isActionRunning("create-table") ? "Creando mesa..." : "Crear Nuestra Mesa"}
-                </button>
-                <div className="stepper" aria-label="Asientos generales">
-                  <button
-                    className="stepper__button"
-                    disabled={isActionRunning("default-table-capacity") || (workspace?.default_table_capacity ?? 1) <= 1}
-                    onClick={() =>
-                      void runWorkspaceAction(
-                        "default-table-capacity",
-                        "tables",
-                        () => updateDefaultTableCapacity((workspace?.default_table_capacity ?? 1) - 1, token ?? ""),
-                        "Los asientos generales para nuevas mesas se han ajustado.",
-                      )
-                    }
-                    type="button"
-                  >
-                    -
-                  </button>
-                  <div className="stepper__value stepper__value--stacked">
-                    <span className="stepper__caption">Asientos generales</span>
-                    <strong>{workspace?.default_table_capacity ?? 0}</strong>
-                  </div>
-                  <button
-                    className="stepper__button"
-                    disabled={isActionRunning("default-table-capacity")}
-                    onClick={() =>
-                      void runWorkspaceAction(
-                        "default-table-capacity",
-                        "tables",
-                        () => updateDefaultTableCapacity((workspace?.default_table_capacity ?? 0) + 1, token ?? ""),
-                        "Los asientos generales para nuevas mesas se han ajustado.",
-                      )
-                    }
-                    type="button"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="rail-divider" />
-          <div className="rail-section">
-            <div className="rail-section__header">
-              <div>
-                <p className="eyebrow eyebrow--compact">Banquete</p>
-                <h2>Resumen del Banquete</h2>
-              </div>
-            </div>
-            <dl className="banquet-summary">
-              <div className="banquet-summary__row">
-                <dt>Invitados sentados</dt>
-                <dd>{workspace?.guests.assigned.length ?? 0}</dd>
-              </div>
-              <div className="banquet-summary__row banquet-summary__row--accent">
-                <dt>Invitados pendientes</dt>
-                <dd>{pendingGuestsCount}</dd>
-              </div>
-            </dl>
-          </div>
-        </section>
-      </aside>
-
-      <main className="workspace">
-        <div className="workspace__utility">
-          <button className="button button--link" onClick={handleLogout} type="button">
-            Cerrar sesion
-          </button>
-        </div>
-        <header className="workspace__hero">
-          <div>
-            <p className="eyebrow">Plano principal</p>
-            <h2>{workspace?.name ?? "Nuestro salón"}</h2>
-            <p className="workspace__copy">
-              Reordena el salón y revisa cómo se reparte el banquete con una vista clara y serena.
-            </p>
-          </div>
-          <div className="metrics">
-            <article className="metric-tile">
-              <span>Asignados</span>
-              <strong>{workspace?.validation.assigned_guests ?? 0}</strong>
-            </article>
-            <article className="metric-tile">
-              <span>Sin asiento</span>
-              <strong>{workspace?.validation.unassigned_guests ?? 0}</strong>
-            </article>
-            <article className="metric-tile metric-tile--accent">
-              <span>Conflictos</span>
-              <strong>{groupedConflictCount}</strong>
-            </article>
-          </div>
-        </header>
-
-        {workspace ? (
-          <section className="attention-strip" aria-label="Alertas de workspace">
-            <article className={`attention-strip__item ${groupedConflictCount > 0 ? "attention-strip__item--alert" : ""}`}>
-              <span>Conflictos de agrupacion</span>
-              <strong>{groupedConflictCount}</strong>
-              <p>{groupedConflictCount > 0 ? "Revisa mesas con invitados marcados en cobre." : "No hay separaciones activas."}</p>
-            </article>
-            <article className={`attention-strip__item ${fullTablesCount > 0 ? "attention-strip__item--alert" : ""}`}>
-              <span>Mesas sin margen</span>
-              <strong>{fullTablesCount}</strong>
-              <p>{fullTablesCount > 0 ? "No admiten mas invitados sin tocar capacidad." : "Todas mantienen al menos un asiento libre."}</p>
-            </article>
-            <article className={`attention-strip__item ${attentionTableCount > 0 ? "attention-strip__item--accent" : ""}`}>
-              <span>Mesas a revisar</span>
-              <strong>{attentionTableCount}</strong>
-              <p>{attentionTableCount > 0 ? "El resumen prioriza conflicto y aforo completo." : "El salon esta estable ahora mismo."}</p>
-            </article>
-          </section>
-        ) : null}
-
-        {errorMessage ? <div className="banner banner--error">{errorMessage}</div> : null}
-        {loadingWorkspace ? <div className="banner">Actualizando workspace...</div> : null}
-
-        <section className="canvas">
-          <div className={`canvas__tables ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
-            {sectionNotices.tables ? (
-              <div className={`inline-notice inline-notice--${sectionNotices.tables.tone} inline-notice--floating`}>
-                {sectionNotices.tables.message}
-              </div>
-            ) : null}
-            {workspace ? (
-              <SeatingPlan
-                activeDropTableId={activeDropTableId}
-                draggedGuestName={draggedGuest?.name ?? null}
-                onSelectTable={selectOrClearTable}
-                onTableDragEnter={handleTableDragEnter}
-                onTableDragLeave={handleTableDragLeave}
-                onTableDrop={handleTableDrop}
-                selectedTableId={selectedTableId ?? null}
-                workspace={workspace}
-              />
-            ) : null}
-            {workspace?.tables.map((table) => (
-              <article
-                className={`table-card ${selectedTableId === table.id ? "table-card--selected" : ""} ${table.available === 0 ? "table-card--full" : ""} ${conflictTableIds.has(table.id) ? "table-card--conflict" : ""}`}
-                data-testid={`table-card-${table.id}`}
-                key={table.id}
-                onClick={() => selectOrClearTable(table.id)}
-              >
-                <div className="table-card__header">
-                  <div>
-                    <span className="table-card__label">Mesa {table.number}</span>
-                    <h3>{table.occupied}/{table.capacity} asientos</h3>
-                  </div>
-                  <span className={`table-card__pill ${table.available === 0 ? "table-card__pill--full" : ""}`}>
-                    {table.available} libres
-                  </span>
-                </div>
-                <div className="table-card__flags">
-                  {conflictTableIds.has(table.id) ? <span className="status-flag status-flag--conflict">Conflicto</span> : null}
-                  {table.available === 0 ? <span className="status-flag status-flag--full">Completa</span> : null}
-                  {table.available > 0 && table.available <= 2 ? <span className="status-flag status-flag--tight">Poco margen</span> : null}
-                </div>
-                <p className="table-card__summary">
-                  Usa el panel de mesa seleccionada para ajustar capacidad y mover invitados.
-                </p>
-                <div className="seat-ring">
-                  {table.guests.length === 0 ? (
-                    <p className="empty-state">Sin invitados asignados.</p>
+                  {pendingTableRemovalId === selectedTable.id ? (
+                    <div className="rail-table-settings__confirm">
+                      <button
+                        className="button button--quiet button--small"
+                        onClick={() => setPendingTableRemovalId(null)}
+                        type="button"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        className="button button--ghost button--small"
+                        disabled={isActionRunning(`remove-table-${selectedTable.id}`)}
+                        onClick={() =>
+                          void runWorkspaceAction(
+                            `remove-table-${selectedTable.id}`,
+                            "tables",
+                            async () => {
+                              await deleteTable(selectedTable.id, token ?? "");
+                              setPendingTableRemovalId(null);
+                            },
+                            `La mesa ${selectedTable.number} se ha retirado del salón.`,
+                          )
+                        }
+                        type="button"
+                      >
+                        {isActionRunning(`remove-table-${selectedTable.id}`) ? "Quitando..." : "Confirmar retirada"}
+                      </button>
+                    </div>
                   ) : (
-                    table.guests.map((guest) => (
-                      <div className={`guest-chip ${conflictGuestIds.has(guest.id) ? "guest-chip--conflict" : ""}`} key={guest.id}>
-                        <span>{guest.name}</span>
-                      </div>
-                    ))
+                    <button
+                      className="button button--quiet button--small"
+                      onClick={() => setPendingTableRemovalId(selectedTable.id)}
+                      type="button"
+                    >
+                      Quitar mesa
+                    </button>
                   )}
                 </div>
-              </article>
-            )) ?? <p className="empty-state">Aun no hay workspace cargado.</p>}
-          </div>
-
-          <div className={`lists-panel ${guestSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={guestSectionBusy}>
-            <section className="control-card">
+              ) : (
+                <div className="rail-table-settings">
+                  <p className="section-copy">Sin mesa seleccionada. Estos asientos se aplicarán a cada mesa nueva.</p>
+                  <button
+                    className="button button--ghost button--small"
+                    disabled={isActionRunning("create-table")}
+                    onClick={() =>
+                      void runWorkspaceAction(
+                        "create-table",
+                        "tables",
+                        () => createTable(token ?? ""),
+                        "Nuestra nueva mesa ya forma parte del salón.",
+                      )
+                    }
+                    type="button"
+                  >
+                    {isActionRunning("create-table") ? "Creando mesa..." : "Crear Nuestra Mesa"}
+                  </button>
+                  <div className="stepper" aria-label="Asientos generales">
+                    <button
+                      className="stepper__button"
+                      disabled={isActionRunning("default-table-capacity") || (workspace?.default_table_capacity ?? 1) <= 1}
+                      onClick={() =>
+                        void runWorkspaceAction(
+                          "default-table-capacity",
+                          "tables",
+                          () => updateDefaultTableCapacity((workspace?.default_table_capacity ?? 1) - 1, token ?? ""),
+                          "Los asientos generales para nuevas mesas se han ajustado.",
+                        )
+                      }
+                      type="button"
+                    >
+                      -
+                    </button>
+                    <div className="stepper__value stepper__value--stacked">
+                      <span className="stepper__caption">Asientos generales</span>
+                      <strong>{workspace?.default_table_capacity ?? 0}</strong>
+                    </div>
+                    <button
+                      className="stepper__button"
+                      disabled={isActionRunning("default-table-capacity")}
+                      onClick={() =>
+                        void runWorkspaceAction(
+                          "default-table-capacity",
+                          "tables",
+                          () => updateDefaultTableCapacity((workspace?.default_table_capacity ?? 0) + 1, token ?? ""),
+                          "Los asientos generales para nuevas mesas se han ajustado.",
+                        )
+                      }
+                      type="button"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="rail-divider" />
+            <div className="rail-section">
+              <div className="rail-section__header">
+                <div>
+                  <p className="eyebrow eyebrow--compact">Banquete</p>
+                  <h2>Resumen del Banquete</h2>
+                </div>
+              </div>
+              <dl className="banquet-summary">
+                <div className="banquet-summary__row">
+                  <dt>Invitados sentados</dt>
+                  <dd>{workspace?.guests.assigned.length ?? 0}</dd>
+                </div>
+                <div className="banquet-summary__row banquet-summary__row--accent">
+                  <dt>Invitados pendientes</dt>
+                  <dd>{pendingGuestsCount}</dd>
+                </div>
+              </dl>
+            </div>
+            <div className="rail-divider" />
+            <section className={`control-card ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
               <div className="list-card__header">
                 <h3>Panel de control</h3>
                 <span>{workspace?.tables.length ?? 0} mesas</span>
@@ -785,143 +755,149 @@ export function App() {
                 })}
               </div>
             </section>
+          </section>
+        </div>
+      </aside>
 
-            <section className="control-card">
-              <div className="list-card__header">
-                <h3>Invitados de la mesa</h3>
-                <span>{selectedTable ? `Mesa ${selectedTable.number}` : "Sin seleccion"}</span>
-              </div>
-              {selectedTable ? (
-                <div className="selected-table-panel">
-                  <div className={`selected-table-panel__hero ${selectedTableHasConflict ? "selected-table-panel__hero--conflict" : ""} ${selectedTableIsFull ? "selected-table-panel__hero--full" : ""}`}>
-                    <strong>{selectedTable.occupied}/{selectedTable.capacity}</strong>
-                    <span>{selectedTable.available} asientos libres</span>
+      <main className="workspace">
+        <header className="topbar">
+          <div className="topbar__brand" />
+          <div className="topbar__center">
+            <span className="topbar__couple">Héctor & Raquel</span>
+          </div>
+          <div className="topbar__session">
+            <button className="button button--link button--small" onClick={handleLogout} type="button">
+              Salir
+            </button>
+          </div>
+        </header>
+
+        {errorMessage ? <div className="banner banner--error">{errorMessage}</div> : null}
+        {loadingWorkspace ? <div className="banner">Actualizando workspace...</div> : null}
+
+        <section className="canvas">
+          <div className={`canvas__tables ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
+            {workspace ? (
+              <SeatingPlan
+                activeDropSeat={activeDropSeat}
+                draggedGuestName={draggedGuest?.name ?? null}
+                onGuestDragEnd={handleGuestDragEnd}
+                onGuestDragStart={handleGuestDragStart}
+                onSelectTable={selectOrClearTable}
+                onSeatDragEnter={handleSeatDragEnter}
+                onSeatDragLeave={handleSeatDragLeave}
+                onSeatDrop={handleSeatDrop}
+                selectedTableId={selectedTableId ?? null}
+                workspace={workspace}
+              />
+            ) : null}
+            {workspace?.tables.map((table) => (
+              <article
+                className={`table-card ${selectedTableId === table.id ? "table-card--selected" : ""} ${table.available === 0 ? "table-card--full" : ""} ${conflictTableIds.has(table.id) ? "table-card--conflict" : ""}`}
+                data-testid={`table-card-${table.id}`}
+                key={table.id}
+                onClick={() => selectOrClearTable(table.id)}
+              >
+                <div className="table-card__header">
+                  <div>
+                    <span className="table-card__label">Mesa {table.number}</span>
+                    <h3>{table.occupied}/{table.capacity} asientos</h3>
                   </div>
-                  {(selectedTableHasConflict || selectedTableIsFull) ? (
-                    <div className="selected-table-panel__alerts">
-                      {selectedTableHasConflict ? (
-                        <div className="inline-notice inline-notice--error">
-                          Esta mesa tiene invitados con conflicto de agrupacion. Revisa la composicion antes de cerrar.
-                        </div>
-                      ) : null}
-                      {selectedTableIsFull ? (
-                        <div className="inline-notice inline-notice--info">
-                          Esta mesa esta completa. Para seguir asignando aqui necesitas liberar asiento o subir capacidad.
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  <p className="selected-table-panel__hint">
-                    Desde aquí puedes devolver invitados a la lista pendiente cuando necesites rehacer la distribución.
-                  </p>
-                  <div className="selected-table-panel__guests">
-                    {selectedTable.guests.length > 0 ? (
-                      selectedTable.guests.map((guest) => (
-                        <article className={`selected-guest ${conflictGuestIds.has(guest.id) ? "selected-guest--conflict" : ""}`} key={guest.id}>
-                          <div>
-                            <strong>{guest.name}</strong>
-                            <span>{guest.group_id ? `Agrupacion ${guest.group_id}` : guest.guest_type}</span>
-                          </div>
-                          <button
-                            className="button button--ghost button--small"
-                            disabled={isActionRunning(`unassign-${guest.id}`)}
-                            onClick={() =>
-                              void runWorkspaceAction(
-                                `unassign-${guest.id}`,
-                                "tables",
-                                () => unassignGuest(guest.id, token ?? ""),
-                                `${guest.name} vuelve a la lista sin asignar.`,
-                              )
-                            }
-                            type="button"
-                          >
-                            {isActionRunning(`unassign-${guest.id}`) ? "Quitando..." : "Quitar de mesa"}
-                          </button>
-                        </article>
-                      ))
-                    ) : (
-                      <p className="empty-state">La mesa seleccionada todavia no tiene invitados.</p>
-                    )}
-                  </div>
+                  <span className={`table-card__pill ${table.available === 0 ? "table-card__pill--full" : ""}`}>
+                    {table.available} libres
+                  </span>
                 </div>
-              ) : (
-                <p className="empty-state">Selecciona una mesa desde el plano o el resumen.</p>
-              )}
-            </section>
+                <div className="table-card__flags">
+                  {conflictTableIds.has(table.id) ? <span className="status-flag status-flag--conflict">Conflicto</span> : null}
+                  {table.available === 0 ? <span className="status-flag status-flag--full">Completa</span> : null}
+                  {table.available > 0 && table.available <= 2 ? <span className="status-flag status-flag--tight">Poco margen</span> : null}
+                </div>
+                <p className="table-card__summary">
+                  Usa el panel de mesa seleccionada para ajustar capacidad y mover invitados.
+                </p>
+                <div className="seat-ring">
+                  {table.guests.length === 0 ? (
+                    <p className="empty-state">Sin invitados asignados.</p>
+                  ) : (
+                    table.guests.map((guest) => (
+                      <div className={`guest-chip ${conflictGuestIds.has(guest.id) ? "guest-chip--conflict" : ""}`} key={guest.id}>
+                        <span>{guest.name}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </article>
+            )) ?? <p className="empty-state">Aun no hay workspace cargado.</p>}
+          </div>
 
-            <section className="list-card">
+          <div className={`lists-panel ${guestSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={guestSectionBusy}>
+            <section className="list-card list-card--guests">
               <div data-testid="unassigned-guests-panel">
                 {sectionNotices.guests ? (
                   <div className={`inline-notice inline-notice--${sectionNotices.guests.tone}`}>
                     {sectionNotices.guests.message}
                   </div>
                 ) : null}
-                <div className="list-card__header">
-                  <h3>Sin asignar</h3>
-                  <span>{workspace?.guests.unassigned.length ?? 0}</span>
-                </div>
-                <p className="microcopy">
-                  Arrastra un invitado hacia el plano. Cuando entres en modo arrastre, las mesas mostraran su zona de recepcion.
-                </p>
-                <form className="stack-form" onSubmit={handleGuestCreate}>
-                  <label className="mini-field">
-                    <span>Nombre</span>
-                    <input
-                      data-testid="guest-name-input"
-                      value={guestName}
-                      aria-invalid={Boolean(guestFormError)}
-                      onChange={(event) => setGuestName(event.target.value)}
-                    />
-                  </label>
-                  <div className="mini-grid">
-                    <label className="mini-field">
-                      <span>Tipo</span>
-                      <select value={guestType} onChange={(event) => setGuestType(event.target.value)}>
-                        <option value="adulto">adulto</option>
-                        <option value="adolescente">adolescente</option>
-                        <option value="nino">nino</option>
-                      </select>
-                    </label>
-                    <label className="mini-field">
-                      <span>Agrupacion</span>
-                      <input placeholder="opcional" value={guestGroupId} onChange={(event) => setGuestGroupId(event.target.value)} />
-                    </label>
+                <div className="list-card__header list-card__header--guests">
+                  <div>
+                    <h3>Nuestros Invitados</h3>
                   </div>
-                  {guestFormError ? <p className="inline-feedback inline-feedback--error">{guestFormError}</p> : null}
-                  <button className="button button--primary button--small" disabled={isActionRunning("create-guest")} type="submit">
-                    {isActionRunning("create-guest") ? "Guardando..." : "Anadir invitado"}
-                  </button>
-                </form>
-                <div className="guest-list">
-                  {workspace && workspace.guests.unassigned.length > 0 ? (
-                    workspace.guests.unassigned.map((guest) => (
+                  <span>{(workspace?.guests.unassigned.length ?? 0) + (workspace?.guests.assigned.length ?? 0)}</span>
+                </div>
+                <label className="guest-search">
+                  <input
+                    onChange={(event) => setGuestSearchQuery(event.target.value)}
+                    placeholder="Encuentra a un ser querido..."
+                    type="search"
+                    value={guestSearchQuery}
+                  />
+                </label>
+                <section className="guest-salon__section">
+                  <div className="guest-salon__section-header">
+                    <div>
+                      <h4>Por asignar</h4>
+                      <p>Etiquetas listas para llevar al plano.</p>
+                    </div>
+                    <span>
+                      {filteredUnassignedGuests.length}/{workspace?.guests.unassigned.length ?? 0}
+                    </span>
+                  </div>
+                  <div className="guest-list guest-list--paper">
+                    {filteredUnassignedGuests.length > 0 ? (
+                      filteredUnassignedGuests.map((guest) => (
                       <article
-                        className={`guest-card ${conflictGuestIds.has(guest.id) ? "guest-card--conflict" : ""} ${draggedGuestId === guest.id ? "guest-card--dragging" : ""}`}
+                        className={`guest-card guest-card--paper ${conflictGuestIds.has(guest.id) ? "guest-card--conflict" : ""} ${draggedGuestId === guest.id ? "guest-card--dragging" : ""}`}
                         data-testid={`unassigned-guest-${guest.id}`}
                         key={guest.id}
                         draggable
                         onDragEnd={handleGuestDragEnd}
                         onDragStart={(event) => handleGuestDragStart(event, guest.id)}
                       >
-                        <div className="guest-card__header">
-                          <strong>{guest.name}</strong>
-                          <span>{guest.guest_type}</span>
+                        <div className="guest-card__header guest-card__header--paper">
+                          <div className="guest-card__identity">
+                            <div className="guest-card__nameplate">
+                              <strong>{guest.name}</strong>
+                              <GuestSignal guest={guest} />
+                            </div>
+                            <span>{guest.group_id ? `Agrupación ${guest.group_id}` : "Sin agrupación"}</span>
+                          </div>
+                          <span className="guest-card__type">{formatGuestTypeLabel(guest.guest_type)}</span>
                         </div>
                         {draggedGuestId === guest.id ? (
                           <div className="guest-card__drag-hint">En movimiento: suelta esta tarjeta sobre una mesa.</div>
-                        ) : null}
-                        <div className="guest-card__meta">
-                          <span>{guest.group_id ? `Agrupacion ${guest.group_id}` : "Sin agrupacion"}</span>
-                        </div>
-                        <div className="guest-card__actions">
+                        ) : (
+                          <p className="guest-card__dragline">Lista para llevar al salón.</p>
+                        )}
+                        <div className="guest-card__actions guest-card__actions--paper">
                           <select
+                            aria-label={`Elegir mesa para ${guest.name}`}
                             value={assignmentValues[guest.id] ?? ""}
                             onChange={(event) =>
                               setAssignmentValues((current) => ({ ...current, [guest.id]: event.target.value }))
                             }
                           >
-                            <option value="">Asignar a mesa</option>
-                            {workspace.tables.map((table) => (
+                            <option value="">Elegir mesa</option>
+                            {workspace?.tables.map((table) => (
                               <option key={table.id} value={table.id}>
                                 Mesa {table.number}
                               </option>
@@ -934,13 +910,13 @@ export function App() {
                               void runWorkspaceAction(
                                 `assign-${guest.id}`,
                                 "guests",
-                                () => assignGuest(guest.id, assignmentValues[guest.id], token ?? ""),
+                                () => assignGuest(guest.id, assignmentValues[guest.id], null, token ?? ""),
                                 `${guest.name} asignado correctamente.`,
                               )
                             }
                             type="button"
                           >
-                            Asignar
+                            Ubicar
                           </button>
                           <button className="button button--ghost button--small" onClick={() => beginGuestEdit(guest)} type="button">
                             Editar
@@ -964,31 +940,91 @@ export function App() {
                       </article>
                     ))
                   ) : (
-                    <p className="empty-state">Nada pendiente.</p>
+                    <p className="empty-state empty-state--paper">
+                      {guestSearchQuery ? "No encontramos a nadie con esa búsqueda." : "Todo el mundo tiene ya su lugar reservado."}
+                    </p>
                   )}
-                </div>
-              </div>
-            </section>
+                  </div>
+                </section>
 
-            <section className="list-card">
-              <div className="list-card__header">
-                <h3>Asignados</h3>
-                <span>{workspace?.guests.assigned.length ?? 0}</span>
-              </div>
-              <p className="microcopy">
-                Esta lista es solo de lectura. Para liberar un asiento, usa el panel de mesa seleccionada.
-              </p>
-              <div className="guest-list">
-                {workspace && workspace.guests.assigned.length > 0 ? (
-                  workspace.guests.assigned.map((guest) => (
-                    <article className={`guest-row ${conflictGuestIds.has(guest.id) ? "guest-row--conflict" : ""}`} key={guest.id}>
-                      <strong>{guest.name}</strong>
-                      <span>{guest.table_id}</span>
-                    </article>
-                  ))
-                ) : (
-                  <p className="empty-state">Todavia no hay invitados sentados.</p>
-                )}
+                <details className="guest-collapse guest-salon__section guest-salon__section--compact">
+                  <summary className="guest-collapse__summary">
+                    <div>
+                      <h4>Ya ubicados</h4>
+                      <p>Un bloque discreto para quienes ya tienen mesa.</p>
+                    </div>
+                    <span>
+                      {filteredAssignedGuests.length}/{workspace?.guests.assigned.length ?? 0}
+                    </span>
+                  </summary>
+                  <div className="guest-collapse__content">
+                    <div className="guest-list guest-list--compact">
+                      {filteredAssignedGuests.length > 0 ? (
+                        filteredAssignedGuests.map((guest) => {
+                          const tableNumber = guest.table_id ? tableNumberById.get(guest.table_id) : null;
+
+                          return (
+                            <article
+                              className={`guest-row guest-row--placed ${conflictGuestIds.has(guest.id) ? "guest-row--conflict" : ""}`}
+                              key={guest.id}
+                            >
+                              <div className="guest-row__identity">
+                                <div className="guest-card__nameplate">
+                                  <strong>{guest.name}</strong>
+                                  <GuestSignal guest={guest} />
+                                </div>
+                                <span>{guest.group_id ? `Agrupación ${guest.group_id}` : formatGuestTypeLabel(guest.guest_type)}</span>
+                              </div>
+                              <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
+                            </article>
+                          );
+                        })
+                      ) : (
+                        <p className="empty-state empty-state--paper">
+                          {guestSearchQuery ? "No hay invitados ubicados con esa búsqueda." : "Todavía no hay invitados sentados."}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </details>
+
+                <details className="guest-composer">
+                  <summary className="guest-collapse__summary guest-collapse__summary--muted">
+                    <div>
+                      <h4>Añadir invitado</h4>
+                      <p>Solo si necesitas incorporar a alguien manualmente.</p>
+                    </div>
+                  </summary>
+                  <form className="stack-form stack-form--guest-salon" onSubmit={handleGuestCreate}>
+                    <label className="mini-field">
+                      <span>Nombre</span>
+                      <input
+                        data-testid="guest-name-input"
+                        value={guestName}
+                        aria-invalid={Boolean(guestFormError)}
+                        onChange={(event) => setGuestName(event.target.value)}
+                      />
+                    </label>
+                    <div className="mini-grid">
+                      <label className="mini-field">
+                        <span>Tipo</span>
+                        <select value={guestType} onChange={(event) => setGuestType(event.target.value)}>
+                          <option value="adulto">adulto</option>
+                          <option value="adolescente">adolescente</option>
+                          <option value="nino">nino</option>
+                        </select>
+                      </label>
+                      <label className="mini-field">
+                        <span>Agrupacion</span>
+                        <input placeholder="opcional" value={guestGroupId} onChange={(event) => setGuestGroupId(event.target.value)} />
+                      </label>
+                    </div>
+                    {guestFormError ? <p className="inline-feedback inline-feedback--error">{guestFormError}</p> : null}
+                    <button className="button button--primary button--small" disabled={isActionRunning("create-guest")} type="submit">
+                      {isActionRunning("create-guest") ? "Guardando..." : "Añadir invitado"}
+                    </button>
+                  </form>
+                </details>
               </div>
             </section>
 

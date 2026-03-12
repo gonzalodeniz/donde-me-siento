@@ -88,7 +88,7 @@ async def assign_guest(
     """Asigna un invitado a una mesa."""
 
     try:
-        event = service.assign_guest_to_table(guest_id, payload.table_id)
+        event = service.assign_guest_to_table(guest_id, payload.table_id, payload.seat_index)
     except DomainError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
