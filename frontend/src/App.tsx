@@ -17,9 +17,24 @@ import { SeatingPlan } from "./components/SeatingPlan";
 import type { EventSummary, Guest, Workspace } from "./types";
 
 const TOKEN_STORAGE_KEY = "dms.auth.token";
+type SectionTone = "success" | "error" | "info";
+type SectionKey = "events" | "guests" | "tables";
+type SectionNotice = {
+  tone: SectionTone;
+  message: string;
+};
 
 function metricLabel(total: number, singular: string, plural: string) {
   return `${total} ${total === 1 ? singular : plural}`;
+}
+
+function normalizeText(value: string) {
+  return value.trim();
+}
+
+function parsePositiveInteger(value: string) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 export function App() {
@@ -33,22 +48,30 @@ export function App() {
   const [loadingWorkspace, setLoadingWorkspace] = useState(false);
   const [submittingAction, setSubmittingAction] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [eventName, setEventName] = useState("");
   const [eventTableCount, setEventTableCount] = useState("8");
   const [eventDefaultCapacity, setEventDefaultCapacity] = useState("10");
+  const [eventFormError, setEventFormError] = useState<string | null>(null);
   const [guestName, setGuestName] = useState("");
   const [guestType, setGuestType] = useState("adulto");
   const [guestGroupId, setGuestGroupId] = useState("");
+  const [guestFormError, setGuestFormError] = useState<string | null>(null);
   const [editingGuestId, setEditingGuestId] = useState<string | null>(null);
   const [editingGuestName, setEditingGuestName] = useState("");
   const [editingGuestType, setEditingGuestType] = useState("adulto");
   const [editingGuestGroupId, setEditingGuestGroupId] = useState("");
+  const [editingGuestError, setEditingGuestError] = useState<string | null>(null);
   const [assignmentValues, setAssignmentValues] = useState<Record<string, string>>({});
   const [capacityValues, setCapacityValues] = useState<Record<string, string>>({});
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [draggedGuestId, setDraggedGuestId] = useState<string | null>(null);
   const [activeDropTableId, setActiveDropTableId] = useState<string | null>(null);
+  const [eventPendingDeleteId, setEventPendingDeleteId] = useState<string | null>(null);
+  const [sectionNotices, setSectionNotices] = useState<Record<SectionKey, SectionNotice | null>>({
+    events: null,
+    guests: null,
+    tables: null,
+  });
 
   const groupedConflictCount = useMemo(
     () => Object.keys(workspace?.validation.grouping_conflicts ?? {}).length,
@@ -61,6 +84,14 @@ export function App() {
   const selectedTable = useMemo(
     () => workspace?.tables.find((table) => table.id === selectedTableId) ?? null,
     [selectedTableId, workspace],
+  );
+  const activeWorkspaceEventId = workspace?.event_id ?? null;
+  const draggedGuest = useMemo(
+    () =>
+      workspace?.guests.unassigned.find((guest) => guest.id === draggedGuestId) ??
+      workspace?.guests.assigned.find((guest) => guest.id === draggedGuestId) ??
+      null,
+    [draggedGuestId, workspace],
   );
   const occupancyTables = useMemo(
     () =>
@@ -75,12 +106,48 @@ export function App() {
     () => workspace?.tables.filter((table) => table.available === 0).length ?? 0,
     [workspace],
   );
+  const conflictTableIds = useMemo(
+    () =>
+      new Set(
+        workspace?.tables
+          .filter((table) => table.guests.some((guest) => conflictGuestIds.has(guest.id)))
+          .map((table) => table.id) ?? [],
+      ),
+    [conflictGuestIds, workspace],
+  );
+  const attentionTableCount = useMemo(
+    () =>
+      workspace?.tables.filter((table) => table.available === 0 || conflictTableIds.has(table.id)).length ?? 0,
+    [conflictTableIds, workspace],
+  );
+  const selectedTableHasConflict = selectedTable
+    ? selectedTable.guests.some((guest) => conflictGuestIds.has(guest.id))
+    : false;
+  const selectedTableIsFull = selectedTable ? selectedTable.available === 0 : false;
+  const railBusy =
+    loadingAuth ||
+    submittingAction === "create-event" ||
+    (submittingAction !== null && submittingAction.startsWith("delete-event-"));
+  const guestSectionBusy =
+    loadingWorkspace ||
+    submittingAction === "create-guest" ||
+    (submittingAction !== null &&
+      (submittingAction.startsWith("update-") ||
+        submittingAction.startsWith("delete-") ||
+        submittingAction.startsWith("assign-")));
+  const tablesSectionBusy =
+    loadingWorkspace ||
+    (submittingAction !== null &&
+      (submittingAction.startsWith("capacity-") ||
+        submittingAction.startsWith("unassign-") ||
+        submittingAction.startsWith("assign-dnd-")));
 
   useEffect(() => {
     if (!token) {
       setEvents([]);
       setSelectedEventId(null);
       setWorkspace(null);
+      setSectionNotices({ events: null, guests: null, tables: null });
       return;
     }
 
@@ -96,6 +163,7 @@ export function App() {
         setEvents(nextEvents);
         setSelectedEventId((currentSelected) => currentSelected ?? nextEvents[0]?.id ?? null);
         setErrorMessage(null);
+        setSectionNotices((current) => ({ ...current, events: null }));
       } catch (error) {
         if (cancelled) {
           return;
@@ -136,6 +204,7 @@ export function App() {
         );
         setSelectedTableId((currentSelected) => currentSelected ?? nextWorkspace.tables[0]?.id ?? null);
         setErrorMessage(null);
+        setSectionNotices((current) => ({ ...current, guests: null, tables: null }));
       } catch (error) {
         if (cancelled) {
           return;
@@ -189,7 +258,11 @@ export function App() {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     setToken(null);
     setErrorMessage(null);
-    setSuccessMessage(null);
+    setEventFormError(null);
+    setGuestFormError(null);
+    setEditingGuestError(null);
+    setSectionNotices({ events: null, guests: null, tables: null });
+    setEventPendingDeleteId(null);
   }
 
   function beginGuestEdit(guest: Guest) {
@@ -204,6 +277,21 @@ export function App() {
     setEditingGuestName("");
     setEditingGuestType("adulto");
     setEditingGuestGroupId("");
+    setEditingGuestError(null);
+  }
+
+  function setSectionNotice(section: SectionKey, tone: SectionTone, message: string) {
+    setSectionNotices((current) => ({
+      ...current,
+      [section]: { tone, message },
+    }));
+  }
+
+  function clearSectionNotice(section: SectionKey) {
+    setSectionNotices((current) => ({
+      ...current,
+      [section]: null,
+    }));
   }
 
   async function refreshWorkspaceState(activeEventId: string, activeToken: string) {
@@ -230,7 +318,12 @@ export function App() {
     return nextEvents;
   }
 
-  async function runWorkspaceAction(actionKey: string, action: () => Promise<void>, message: string) {
+  async function runWorkspaceAction(
+    actionKey: string,
+    section: SectionKey,
+    action: () => Promise<void>,
+    message: string,
+  ) {
     if (!token || !selectedEventId) {
       return;
     }
@@ -239,14 +332,18 @@ export function App() {
     const activeEventId = selectedEventId;
     setSubmittingAction(actionKey);
     setErrorMessage(null);
-    setSuccessMessage(null);
+    clearSectionNotice(section);
 
     try {
       await action();
       await refreshWorkspaceState(activeEventId, activeToken);
-      setSuccessMessage(message);
+      setSectionNotice(section, "success", message);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "No se pudo completar la accion.");
+      setSectionNotice(
+        section,
+        "error",
+        error instanceof Error ? error.message : "No se pudo completar la accion.",
+      );
     } finally {
       setSubmittingAction(null);
     }
@@ -258,13 +355,21 @@ export function App() {
       return;
     }
 
+    const normalizedGuestName = normalizeText(guestName);
+    if (!normalizedGuestName) {
+      setGuestFormError("Introduce el nombre del invitado antes de guardarlo.");
+      return;
+    }
+    setGuestFormError(null);
+
     await runWorkspaceAction(
       "create-guest",
+      "guests",
       () =>
         createGuest(selectedEventId, token, {
-          name: guestName,
+          name: normalizedGuestName,
           guest_type: guestType,
-          group_id: guestGroupId.trim() || null,
+          group_id: normalizeText(guestGroupId) || null,
         }),
       "Invitado anadido al workspace.",
     );
@@ -279,13 +384,21 @@ export function App() {
       return;
     }
 
+    const normalizedGuestName = normalizeText(editingGuestName);
+    if (!normalizedGuestName) {
+      setEditingGuestError("El invitado necesita un nombre para guardar cambios.");
+      return;
+    }
+    setEditingGuestError(null);
+
     await runWorkspaceAction(
       `update-${editingGuestId}`,
+      "guests",
       () =>
         updateGuest(selectedEventId, editingGuestId, token, {
-          name: editingGuestName,
+          name: normalizedGuestName,
           guest_type: editingGuestType,
-          group_id: editingGuestGroupId.trim() || null,
+          group_id: normalizeText(editingGuestGroupId) || null,
         }),
       "Invitado actualizado.",
     );
@@ -305,22 +418,44 @@ export function App() {
     const activeToken = token;
     setSubmittingAction("create-event");
     setErrorMessage(null);
-    setSuccessMessage(null);
+    clearSectionNotice("events");
+
+    const normalizedEventName = normalizeText(eventName);
+    const parsedTableCount = parsePositiveInteger(eventTableCount);
+    const parsedDefaultCapacity = parsePositiveInteger(eventDefaultCapacity);
+
+    if (!normalizedEventName) {
+      setEventFormError("El evento necesita un nombre visible en el rail.");
+      setSubmittingAction(null);
+      return;
+    }
+
+    if (!parsedTableCount || !parsedDefaultCapacity) {
+      setEventFormError("Mesas y capacidad base deben ser enteros mayores que cero.");
+      setSubmittingAction(null);
+      return;
+    }
+
+    setEventFormError(null);
 
     try {
       const createdEvent = await createEvent(activeToken, {
-        name: eventName,
-        table_count: Number(eventTableCount),
-        default_table_capacity: Number(eventDefaultCapacity),
+        name: normalizedEventName,
+        table_count: parsedTableCount,
+        default_table_capacity: parsedDefaultCapacity,
       });
       await refreshEventsOnly(activeToken);
       setSelectedEventId(createdEvent.id);
       setEventName("");
       setEventTableCount("8");
       setEventDefaultCapacity("10");
-      setSuccessMessage("Evento creado correctamente.");
+      setSectionNotice("events", "success", "Evento creado correctamente.");
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "No se pudo crear el evento.");
+      setSectionNotice(
+        "events",
+        "error",
+        error instanceof Error ? error.message : "No se pudo crear el evento.",
+      );
     } finally {
       setSubmittingAction(null);
     }
@@ -334,7 +469,7 @@ export function App() {
     const activeToken = token;
     setSubmittingAction(`delete-event-${eventId}`);
     setErrorMessage(null);
-    setSuccessMessage(null);
+    clearSectionNotice("events");
 
     try {
       await deleteEvent(eventId, activeToken);
@@ -349,9 +484,14 @@ export function App() {
           setWorkspace(null);
         }
       });
-      setSuccessMessage("Evento eliminado.");
+      setEventPendingDeleteId(null);
+      setSectionNotice("events", "success", "Evento eliminado.");
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "No se pudo eliminar el evento.");
+      setSectionNotice(
+        "events",
+        "error",
+        error instanceof Error ? error.message : "No se pudo eliminar el evento.",
+      );
     } finally {
       setSubmittingAction(null);
     }
@@ -361,7 +501,7 @@ export function App() {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", guestId);
     setDraggedGuestId(guestId);
-    setSuccessMessage(null);
+    clearSectionNotice("tables");
   }
 
   function handleGuestDragEnd() {
@@ -399,6 +539,7 @@ export function App() {
 
     void runWorkspaceAction(
       `assign-dnd-${droppedGuestId}`,
+      "tables",
       () => assignGuest(workspace.event_id, droppedGuestId, tableId, token ?? ""),
       `${guest.name} asignado mediante arrastrar y soltar.`,
     );
@@ -408,7 +549,7 @@ export function App() {
     <div className="shell">
       <div className="shell__backdrop shell__backdrop--one" />
       <div className="shell__backdrop shell__backdrop--two" />
-      <aside className="rail">
+      <aside className={`rail ${railBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={railBusy}>
         <p className="eyebrow">Donde me siento</p>
         <h1 className="rail__title">Sala de direccion de seating</h1>
         <p className="rail__copy">
@@ -447,16 +588,36 @@ export function App() {
         )}
 
         <section className="events-panel">
-          <div className="events-panel__header">
-            <h2>Eventos</h2>
-            <span>{metricLabel(events.length, "evento", "eventos")}</span>
+          <div className="rail-section rail-section--session">
+            <div className="rail-section__header">
+              <div>
+                <p className="eyebrow eyebrow--compact">Sesion</p>
+                <h2>Acceso actual</h2>
+              </div>
+            </div>
+            <p className="section-copy">
+              El rail mantiene la sesion abierta y controla el evento activo del workspace.
+            </p>
           </div>
-          <form className="stack-form" onSubmit={handleEventCreate}>
+
+          <div className="rail-divider" />
+
+          <div className="rail-section rail-section--create">
+            <div className="rail-section__header">
+              <div>
+                <p className="eyebrow eyebrow--compact">Crear</p>
+                <h2>Nuevo evento</h2>
+              </div>
+              <span className="rail-section__meta">Se abre al instante en el workspace</span>
+            </div>
+          </div>
+          <form className="stack-form stack-form--event" onSubmit={handleEventCreate}>
             <label className="mini-field">
               <span>Nombre del evento</span>
               <input
                 data-testid="event-name-input"
                 value={eventName}
+                aria-invalid={Boolean(eventFormError)}
                 onChange={(event) => setEventName(event.target.value)}
               />
             </label>
@@ -468,6 +629,7 @@ export function App() {
                   min={1}
                   type="number"
                   value={eventTableCount}
+                  aria-invalid={Boolean(eventFormError)}
                   onChange={(event) => setEventTableCount(event.target.value)}
                 />
               </label>
@@ -478,27 +640,55 @@ export function App() {
                   min={1}
                   type="number"
                   value={eventDefaultCapacity}
+                  aria-invalid={Boolean(eventFormError)}
                   onChange={(event) => setEventDefaultCapacity(event.target.value)}
                 />
               </label>
             </div>
+            {eventFormError ? <p className="inline-feedback inline-feedback--error">{eventFormError}</p> : null}
             <button className="button button--primary button--small" disabled={isActionRunning("create-event")} type="submit">
-              Crear evento
+              {isActionRunning("create-event") ? "Creando..." : "Crear evento"}
             </button>
           </form>
+
+          <div className="rail-divider" />
+
+          <div className="events-panel__header events-panel__header--spaced">
+            <div>
+              <p className="eyebrow eyebrow--compact">Gestion</p>
+              <h2>Eventos existentes</h2>
+            </div>
+            <span>{metricLabel(events.length, "evento", "eventos")}</span>
+          </div>
+          {sectionNotices.events ? (
+            <div className={`inline-notice inline-notice--${sectionNotices.events.tone}`}>
+              {sectionNotices.events.message}
+            </div>
+          ) : null}
           <div className="events-list">
             {events.length === 0 ? (
-              <p className="empty-state">Inicia sesion y crea un evento en backend para verlo aqui.</p>
+              <p className="empty-state">Crea el primer evento para empezar a construir el seating.</p>
             ) : (
               events.map((event) => (
                 <article
                   key={event.id}
                   className={`event-card ${selectedEventId === event.id ? "event-card--active" : ""}`}
                 >
+                  <div className="event-card__topline">
+                    <span className="event-card__state">
+                      {selectedEventId === event.id ? "En edicion" : "Disponible"}
+                    </span>
+                    {eventPendingDeleteId === event.id ? (
+                      <span className="event-card__warning">Borrado pendiente</span>
+                    ) : null}
+                  </div>
                   <button
                     className="event-card__button"
                     data-testid={`event-card-${event.id}`}
-                    onClick={() => setSelectedEventId(event.id)}
+                    onClick={() => {
+                      setSelectedEventId(event.id);
+                      setEventPendingDeleteId((current) => (current === event.id ? null : current));
+                    }}
                     type="button"
                   >
                     <span className="event-card__name">{event.name}</span>
@@ -506,14 +696,41 @@ export function App() {
                       {event.table_count} mesas · {event.guest_count} invitados
                     </span>
                   </button>
-                  <button
-                    className="button button--ghost button--small"
-                    disabled={isActionRunning(`delete-event-${event.id}`)}
-                    onClick={() => void handleEventDelete(event.id)}
-                    type="button"
-                  >
-                    Eliminar
-                  </button>
+                  <div className="event-card__actions">
+                    {eventPendingDeleteId === event.id ? (
+                      <>
+                        <p className="event-card__confirm-copy">
+                          Esta accion elimina el evento y su seating guardado.
+                        </p>
+                        <div className="event-card__confirm-actions">
+                          <button
+                            className="button button--danger button--small"
+                            disabled={isActionRunning(`delete-event-${event.id}`)}
+                            onClick={() => void handleEventDelete(event.id)}
+                            type="button"
+                          >
+                            {isActionRunning(`delete-event-${event.id}`) ? "Eliminando..." : "Confirmar borrado"}
+                          </button>
+                          <button
+                            className="button button--ghost button--small"
+                            onClick={() => setEventPendingDeleteId(null)}
+                            type="button"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <button
+                        className="button button--quiet button--small"
+                        disabled={isActionRunning(`delete-event-${event.id}`)}
+                        onClick={() => setEventPendingDeleteId(event.id)}
+                        type="button"
+                      >
+                        Preparar borrado
+                      </button>
+                    )}
+                  </div>
                 </article>
               ))
             )}
@@ -545,16 +762,43 @@ export function App() {
             </article>
           </div>
         </header>
+        {workspace ? (
+          <section className="attention-strip" aria-label="Alertas de workspace">
+            <article className={`attention-strip__item ${groupedConflictCount > 0 ? "attention-strip__item--alert" : ""}`}>
+              <span>Conflictos de agrupacion</span>
+              <strong>{groupedConflictCount}</strong>
+              <p>{groupedConflictCount > 0 ? "Revisa mesas con invitados marcados en cobre." : "No hay separaciones activas."}</p>
+            </article>
+            <article className={`attention-strip__item ${fullTablesCount > 0 ? "attention-strip__item--alert" : ""}`}>
+              <span>Mesas sin margen</span>
+              <strong>{fullTablesCount}</strong>
+              <p>{fullTablesCount > 0 ? "No admiten mas invitados sin tocar capacidad." : "Todas mantienen al menos un asiento libre."}</p>
+            </article>
+            <article className={`attention-strip__item ${attentionTableCount > 0 ? "attention-strip__item--accent" : ""}`}>
+              <span>Mesas a revisar</span>
+              <strong>{attentionTableCount}</strong>
+              <p>{attentionTableCount > 0 ? "El resumen prioriza conflicto y aforo completo." : "El salon esta estable ahora mismo."}</p>
+            </article>
+          </section>
+        ) : null}
 
         {errorMessage ? <div className="banner banner--error">{errorMessage}</div> : null}
-        {successMessage ? <div className="banner banner--success">{successMessage}</div> : null}
-        {loadingWorkspace ? <div className="banner">Cargando workspace...</div> : null}
+        {loadingWorkspace ? <div className="banner">Actualizando workspace...</div> : null}
 
         <section className="canvas">
-          <div className="canvas__tables">
+          <div
+            className={`canvas__tables ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`}
+            aria-busy={tablesSectionBusy}
+          >
+            {sectionNotices.tables ? (
+              <div className={`inline-notice inline-notice--${sectionNotices.tables.tone} inline-notice--floating`}>
+                {sectionNotices.tables.message}
+              </div>
+            ) : null}
             {workspace ? (
               <SeatingPlan
                 activeDropTableId={activeDropTableId}
+                draggedGuestName={draggedGuest?.name ?? null}
                 onSelectTable={setSelectedTableId}
                 onTableDragEnter={handleTableDragEnter}
                 onTableDragLeave={handleTableDragLeave}
@@ -565,73 +809,38 @@ export function App() {
             ) : null}
             {workspace?.tables.map((table) => (
               <article
-                className={`table-card ${selectedTableId === table.id ? "table-card--selected" : ""}`}
+                className={`table-card ${selectedTableId === table.id ? "table-card--selected" : ""} ${table.available === 0 ? "table-card--full" : ""} ${conflictTableIds.has(table.id) ? "table-card--conflict" : ""}`}
                 data-testid={`table-card-${table.id}`}
                 key={table.id}
+                onClick={() => setSelectedTableId(table.id)}
               >
                 <div className="table-card__header">
                   <div>
                     <span className="table-card__label">Mesa {table.number}</span>
                     <h3>{table.occupied}/{table.capacity} asientos</h3>
                   </div>
-                  <span className="table-card__pill">{table.available} libres</span>
+                  <span className={`table-card__pill ${table.available === 0 ? "table-card__pill--full" : ""}`}>
+                    {table.available} libres
+                  </span>
                 </div>
-                <form
-                  className="table-card__controls"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    const nextCapacity = Number(capacityValues[table.id] ?? table.capacity);
-                    void runWorkspaceAction(
-                      `capacity-${table.id}`,
-                      () => updateTableCapacity(workspace.event_id, table.id, nextCapacity, token ?? ""),
-                      `Capacidad de la mesa ${table.number} actualizada.`,
-                    );
-                  }}
-                >
-                  <label className="mini-field">
-                    <span>Capacidad</span>
-                    <input
-                      min={1}
-                      type="number"
-                      value={capacityValues[table.id] ?? String(table.capacity)}
-                      onChange={(event) =>
-                        setCapacityValues((current) => ({ ...current, [table.id]: event.target.value }))
-                      }
-                      onFocus={() => setSelectedTableId(table.id)}
-                    />
-                  </label>
-                  <button
-                    className="button button--ghost button--small"
-                    disabled={isActionRunning(`capacity-${table.id}`)}
-                    type="submit"
-                  >
-                    Guardar
-                  </button>
-                </form>
+                <div className="table-card__flags">
+                  {conflictTableIds.has(table.id) ? <span className="status-flag status-flag--conflict">Conflicto</span> : null}
+                  {table.available === 0 ? <span className="status-flag status-flag--full">Completa</span> : null}
+                  {table.available > 0 && table.available <= 2 ? <span className="status-flag status-flag--tight">Poco margen</span> : null}
+                </div>
+                <p className="table-card__summary">
+                  Usa el panel de mesa seleccionada para ajustar capacidad y mover invitados.
+                </p>
                 <div className="seat-ring">
                   {table.guests.length === 0 ? (
                     <p className="empty-state">Sin invitados asignados.</p>
                   ) : (
                     table.guests.map((guest) => (
                       <div
-                        className={`guest-chip guest-chip--interactive ${conflictGuestIds.has(guest.id) ? "guest-chip--conflict" : ""}`}
+                        className={`guest-chip ${conflictGuestIds.has(guest.id) ? "guest-chip--conflict" : ""}`}
                         key={guest.id}
                       >
                         <span>{guest.name}</span>
-                        <button
-                          className="chip-action"
-                          disabled={isActionRunning(`unassign-${guest.id}`)}
-                          onClick={() =>
-                            void runWorkspaceAction(
-                              `unassign-${guest.id}`,
-                              () => unassignGuest(workspace.event_id, guest.id, token ?? ""),
-                              `${guest.name} vuelve a la lista sin asignar.`,
-                            )
-                          }
-                          type="button"
-                        >
-                          Quitar
-                        </button>
                       </div>
                     ))
                   )}
@@ -640,7 +849,7 @@ export function App() {
             )) ?? <p className="empty-state">Aun no hay workspace cargado.</p>}
           </div>
 
-          <div className="lists-panel">
+          <div className={`lists-panel ${guestSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={guestSectionBusy}>
             <section className="control-card">
               <div className="list-card__header">
                 <h3>Panel de control</h3>
@@ -650,6 +859,10 @@ export function App() {
                 <article className="control-metric">
                   <span>Mesas completas</span>
                   <strong>{fullTablesCount}</strong>
+                </article>
+                <article className="control-metric control-metric--alert">
+                  <span>Mesas con conflicto</span>
+                  <strong>{conflictTableIds.size}</strong>
                 </article>
                 <article className="control-metric">
                   <span>Ocupacion media</span>
@@ -673,7 +886,7 @@ export function App() {
                   return (
                     <button
                       key={table.id}
-                      className={`table-summary-row ${selectedTableId === table.id ? "table-summary-row--active" : ""}`}
+                      className={`table-summary-row ${selectedTableId === table.id ? "table-summary-row--active" : ""} ${table.available === 0 ? "table-summary-row--full" : ""} ${conflictTableIds.has(table.id) ? "table-summary-row--conflict" : ""}`}
                       onClick={() => setSelectedTableId(table.id)}
                       type="button"
                     >
@@ -682,6 +895,10 @@ export function App() {
                         <span>
                           {table.occupied}/{table.capacity} ocupados
                         </span>
+                        <div className="table-summary-row__flags">
+                          {conflictTableIds.has(table.id) ? <i className="status-flag status-flag--conflict">Conflicto</i> : null}
+                          {table.available === 0 ? <i className="status-flag status-flag--full">Completa</i> : null}
+                        </div>
                       </div>
                       <div className="table-summary-row__meter">
                         <i style={{ width: `${ratio}%` }} />
@@ -699,10 +916,71 @@ export function App() {
               </div>
               {selectedTable ? (
                 <div className="selected-table-panel">
-                  <div className="selected-table-panel__hero">
+                  <div className={`selected-table-panel__hero ${selectedTableHasConflict ? "selected-table-panel__hero--conflict" : ""} ${selectedTableIsFull ? "selected-table-panel__hero--full" : ""}`}>
                     <strong>{selectedTable.occupied}/{selectedTable.capacity}</strong>
                     <span>{selectedTable.available} asientos libres</span>
                   </div>
+                  {(selectedTableHasConflict || selectedTableIsFull) ? (
+                    <div className="selected-table-panel__alerts">
+                      {selectedTableHasConflict ? (
+                        <div className="inline-notice inline-notice--error">
+                          Esta mesa tiene invitados con conflicto de agrupacion. Revisa la composicion antes de cerrar.
+                        </div>
+                      ) : null}
+                      {selectedTableIsFull ? (
+                        <div className="inline-notice inline-notice--info">
+                          Esta mesa esta completa. Para seguir asignando aqui necesitas liberar asiento o subir capacidad.
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <form
+                    className="selected-table-panel__controls"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const nextCapacity = Number(capacityValues[selectedTable.id] ?? selectedTable.capacity);
+                      if (
+                        !Number.isInteger(nextCapacity) ||
+                        nextCapacity < selectedTable.occupied ||
+                        nextCapacity <= 0
+                      ) {
+                        setSectionNotice(
+                          "tables",
+                          "error",
+                          `Mesa ${selectedTable.number}: la capacidad debe ser un entero y no puede bajar de ${selectedTable.occupied}.`,
+                        );
+                        return;
+                      }
+                      void runWorkspaceAction(
+                        `capacity-${selectedTable.id}`,
+                        "tables",
+                        () => updateTableCapacity(activeWorkspaceEventId ?? "", selectedTable.id, nextCapacity, token ?? ""),
+                        `Capacidad de la mesa ${selectedTable.number} actualizada.`,
+                      );
+                    }}
+                  >
+                    <label className="mini-field">
+                      <span>Capacidad de trabajo</span>
+                      <input
+                        min={1}
+                        type="number"
+                        value={capacityValues[selectedTable.id] ?? String(selectedTable.capacity)}
+                        onChange={(event) =>
+                          setCapacityValues((current) => ({ ...current, [selectedTable.id]: event.target.value }))
+                        }
+                      />
+                    </label>
+                    <button
+                      className="button button--ghost button--small"
+                      disabled={isActionRunning(`capacity-${selectedTable.id}`)}
+                      type="submit"
+                    >
+                      {isActionRunning(`capacity-${selectedTable.id}`) ? "Guardando..." : "Guardar capacidad"}
+                    </button>
+                  </form>
+                  <p className="selected-table-panel__hint">
+                    Aqui vive la operativa de mesa: ajustar aforo y devolver invitados a la lista sin asignar.
+                  </p>
                   <div className="selected-table-panel__guests">
                     {selectedTable.guests.length > 0 ? (
                       selectedTable.guests.map((guest) => (
@@ -710,8 +988,25 @@ export function App() {
                           className={`selected-guest ${conflictGuestIds.has(guest.id) ? "selected-guest--conflict" : ""}`}
                           key={guest.id}
                         >
-                          <strong>{guest.name}</strong>
-                          <span>{guest.group_id ? `Agrupacion ${guest.group_id}` : guest.guest_type}</span>
+                          <div>
+                            <strong>{guest.name}</strong>
+                            <span>{guest.group_id ? `Agrupacion ${guest.group_id}` : guest.guest_type}</span>
+                          </div>
+                          <button
+                            className="button button--ghost button--small"
+                            disabled={isActionRunning(`unassign-${guest.id}`)}
+                            onClick={() =>
+                              void runWorkspaceAction(
+                                `unassign-${guest.id}`,
+                                "tables",
+                                () => unassignGuest(activeWorkspaceEventId ?? "", guest.id, token ?? ""),
+                                `${guest.name} vuelve a la lista sin asignar.`,
+                              )
+                            }
+                            type="button"
+                          >
+                            {isActionRunning(`unassign-${guest.id}`) ? "Quitando..." : "Quitar de mesa"}
+                          </button>
                         </article>
                       ))
                     ) : (
@@ -726,12 +1021,17 @@ export function App() {
 
             <section className="list-card">
               <div data-testid="unassigned-guests-panel">
+              {sectionNotices.guests ? (
+                <div className={`inline-notice inline-notice--${sectionNotices.guests.tone}`}>
+                  {sectionNotices.guests.message}
+                </div>
+              ) : null}
               <div className="list-card__header">
                 <h3>Sin asignar</h3>
                 <span>{workspace?.guests.unassigned.length ?? 0}</span>
               </div>
               <p className="microcopy">
-                Arrastra un invitado desde esta lista hasta una mesa del plano para asignarlo visualmente.
+                Arrastra un invitado hacia el plano. Cuando entres en modo arrastre, las mesas mostraran su zona de recepcion.
               </p>
               <form className="stack-form" onSubmit={handleGuestCreate}>
                 <label className="mini-field">
@@ -739,6 +1039,7 @@ export function App() {
                   <input
                     data-testid="guest-name-input"
                     value={guestName}
+                    aria-invalid={Boolean(guestFormError)}
                     onChange={(event) => setGuestName(event.target.value)}
                   />
                 </label>
@@ -760,8 +1061,9 @@ export function App() {
                     />
                   </label>
                 </div>
+                {guestFormError ? <p className="inline-feedback inline-feedback--error">{guestFormError}</p> : null}
                 <button className="button button--primary button--small" disabled={isActionRunning("create-guest")} type="submit">
-                  Anadir invitado
+                  {isActionRunning("create-guest") ? "Guardando..." : "Anadir invitado"}
                 </button>
               </form>
               <div className="guest-list">
@@ -779,6 +1081,9 @@ export function App() {
                         <strong>{guest.name}</strong>
                         <span>{guest.guest_type}</span>
                       </div>
+                      {draggedGuestId === guest.id ? (
+                        <div className="guest-card__drag-hint">En movimiento: suelta esta tarjeta sobre una mesa.</div>
+                      ) : null}
                       <div className="guest-card__meta">
                         <span>{guest.group_id ? `Agrupacion ${guest.group_id}` : "Sin agrupacion"}</span>
                       </div>
@@ -802,6 +1107,7 @@ export function App() {
                           onClick={() =>
                             void runWorkspaceAction(
                               `assign-${guest.id}`,
+                              "guests",
                               () =>
                                 assignGuest(
                                   workspace.event_id,
@@ -829,6 +1135,7 @@ export function App() {
                           onClick={() =>
                             void runWorkspaceAction(
                               `delete-${guest.id}`,
+                              "guests",
                               () => deleteGuest(workspace.event_id, guest.id, token ?? ""),
                               `${guest.name} eliminado.`,
                             )
@@ -852,10 +1159,13 @@ export function App() {
                 <h3>Asignados</h3>
                 <span>{workspace?.guests.assigned.length ?? 0}</span>
               </div>
+              <p className="microcopy">
+                Esta lista es solo de lectura. Para liberar un asiento, usa el panel de mesa seleccionada.
+              </p>
               <div className="guest-list">
                 {workspace && workspace.guests.assigned.length > 0 ? (
                   workspace.guests.assigned.map((guest) => (
-                    <article className="guest-row" key={guest.id}>
+                    <article className={`guest-row ${conflictGuestIds.has(guest.id) ? "guest-row--conflict" : ""}`} key={guest.id}>
                       <strong>{guest.name}</strong>
                       <span>{guest.table_id}</span>
                     </article>
@@ -900,6 +1210,7 @@ export function App() {
                 <span>Nombre</span>
                 <input
                   value={editingGuestName}
+                  aria-invalid={Boolean(editingGuestError)}
                   onChange={(event) => setEditingGuestName(event.target.value)}
                 />
               </label>
@@ -923,12 +1234,13 @@ export function App() {
                   />
                 </label>
               </div>
+              {editingGuestError ? <p className="inline-feedback inline-feedback--error">{editingGuestError}</p> : null}
               <button
                 className="button button--primary button--small"
                 disabled={isActionRunning(`update-${editingGuestId}`)}
                 type="submit"
               >
-                Guardar cambios
+                {isActionRunning(`update-${editingGuestId}`) ? "Guardando..." : "Guardar cambios"}
               </button>
             </form>
           </section>
