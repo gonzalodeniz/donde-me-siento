@@ -391,7 +391,7 @@ export function App() {
           <form className="auth-card auth-card--standalone" onSubmit={handleLogin}>
             <label className="field field--readonly">
               <span>
-                El amor de tu vida
+                Tu vida
               </span>
               <input aria-readonly="true" readOnly value={username} />
             </label>
