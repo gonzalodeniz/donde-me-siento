@@ -110,7 +110,7 @@ select {
 }
 
 .shell--rail-collapsed {
-  grid-template-columns: 0 1fr;
+  grid-template-columns: 2.75rem 1fr;
 }
 
 .shell__backdrop {
@@ -159,6 +159,9 @@ select {
 }
 
 .rail {
+  display: flex;
+  align-items: stretch;
+  gap: 0.9rem;
   padding: 2rem 1.7rem;
   border-right: 1px solid var(--line);
   background: rgba(248, 241, 232, 0.68);
@@ -168,14 +171,39 @@ select {
 }
 
 .rail--collapsed {
-  padding-inline: 0;
-  border-right-color: transparent;
-  opacity: 0;
+  padding-inline: 0.55rem 0.4rem;
+  border-right-color: rgba(66, 53, 46, 0.16);
 }
 
 .rail__inner {
   width: 320px;
   max-width: 100%;
+  min-width: 0;
+}
+
+.rail__toggle {
+  flex: 0 0 1.8rem;
+  align-self: flex-start;
+  display: inline-grid;
+  place-items: center;
+  width: 1.8rem;
+  min-height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(36, 24, 20, 0.66);
+  cursor: pointer;
+}
+
+.rail__toggle-triangle {
+  font-size: 0.82rem;
+  line-height: 1;
+}
+
+.rail--collapsed .rail__inner {
+  width: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .eyebrow {
@@ -192,8 +220,7 @@ select {
   letter-spacing: 0.2em;
 }
 
-.rail__title,
-.workspace__hero h2 {
+.rail__title {
   margin: 0;
   font-family: "Times New Roman", Times, serif;
   font-size: clamp(2rem, 2.8vw, 3.5rem);
@@ -201,7 +228,6 @@ select {
 }
 
 .rail__copy,
-.workspace__copy,
 .hint,
 .empty-state,
 .banner {
@@ -213,8 +239,7 @@ select {
 .events-panel,
 .list-card,
 .table-card,
-.metric-tile,
-.workspace__hero {
+.metric-tile {
   border: 1px solid var(--line);
   background: var(--paper);
   box-shadow: var(--shadow);
@@ -582,28 +607,12 @@ select {
   gap: 1.5rem;
 }
 
-.workspace__hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 1.5rem;
-  align-items: flex-start;
-  padding: 1.35rem 1.5rem;
-  border-radius: 1.8rem;
-}
-
-.workspace__hero--airy {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
 .topbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 1rem;
-  padding-bottom: 0.35rem;
+  padding-bottom: 0.2rem;
 }
 
 .topbar__brand,
@@ -614,6 +623,7 @@ select {
 
 .topbar__brand {
   justify-content: flex-start;
+  gap: 0.45rem;
 }
 
 .topbar__center {
@@ -623,43 +633,22 @@ select {
 
 .topbar__session {
   justify-content: flex-end;
-  gap: 1rem;
   color: var(--muted);
 }
 
-.topbar__session strong {
-  color: var(--ink);
-  font-size: 0.95rem;
-  font-weight: 600;
-}
-
-.topbar__logo {
+.topbar__title {
+  margin: 0;
   font-family: "Times New Roman", Times, serif;
-  font-size: 1.25rem;
-  letter-spacing: -0.02em;
+  font-size: 1.45rem;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
-.topbar__toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.35rem 0.2rem;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  cursor: pointer;
-}
-
-.topbar__toggle-icon {
-  display: inline-grid;
-  gap: 0.24rem;
-}
-
-.topbar__toggle-icon i {
-  display: block;
-  width: 1rem;
-  height: 1px;
-  background: rgba(36, 24, 20, 0.72);
+.topbar__couple {
+  color: rgba(107, 87, 75, 0.92);
+  font-size: 0.98rem;
+  font-style: italic;
 }
 
 .metrics--airy {
@@ -1711,20 +1700,18 @@ select {
     grid-template-columns: 1fr;
   }
 
+  .shell--rail-collapsed {
+    grid-template-columns: 1fr;
+  }
+
   .rail {
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
 
   .rail--collapsed {
-    padding-block: 0;
-    border-bottom-color: transparent;
-  }
-
-  .workspace__hero,
-  .canvas {
-    grid-template-columns: 1fr;
-    display: grid;
+    padding-block: 0.35rem;
+    border-bottom-color: rgba(66, 53, 46, 0.16);
   }
 
   .topbar {
@@ -1736,6 +1723,11 @@ select {
   .topbar__session,
   .topbar__brand {
     justify-content: flex-start;
+  }
+
+  .canvas {
+    grid-template-columns: 1fr;
+    display: grid;
   }
 
   .metrics {
@@ -1768,10 +1760,6 @@ select {
   .rail,
   .workspace {
     padding: 1.2rem;
-  }
-
-  .workspace__hero {
-    padding: 1rem;
   }
 
   .metrics {

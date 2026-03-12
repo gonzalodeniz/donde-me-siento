@@ -507,6 +507,16 @@ export function App() {
       <div className="shell__backdrop shell__backdrop--one" />
       <div className="shell__backdrop shell__backdrop--two" />
       <aside className={`rail ${isRailOpen ? "" : "rail--collapsed"}`}>
+        <button
+          aria-expanded={isRailOpen}
+          className="rail__toggle"
+          onClick={() => setIsRailOpen((current) => !current)}
+          type="button"
+        >
+          <span aria-hidden="true" className="rail__toggle-triangle">
+            {isRailOpen ? "◀" : "▶"}
+          </span>
+        </button>
         <div className="rail__inner">
           <p className="eyebrow">Donde me siento</p>
           <h1 className="rail__title">Diseño del Salón</h1>
@@ -752,37 +762,15 @@ export function App() {
       <main className="workspace">
         <header className="topbar">
           <div className="topbar__brand">
-            <span className="topbar__logo">dónde me siento</span>
+            <h1 className="topbar__title">Diseño del Salón</h1>
           </div>
           <div className="topbar__center">
-            <button
-              aria-expanded={isRailOpen}
-              className="topbar__toggle"
-              onClick={() => setIsRailOpen((current) => !current)}
-              type="button"
-            >
-              <span aria-hidden="true" className="topbar__toggle-icon">
-                <i />
-                <i />
-                <i />
-              </span>
-              <span>Configurar Salón</span>
-            </button>
+            <span className="topbar__couple">Héctor & Raquel</span>
           </div>
           <div className="topbar__session">
-            <div>
-              <strong>Héctor & Raquel</strong>
-            </div>
             <button className="button button--link button--small" onClick={handleLogout} type="button">
               Salir
             </button>
-          </div>
-        </header>
-
-        <header className="workspace__hero workspace__hero--airy">
-          <div>
-            <p className="eyebrow">Plano principal</p>
-            <h2>{workspace?.name ?? "Nuestro salón"}</h2>
           </div>
         </header>
 
