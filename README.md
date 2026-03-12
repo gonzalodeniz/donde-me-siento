@@ -82,8 +82,8 @@ Tambien permite:
 
 El login solo admite dos combinaciones fijas:
 
-- Usuario: `raquel` / Contrasena: `hector`
-- Usuario: `hector` / Contrasena: `raquel`
+- Usuario: `raquel` / Contrasena: `héctor`
+- Usuario: `héctor` / Contrasena: `raquel`
 
 En la interfaz, el usuario aparece automaticamente y de forma aleatoria entre esos dos nombres. Solo hay que escribir la contrasena opuesta.
 

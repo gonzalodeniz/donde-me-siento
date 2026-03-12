@@ -59,7 +59,7 @@ async def test_login_me_logout_and_protected_workspace(client_with_auth: AsyncCl
 
     login_response = await client_with_auth.post(
         "/api/auth/login",
-        json={"username": "raquel", "password": "hector"},
+        json={"username": "raquel", "password": "héctor"},
     )
     assert login_response.status_code == 200
     payload = login_response.json()
@@ -106,11 +106,11 @@ async def test_login_rejects_invalid_credentials(client_with_auth: AsyncClient) 
 async def test_login_accepts_crossed_credentials_for_hector(client_with_auth: AsyncClient) -> None:
     response = await client_with_auth.post(
         "/api/auth/login",
-        json={"username": "hector", "password": "raquel"},
+        json={"username": "héctor", "password": "raquel"},
     )
 
     assert response.status_code == 200
-    assert response.json()["user"]["username"] == "hector"
+    assert response.json()["user"]["username"] == "héctor"
 
 
 @pytest.mark.anyio

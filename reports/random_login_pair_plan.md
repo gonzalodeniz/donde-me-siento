@@ -4,8 +4,8 @@
 
 Sustituir el login abierto actual por un acceso cerrado con dos identidades posibles:
 
-- `raquel` con contrasena `hector`
-- `hector` con contrasena `raquel`
+- `raquel` con contrasena `héctor`
+- `héctor` con contrasena `raquel`
 
 El usuario visible en la interfaz no sera editable y aparecera automaticamente de forma aleatoria.
 
@@ -17,7 +17,7 @@ El usuario visible en la interfaz no sera editable y aparecera automaticamente d
    - contrasena cruzada entre ambos nombres.
 2. Modificar frontend:
    - eliminar edicion manual del usuario;
-   - escoger `raquel` o `hector` al azar al abrir la pantalla de login;
+   - escoger `raquel` o `héctor` al azar al abrir la pantalla de login;
    - rellenar solo contrasena;
    - mantener compatibilidad con cierre de sesion y nuevo intento.
 3. Modificar backend:

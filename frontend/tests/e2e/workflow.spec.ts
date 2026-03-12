@@ -4,7 +4,7 @@ async function loginThroughAccessScreen(page: Page) {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "dónde me siento" })).toBeVisible();
   const username = await page.getByLabel("Usuario").inputValue();
-  const password = username === "raquel" ? "hector" : "raquel";
+  const password = username === "raquel" ? "héctor" : "raquel";
   await page.getByLabel("Contrasena").fill(password);
   await page.getByRole("button", { name: "Abrir workspace" }).click();
   await expect(page.getByRole("heading", { name: "dónde me siento" })).toHaveCount(0);

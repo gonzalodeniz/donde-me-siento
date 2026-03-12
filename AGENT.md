@@ -62,8 +62,8 @@ El frontend en `frontend/`:
 
 ## Credenciales locales
 
-- Usuario: `raquel` / Contrasena: `hector`
-- Usuario: `hector` / Contrasena: `raquel`
+- Usuario: `raquel` / Contrasena: `héctor`
+- Usuario: `héctor` / Contrasena: `raquel`
 
 Variables de entorno soportadas:
 

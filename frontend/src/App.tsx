@@ -14,7 +14,7 @@ import { SeatingPlan } from "./components/SeatingPlan";
 import type { Guest, Workspace } from "./types";
 
 const TOKEN_STORAGE_KEY = "dms.auth.token";
-const LOGIN_NAMES = ["raquel", "hector"] as const;
+const LOGIN_NAMES = ["raquel", "héctor"] as const;
 type SectionTone = "success" | "error" | "info";
 type SectionKey = "guests" | "tables";
 type SectionNotice = {

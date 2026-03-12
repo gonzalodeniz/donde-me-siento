@@ -18,9 +18,9 @@ Criterios de aceptación:
 - Antes de autenticarse solo se muestra una pantalla de login dedicada.
 - La pantalla de acceso tiene fondo limpio y muestra en grande el nombre `dónde me siento`.
 - El usuario visible en la pantalla de login no se puede editar.
-- La pantalla muestra automaticamente y al azar `raquel` o `hector`.
-- Si el usuario mostrado es `raquel`, la unica contrasena valida es `hector`.
-- Si el usuario mostrado es `hector`, la unica contrasena valida es `raquel`.
+- La pantalla muestra automaticamente y al azar `raquel` o `héctor`.
+- Si el usuario mostrado es `raquel`, la unica contrasena valida es `héctor`.
+- Si el usuario mostrado es `héctor`, la unica contrasena valida es `raquel`.
 - Si las credenciales son incorrectas, se muestra un mensaje de error y no se permite el acceso.
 - Si las credenciales son correctas, se inicia sesion, se entra directamente en la app principal y se mantiene activa durante toda la sesion del navegador.
 - Una vez dentro, el cuadro de login ya no vuelve a aparecer mientras la sesion siga activa.

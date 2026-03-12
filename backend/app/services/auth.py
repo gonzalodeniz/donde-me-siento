@@ -31,8 +31,8 @@ class AuthService:
     """Gestiona login, sesion y usuario autenticado."""
 
     VALID_IDENTITIES = (
-        LoginIdentity(username="raquel", password="hector"),
-        LoginIdentity(username="hector", password="raquel"),
+        LoginIdentity(username="raquel", password="héctor"),
+        LoginIdentity(username="héctor", password="raquel"),
     )
 
     def __init__(self, user_repository: UserRepository, session_repository: SessionRepository) -> None:
