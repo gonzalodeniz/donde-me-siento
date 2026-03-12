@@ -806,11 +806,6 @@ export function App() {
 
         <section className="canvas">
           <div className={`canvas__tables ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
-            {sectionNotices.tables ? (
-              <div className={`inline-notice inline-notice--${sectionNotices.tables.tone} inline-notice--floating`}>
-                {sectionNotices.tables.message}
-              </div>
-            ) : null}
             {workspace ? (
               <SeatingPlan
                 activeDropSeat={activeDropSeat}
