@@ -1,4 +1,4 @@
-import { DragEvent, FormEvent, startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { DragEvent, FormEvent, KeyboardEvent as ReactKeyboardEvent, startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   assignGuest,
@@ -16,7 +16,10 @@ import { SeatingPlan } from "./components/SeatingPlan";
 import type { Guest, Workspace } from "./types";
 
 const TOKEN_STORAGE_KEY = "dms.auth.token";
+const LISTS_PANEL_WIDTH_STORAGE_KEY = "dms.ui.listsPanelWidth";
 const LOGIN_NAMES = ["raquel", "héctor"] as const;
+const LISTS_PANEL_MIN_WIDTH = 280;
+const LISTS_PANEL_MAX_WIDTH = 520;
 type SectionTone = "success" | "error" | "info";
 type SectionKey = "guests" | "tables";
 type SectionNotice = {
@@ -98,6 +101,7 @@ function GuestSignal({ guest }: { guest: Guest }) {
 }
 
 export function App() {
+  const canvasRef = useRef<HTMLElement | null>(null);
   const [username, setUsername] = useState<string>(() => randomLoginName());
   const [password, setPassword] = useState("");
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_STORAGE_KEY));
@@ -122,6 +126,16 @@ export function App() {
   const [draggedGuestId, setDraggedGuestId] = useState<string | null>(null);
   const [activeDropSeat, setActiveDropSeat] = useState<SeatTarget | null>(null);
   const [isRailOpen, setIsRailOpen] = useState(true);
+  const [listsPanelWidth, setListsPanelWidth] = useState<number>(() => {
+    const storedWidth = Number(localStorage.getItem(LISTS_PANEL_WIDTH_STORAGE_KEY));
+
+    if (Number.isFinite(storedWidth) && storedWidth >= LISTS_PANEL_MIN_WIDTH && storedWidth <= LISTS_PANEL_MAX_WIDTH) {
+      return storedWidth;
+    }
+
+    return 320;
+  });
+  const [isResizingListsPanel, setIsResizingListsPanel] = useState(false);
   const [sectionNotices, setSectionNotices] = useState<Record<SectionKey, SectionNotice | null>>({
     guests: null,
     tables: null,
@@ -200,6 +214,40 @@ export function App() {
         submittingAction.startsWith("remove-table-") ||
         submittingAction.startsWith("unassign-") ||
         submittingAction.startsWith("assign-dnd-")));
+
+  useEffect(() => {
+    localStorage.setItem(LISTS_PANEL_WIDTH_STORAGE_KEY, String(listsPanelWidth));
+  }, [listsPanelWidth]);
+
+  useEffect(() => {
+    if (!isResizingListsPanel) {
+      return undefined;
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const canvasRect = canvasRef.current?.getBoundingClientRect();
+      if (!canvasRect) {
+        return;
+      }
+
+      const maxWidth = Math.min(LISTS_PANEL_MAX_WIDTH, Math.max(LISTS_PANEL_MIN_WIDTH, canvasRect.width - 360));
+      const nextWidth = canvasRect.right - event.clientX;
+      const clampedWidth = Math.min(Math.max(nextWidth, LISTS_PANEL_MIN_WIDTH), maxWidth);
+      setListsPanelWidth(clampedWidth);
+    };
+
+    const stopResizing = () => setIsResizingListsPanel(false);
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopResizing);
+    window.addEventListener("pointercancel", stopResizing);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopResizing);
+      window.removeEventListener("pointercancel", stopResizing);
+    };
+  }, [isResizingListsPanel]);
 
   useEffect(() => {
     if (!token) {
@@ -289,6 +337,41 @@ export function App() {
     setEditingGuestError(null);
     setSectionNotices({ guests: null, tables: null });
     setPendingTableRemovalId(null);
+  }
+
+  function clampListsPanelWidth(nextWidth: number) {
+    const canvasRect = canvasRef.current?.getBoundingClientRect();
+    const maxWidth = canvasRect
+      ? Math.min(LISTS_PANEL_MAX_WIDTH, Math.max(LISTS_PANEL_MIN_WIDTH, canvasRect.width - 360))
+      : LISTS_PANEL_MAX_WIDTH;
+
+    return Math.min(Math.max(nextWidth, LISTS_PANEL_MIN_WIDTH), maxWidth);
+  }
+
+  function startListsPanelResize() {
+    setIsResizingListsPanel(true);
+  }
+
+  function handleListsPanelResizeKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight" && event.key !== "Home" && event.key !== "End") {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (event.key === "Home") {
+      setListsPanelWidth(clampListsPanelWidth(LISTS_PANEL_MIN_WIDTH));
+      return;
+    }
+
+    if (event.key === "End") {
+      setListsPanelWidth(clampListsPanelWidth(LISTS_PANEL_MAX_WIDTH));
+      return;
+    }
+
+    const step = event.shiftKey ? 24 : 12;
+    const direction = event.key === "ArrowLeft" ? 1 : -1;
+    setListsPanelWidth((current) => clampListsPanelWidth(current + direction * step));
   }
 
   function beginGuestEdit(guest: Guest) {
@@ -777,7 +860,11 @@ export function App() {
         {errorMessage ? <div className="banner banner--error">{errorMessage}</div> : null}
         {loadingWorkspace ? <div className="banner">Actualizando workspace...</div> : null}
 
-        <section className="canvas">
+        <section
+          ref={canvasRef}
+          className={`canvas ${isResizingListsPanel ? "canvas--resizing" : ""}`}
+          style={{ gridTemplateColumns: `minmax(0, 1fr) 0.85rem minmax(${LISTS_PANEL_MIN_WIDTH}px, ${listsPanelWidth}px)` }}
+        >
           <div className={`canvas__tables ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
             {workspace ? (
               <SeatingPlan
@@ -831,6 +918,19 @@ export function App() {
               </article>
             )) ?? <p className="empty-state">Aun no hay workspace cargado.</p>}
           </div>
+
+          <div
+            aria-label="Ajustar ancho de la columna derecha"
+            aria-orientation="vertical"
+            aria-valuemax={LISTS_PANEL_MAX_WIDTH}
+            aria-valuemin={LISTS_PANEL_MIN_WIDTH}
+            aria-valuenow={Math.round(listsPanelWidth)}
+            className="canvas__resizer"
+            onKeyDown={handleListsPanelResizeKeyDown}
+            onPointerDown={startListsPanelResize}
+            role="separator"
+            tabIndex={0}
+          />
 
           <div className={`lists-panel ${guestSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={guestSectionBusy}>
             <section className="list-card list-card--guests">

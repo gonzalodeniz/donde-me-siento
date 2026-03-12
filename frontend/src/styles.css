@@ -794,8 +794,14 @@ select {
 
 .canvas {
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.95fr);
+  grid-template-columns: minmax(0, 1fr) 0.85rem minmax(280px, 320px);
   gap: 1.25rem;
+  align-items: start;
+}
+
+.canvas--resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .canvas__tables {
@@ -803,6 +809,36 @@ select {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 1rem;
   align-content: start;
+}
+
+.canvas__resizer {
+  position: relative;
+  align-self: stretch;
+  width: 0.85rem;
+  min-width: 0.85rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+}
+
+.canvas__resizer::before {
+  content: "";
+  position: absolute;
+  inset: 0.4rem 0.35rem;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(119, 84, 64, 0.08), rgba(119, 84, 64, 0.2), rgba(119, 84, 64, 0.08));
+  transition: background 180ms ease, transform 180ms ease;
+}
+
+.canvas__resizer:hover::before,
+.canvas__resizer:focus-visible::before {
+  background: linear-gradient(180deg, rgba(154, 79, 36, 0.18), rgba(154, 79, 36, 0.4), rgba(154, 79, 36, 0.18));
+  transform: scaleX(1.2);
+}
+
+.canvas__resizer:focus-visible {
+  outline: none;
 }
 
 .plan-card {
@@ -1746,6 +1782,10 @@ select {
   .canvas {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .canvas__resizer {
+    display: none;
   }
 
   .metrics {
