@@ -417,7 +417,7 @@ export function App() {
       <div className="shell__backdrop shell__backdrop--two" />
       <aside className="rail">
         <p className="eyebrow">Donde me siento</p>
-        <h1 className="rail__title">Sala de direccion de seating</h1>
+        <h1 className="rail__title">Diseño del Salón</h1>
         <p className="rail__copy">
           El frontend trabaja siempre sobre un unico workspace persistente del backend.
         </p>
