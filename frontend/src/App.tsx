@@ -377,19 +377,18 @@ export function App() {
     );
   }
 
-  return (
-    <div className="shell">
-      <div className="shell__backdrop shell__backdrop--one" />
-      <div className="shell__backdrop shell__backdrop--two" />
-      <aside className="rail">
-        <p className="eyebrow">Donde me siento</p>
-        <h1 className="rail__title">Sala de direccion de seating</h1>
-        <p className="rail__copy">
-          El frontend trabaja siempre sobre un unico workspace persistente del backend.
-        </p>
-
-        {!token ? (
-          <form className="auth-card" onSubmit={handleLogin}>
+  if (!token) {
+    return (
+      <main className="login-screen">
+        <div className="login-screen__glow login-screen__glow--one" />
+        <div className="login-screen__glow login-screen__glow--two" />
+        <section className="login-screen__panel">
+          <p className="eyebrow">Acceso privado</p>
+          <h1 className="login-screen__title">dónde me siento</h1>
+          <p className="login-screen__copy">
+            Entra en el workspace persistente y continua la distribucion justo donde la dejaste.
+          </p>
+          <form className="auth-card auth-card--standalone" onSubmit={handleLogin}>
             <label className="field field--readonly">
               <span>
                 Usuario
@@ -401,54 +400,62 @@ export function App() {
               <span>Contrasena</span>
               <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
             </label>
+            {errorMessage ? <div className="inline-notice inline-notice--error">{errorMessage}</div> : null}
             <button className="button button--primary" disabled={loadingAuth} type="submit">
               {loadingAuth ? "Entrando..." : "Abrir workspace"}
             </button>
           </form>
-        ) : (
-          <>
-            <div className="session-card">
-              <div>
-                <p className="session-card__label">Sesion activa</p>
-                <p className="session-card__value">Backend autenticado</p>
-              </div>
-              <button className="button button--ghost" onClick={handleLogout} type="button">
-                Cerrar sesion
-              </button>
-            </div>
+        </section>
+      </main>
+    );
+  }
 
-            <section className="events-panel">
-              <div className="rail-section rail-section--session">
-                <div className="rail-section__header">
-                  <div>
-                    <p className="eyebrow eyebrow--compact">Workspace</p>
-                    <h2>{workspace?.name ?? "Cargando workspace"}</h2>
-                  </div>
-                </div>
-                <p className="section-copy">
-                  Siempre trabajas sobre el mismo workspace persistente. No hay selector ni borrado de eventos.
-                </p>
+  return (
+    <div className="shell">
+      <div className="shell__backdrop shell__backdrop--one" />
+      <div className="shell__backdrop shell__backdrop--two" />
+      <aside className="rail">
+        <p className="eyebrow">Donde me siento</p>
+        <h1 className="rail__title">Sala de direccion de seating</h1>
+        <p className="rail__copy">
+          El frontend trabaja siempre sobre un unico workspace persistente del backend.
+        </p>
+
+        <section className="events-panel">
+          <div className="rail-section rail-section--session">
+            <div className="rail-section__header">
+              <div>
+                <p className="eyebrow eyebrow--compact">Workspace</p>
+                <h2>{workspace?.name ?? "Cargando workspace"}</h2>
               </div>
-              <div className="rail-divider" />
-              <div className="rail-section">
-                <div className="rail-section__header">
-                  <div>
-                    <p className="eyebrow eyebrow--compact">Resumen</p>
-                    <h2>Estado actual</h2>
-                  </div>
-                </div>
-                <p className="section-copy">
-                  {workspace
-                    ? `${workspace.tables.length} mesas, ${workspace.guests.assigned.length} invitados asignados y ${workspace.guests.unassigned.length} pendientes.`
-                    : "Recuperando datos del workspace unico."}
-                </p>
+            </div>
+            <p className="section-copy">
+              Siempre trabajas sobre el mismo workspace persistente. No hay selector ni borrado de eventos.
+            </p>
+          </div>
+          <div className="rail-divider" />
+          <div className="rail-section">
+            <div className="rail-section__header">
+              <div>
+                <p className="eyebrow eyebrow--compact">Resumen</p>
+                <h2>Estado actual</h2>
               </div>
-            </section>
-          </>
-        )}
+            </div>
+            <p className="section-copy">
+              {workspace
+                ? `${workspace.tables.length} mesas, ${workspace.guests.assigned.length} invitados asignados y ${workspace.guests.unassigned.length} pendientes.`
+                : "Recuperando datos del workspace unico."}
+            </p>
+          </div>
+        </section>
       </aside>
 
       <main className="workspace">
+        <div className="workspace__utility">
+          <button className="button button--link" onClick={handleLogout} type="button">
+            Cerrar sesion
+          </button>
+        </div>
         <header className="workspace__hero">
           <div>
             <p className="eyebrow">Workspace agregado</p>

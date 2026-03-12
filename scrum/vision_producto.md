@@ -39,4 +39,4 @@ Donde-me-siento permite revisar y ajustar la distribucion de invitados dentro de
 - **Relaciones explícitas**: las agrupaciones y restricciones entre invitados deben ser identificables a simple vista tanto en el diagrama como en las listas.
 - **Persistencia fiable**: el estado completo de la distribucion debe poder guardarse y recuperarse sin perdida de datos mediante backend y almacenamiento persistente en disco.
 - **Experiencia agradable**: sensación de orden y calma, jerarquía tipográfica clara, color funcional, estados vacíos bien diseñados y transiciones suaves al reorganizar invitados o mesas.
-- **Seguridad por defecto**: acceso restringido mediante login cerrado; la sesion siempre parte de una de las dos identidades permitidas y queda controlada por el usuario.
+- **Seguridad por defecto**: acceso restringido mediante login cerrado; la sesion siempre parte de una de las dos identidades permitidas, entra por una pantalla de acceso propia y queda controlada por el usuario.

@@ -1,19 +1,21 @@
 import { expect, test, type Page } from "@playwright/test";
 
-async function loginAsAdmin(page: Page) {
+async function loginThroughAccessScreen(page: Page) {
   await page.goto("/");
+  await expect(page.getByRole("heading", { name: "dónde me siento" })).toBeVisible();
   const username = await page.getByLabel("Usuario").inputValue();
   const password = username === "raquel" ? "hector" : "raquel";
   await page.getByLabel("Contrasena").fill(password);
   await page.getByRole("button", { name: "Abrir workspace" }).click();
-  await expect(page.getByText("Backend autenticado")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "dónde me siento" })).toHaveCount(0);
+  await expect(page.locator(".workspace__hero")).toBeVisible();
 }
 
 test("flujo MVP con workspace unico: login, alta, drag and drop y recarga", async ({ page }) => {
   const guestOne = `Ana E2E ${Date.now()}`;
   const guestTwo = `Luis E2E ${Date.now()}`;
 
-  await loginAsAdmin(page);
+  await loginThroughAccessScreen(page);
 
   await expect(page.getByText("Nuevo evento")).toHaveCount(0);
   await expect(page.getByText("Eventos existentes")).toHaveCount(0);
@@ -55,10 +57,13 @@ test("flujo MVP con workspace unico: login, alta, drag and drop y recarga", asyn
 
   await page.reload();
 
-  await expect(page.getByText("Backend autenticado")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "dónde me siento" })).toHaveCount(0);
   await expect(page.locator("main").getByRole("heading", { name: currentWorkspaceName })).toBeVisible();
   await expect(page.getByTestId("table-card-table-1")).toContainText(guestOne);
   await expect(page.getByTestId("table-card-table-1")).toContainText(guestTwo);
+
+  await page.getByRole("button", { name: "Cerrar sesion" }).click();
+  await expect(page.getByRole("heading", { name: "dónde me siento" })).toBeVisible();
 });
 
 test("estados UX del workspace unico: alertas de conflicto y aforo", async ({ page }) => {
@@ -67,7 +72,7 @@ test("estados UX del workspace unico: alertas de conflicto y aforo", async ({ pa
   const guestTwo = `Mario ${base}`;
   const sharedGroup = `familia-${base}`;
 
-  await loginAsAdmin(page);
+  await loginThroughAccessScreen(page);
 
   const unassignedPanel = page.getByTestId("unassigned-guests-panel");
 

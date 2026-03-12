@@ -15,17 +15,20 @@ Cada ítem sigue el formato:
 **Como** organizador, **quiero** iniciar sesión con usuario y contraseña **para** acceder a la aplicación de forma segura.
 
 Criterios de aceptación:
+- Antes de autenticarse solo se muestra una pantalla de login dedicada.
+- La pantalla de acceso tiene fondo limpio y muestra en grande el nombre `dónde me siento`.
 - El usuario visible en la pantalla de login no se puede editar.
 - La pantalla muestra automaticamente y al azar `raquel` o `hector`.
 - Si el usuario mostrado es `raquel`, la unica contrasena valida es `hector`.
 - Si el usuario mostrado es `hector`, la unica contrasena valida es `raquel`.
 - Si las credenciales son incorrectas, se muestra un mensaje de error y no se permite el acceso.
-- Si las credenciales son correctas, se inicia sesion y se mantiene activa durante toda la sesion del navegador.
-- Existe un botón de cierre de sesión visible en todo momento.
+- Si las credenciales son correctas, se inicia sesion, se entra directamente en la app principal y se mantiene activa durante toda la sesion del navegador.
+- Una vez dentro, el cuadro de login ya no vuelve a aparecer mientras la sesion siga activa.
+- Existe una opcion de cierre de sesion visible en todo momento, pero discreta y no protagonista.
 - Tras cerrar sesion, no se puede acceder a ninguna pantalla protegida sin volver a autenticarse.
 
 ### TT-01 · Implementar sistema de autenticación básico · MVP
-Implementar autenticacion con dos identidades fijas sobre backend. Proteger todas las rutas de la aplicacion y los endpoints privados. Gestionar sesion activa y cierre manual. El cliente debe recibir automaticamente uno de los dos usuarios posibles sin permitir editarlo.
+Implementar autenticacion con dos identidades fijas sobre backend. Proteger todas las rutas de la aplicacion y los endpoints privados. Gestionar sesion activa y cierre manual. El cliente debe recibir automaticamente uno de los dos usuarios posibles sin permitir editarlo y separar visualmente la pantalla de acceso del workspace autenticado.
 
 ---
 

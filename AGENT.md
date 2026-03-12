@@ -54,7 +54,9 @@ Todos los endpoints del workspace requieren Bearer token.
 
 El frontend en `frontend/`:
 
-- inicia sesion contra el backend;
+- muestra una pantalla de acceso independiente antes de autenticar;
+- entra directamente en la app principal tras iniciar sesion;
+- deja el cierre de sesion como accion discreta dentro del workspace;
 - usa `GET /api/workspace` como fuente principal del estado inicial;
 - pinta metricas, mesas, invitados sin asignar y conflictos de agrupacion.
 
