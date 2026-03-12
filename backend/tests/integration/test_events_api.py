@@ -183,6 +183,56 @@ async def test_tables_summary_and_capacity_update_flow(client: AsyncClient) -> N
 
 
 @pytest.mark.anyio
+async def test_create_table_and_update_default_capacity_flow(client: AsyncClient) -> None:
+    update_default_capacity_response = await client.put(
+        "/api/workspace/default-table-capacity",
+        json={"capacity": 12},
+    )
+    assert update_default_capacity_response.status_code == 200
+    assert update_default_capacity_response.json()["default_table_capacity"] == 12
+
+    create_table_response = await client.post("/api/tables")
+    assert create_table_response.status_code == 201
+    payload = create_table_response.json()
+    assert len(payload["tables"]) == 9
+
+    created_table = next(table for table in payload["tables"] if table["id"] == "table-9")
+    assert created_table["number"] == 9
+    assert created_table["capacity"] == 12
+
+    workspace_response = await client.get("/api/workspace")
+    assert workspace_response.status_code == 200
+    workspace = workspace_response.json()
+    assert workspace["default_table_capacity"] == 12
+    assert workspace["tables"][-1]["id"] == "table-9"
+    assert workspace["tables"][-1]["capacity"] == 12
+
+
+@pytest.mark.anyio
+async def test_delete_table_rejects_occupied_and_reorders_empty_tables(client: AsyncClient) -> None:
+    await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto"})
+    await client.put("/api/guests/guest-1/assignment", json={"table_id": "table-1"})
+
+    occupied_delete_response = await client.delete("/api/tables/table-1")
+    assert occupied_delete_response.status_code == 400
+    assert "mesa con invitados" in occupied_delete_response.json()["detail"]
+
+    empty_delete_response = await client.delete("/api/tables/table-3")
+    assert empty_delete_response.status_code == 200
+    payload = empty_delete_response.json()
+    assert len(payload["tables"]) == 7
+    assert [table["id"] for table in payload["tables"]] == [
+        "table-1",
+        "table-2",
+        "table-3",
+        "table-4",
+        "table-5",
+        "table-6",
+        "table-7",
+    ]
+
+
+@pytest.mark.anyio
 async def test_capacity_update_rejects_value_below_current_occupancy(client: AsyncClient) -> None:
     await client.put("/api/tables/table-1", json={"capacity": 3})
     await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto"})

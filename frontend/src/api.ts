@@ -110,3 +110,32 @@ export async function updateTableCapacity(
     body: JSON.stringify({ capacity }),
   });
 }
+
+export async function createTable(token: string): Promise<void> {
+  await request("/api/tables", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function deleteTable(tableId: string, token: string): Promise<void> {
+  await request(`/api/tables/${tableId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function updateDefaultTableCapacity(capacity: number, token: string): Promise<void> {
+  await request("/api/workspace/default-table-capacity", {
+    method: "PUT",
+    headers: {
+      ...API_HEADERS,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ capacity }),
+  });
+}

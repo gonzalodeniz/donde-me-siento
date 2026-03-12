@@ -2,11 +2,14 @@ import { DragEvent, FormEvent, startTransition, useEffect, useMemo, useState } f
 
 import {
   assignGuest,
+  createTable,
   createGuest,
   deleteGuest,
+  deleteTable,
   fetchWorkspace,
   login,
   unassignGuest,
+  updateDefaultTableCapacity,
   updateGuest,
   updateTableCapacity,
 } from "./api";
@@ -50,7 +53,9 @@ export function App() {
   const [editingGuestError, setEditingGuestError] = useState<string | null>(null);
   const [assignmentValues, setAssignmentValues] = useState<Record<string, string>>({});
   const [capacityValues, setCapacityValues] = useState<Record<string, string>>({});
+  const [defaultTableCapacityValue, setDefaultTableCapacityValue] = useState(8);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  const [pendingTableRemovalId, setPendingTableRemovalId] = useState<string | null>(null);
   const [draggedGuestId, setDraggedGuestId] = useState<string | null>(null);
   const [activeDropTableId, setActiveDropTableId] = useState<string | null>(null);
   const [sectionNotices, setSectionNotices] = useState<Record<SectionKey, SectionNotice | null>>({
@@ -90,6 +95,14 @@ export function App() {
     () => workspace?.tables.filter((table) => table.available === 0).length ?? 0,
     [workspace],
   );
+  const totalGuestsCount = useMemo(
+    () => (workspace ? workspace.guests.assigned.length + workspace.guests.unassigned.length : 0),
+    [workspace],
+  );
+  const pendingGuestsCount = useMemo(
+    () => workspace?.guests.unassigned.length ?? 0,
+    [workspace],
+  );
   const conflictTableIds = useMemo(
     () =>
       new Set(
@@ -119,6 +132,9 @@ export function App() {
     loadingWorkspace ||
     (submittingAction !== null &&
       (submittingAction.startsWith("capacity-") ||
+        submittingAction === "create-table" ||
+        submittingAction === "default-table-capacity" ||
+        submittingAction.startsWith("remove-table-") ||
         submittingAction.startsWith("unassign-") ||
         submittingAction.startsWith("assign-dnd-")));
 
@@ -147,6 +163,7 @@ export function App() {
         setCapacityValues(
           Object.fromEntries(nextWorkspace.tables.map((table) => [table.id, String(table.capacity)])),
         );
+        setDefaultTableCapacityValue(nextWorkspace.default_table_capacity);
         setSelectedTableId((currentSelected) => currentSelected ?? nextWorkspace.tables[0]?.id ?? null);
         setErrorMessage(null);
         setSectionNotices({ guests: null, tables: null });
@@ -179,7 +196,10 @@ export function App() {
     if (!selectedStillExists) {
       setSelectedTableId(workspace.tables[0]?.id ?? null);
     }
-  }, [selectedTableId, workspace]);
+    if (pendingTableRemovalId && !workspace.tables.some((table) => table.id === pendingTableRemovalId)) {
+      setPendingTableRemovalId(null);
+    }
+  }, [pendingTableRemovalId, selectedTableId, workspace]);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -204,6 +224,7 @@ export function App() {
     setGuestFormError(null);
     setEditingGuestError(null);
     setSectionNotices({ guests: null, tables: null });
+    setPendingTableRemovalId(null);
   }
 
   function beginGuestEdit(guest: Guest) {
@@ -237,6 +258,7 @@ export function App() {
     setCapacityValues(
       Object.fromEntries(nextWorkspace.tables.map((table) => [table.id, String(table.capacity)])),
     );
+    setDefaultTableCapacityValue(nextWorkspace.default_table_capacity);
     setSelectedTableId((currentSelected) => currentSelected ?? nextWorkspace.tables[0]?.id ?? null);
   }
 
@@ -377,6 +399,25 @@ export function App() {
     );
   }
 
+  function changeDefaultTableCapacity(direction: -1 | 1) {
+    if (!token) {
+      return;
+    }
+
+    const nextCapacity = defaultTableCapacityValue + direction;
+    if (nextCapacity <= 0) {
+      setSectionNotice("tables", "error", "Los asientos estándar deben ser al menos 1.");
+      return;
+    }
+
+    void runWorkspaceAction(
+      "default-table-capacity",
+      "tables",
+      () => updateDefaultTableCapacity(nextCapacity, token),
+      "Asientos estándar actualizados para las nuevas mesas.",
+    );
+  }
+
   if (!token) {
     return (
       <main className="login-screen">
@@ -420,18 +461,89 @@ export function App() {
         <h1 className="rail__title">Diseño del Salón</h1>
 
         <section className="events-panel">
+          {sectionNotices.tables ? (
+            <div className={`inline-notice inline-notice--${sectionNotices.tables.tone}`}>
+              {sectionNotices.tables.message}
+            </div>
+          ) : null}
           <div className="rail-section">
             <div className="rail-section__header">
               <div>
-                <p className="eyebrow eyebrow--compact">Resumen</p>
-                <h2>Estado actual</h2>
+                <p className="eyebrow eyebrow--compact">Gestión de Mesas</p>
               </div>
             </div>
-            <p className="section-copy">
-              {workspace
-                ? `${workspace.tables.length} mesas, ${workspace.guests.assigned.length} invitados asignados y ${workspace.guests.unassigned.length} pendientes.`
-                : "Recuperando datos del workspace unico."}
+            <button
+              className="button button--outline button--left"
+              disabled={isActionRunning("create-table")}
+              onClick={() =>
+                void runWorkspaceAction(
+                  "create-table",
+                  "tables",
+                  () => createTable(token ?? ""),
+                  "Nuestra nueva mesa ya forma parte del salón.",
+                )
+              }
+              type="button"
+            >
+              <span className="button__icon" aria-hidden="true">
+                +
+              </span>
+              {isActionRunning("create-table") ? "Creando mesa..." : "Crear Nuestra Mesa"}
+            </button>
+          </div>
+          <div className="rail-divider" />
+          <div className="rail-section">
+            <div className="rail-section__header">
+              <div>
+                <p className="eyebrow eyebrow--compact">Configuración por Defecto</p>
+                <h2>Asientos estándar</h2>
+              </div>
+            </div>
+            <div className="stepper" aria-label="Asientos estándar">
+              <button
+                className="stepper__button"
+                disabled={isActionRunning("default-table-capacity") || defaultTableCapacityValue <= 1}
+                onClick={() => changeDefaultTableCapacity(-1)}
+                type="button"
+              >
+                -
+              </button>
+              <div className="stepper__value">{defaultTableCapacityValue}</div>
+              <button
+                className="stepper__button"
+                disabled={isActionRunning("default-table-capacity")}
+                onClick={() => changeDefaultTableCapacity(1)}
+                type="button"
+              >
+                +
+              </button>
+            </div>
+            <p className="section-copy section-copy--emphasis">
+              Ajusta cuántos invitados se sientan de forma estándar en cada nueva mesa.
             </p>
+          </div>
+          <div className="rail-divider" />
+          <div className="rail-section">
+            <div className="rail-section__header">
+              <div>
+                <p className="eyebrow eyebrow--compact">Estado en Tiempo Real</p>
+                <h2>Nuestro Banquete</h2>
+              </div>
+            </div>
+            <dl className="banquet-summary">
+              <div className="banquet-summary__row">
+                <dt>Total invitados</dt>
+                <dd>{totalGuestsCount}</dd>
+              </div>
+              <div className="banquet-summary__row">
+                <dt>Ya sentados</dt>
+                <dd>{workspace?.guests.assigned.length ?? 0}</dd>
+              </div>
+              <div className="banquet-summary__row banquet-summary__row--accent">
+                <dt>Por sentar</dt>
+                <dd>{pendingGuestsCount}</dd>
+              </div>
+            </dl>
           </div>
         </section>
       </aside>
@@ -672,6 +784,50 @@ export function App() {
                   <p className="selected-table-panel__hint">
                     Aqui vive la operativa de mesa: ajustar aforo y devolver invitados a la lista sin asignar.
                   </p>
+                  <div className="selected-table-panel__table-actions">
+                    {pendingTableRemovalId === selectedTable.id ? (
+                      <>
+                        <p className="selected-table-panel__warning">
+                          Solo puedes retirar mesas vacías y el salón siempre debe conservar al menos una.
+                        </p>
+                        <div className="selected-table-panel__confirm-actions">
+                          <button
+                            className="button button--ghost button--small"
+                            onClick={() => setPendingTableRemovalId(null)}
+                            type="button"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            className="button button--danger button--small"
+                            disabled={isActionRunning(`remove-table-${selectedTable.id}`)}
+                            onClick={() =>
+                              void runWorkspaceAction(
+                                `remove-table-${selectedTable.id}`,
+                                "tables",
+                                async () => {
+                                  await deleteTable(selectedTable.id, token ?? "");
+                                  setPendingTableRemovalId(null);
+                                },
+                                `Mesa ${selectedTable.number} retirada del salón.`,
+                              )
+                            }
+                            type="button"
+                          >
+                            {isActionRunning(`remove-table-${selectedTable.id}`) ? "Retirando..." : "Confirmar retirada"}
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <button
+                        className="button button--quiet button--small"
+                        onClick={() => setPendingTableRemovalId(selectedTable.id)}
+                        type="button"
+                      >
+                        Preparar retirada de mesa
+                      </button>
+                    )}
+                  </div>
                   <div className="selected-table-panel__guests">
                     {selectedTable.guests.length > 0 ? (
                       selectedTable.guests.map((guest) => (

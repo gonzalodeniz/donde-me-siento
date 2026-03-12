@@ -200,12 +200,18 @@ Implementar el componente visual del salón: renderizado de mesas redondas, posi
 **Como** organizador, **quiero** ver en un panel el número de mesas y el aforo de cada una **para** tener el control del estado del evento sin mirar el plano.
 
 Criterios de aceptación:
-- El panel muestra todas las mesas con su capacidad total, asientos ocupados y asientos libres.
-- Desde el panel se puede ajustar la capacidad individual de cada mesa.
+- La barra lateral izquierda usa fondo crema/beige suave, tipografía serif elegante y tono marrón oscuro.
+- La parte superior muestra `dónde me siento` y debajo `Diseño del Salón`.
+- Existe una sección de gestion de mesas con un boton principal `+ Crear Nuestra Mesa`.
+- Existe una sección `Asientos estándar` con control numerico minimalista de menos, valor y mas.
+- Bajo ese control aparece un texto en cursiva que explica el uso del aforo estándar para mesas nuevas.
+- Existe una sección `Nuestro Banquete` con `Total invitados`, `Ya sentados` y `Por sentar`.
+- El valor de `Por sentar` se resalta con un tono terracota suave.
+- El panel elimina referencias técnicas a workspace, backend, ids o textos de sistema.
 - El panel se actualiza en tiempo real al hacer cambios.
 
 ### TT-06 · Componente de panel de control · MVP
-Implementar panel lateral o modal con tabla de mesas: número de mesa, capacidad, ocupación, input para ajustar capacidad. Conectado al estado global de la aplicación.
+Implementar una barra lateral izquierda de alta fidelidad, alineada con una estetica editorial y sobria, con tres bloques: gestion de mesas, asientos estándar y estado del banquete. Conectar el boton de alta de mesas, el stepper del aforo estándar y las métricas en tiempo real al estado global de la aplicación, evitando exponer lenguaje técnico al usuario final.
 
 ---
 

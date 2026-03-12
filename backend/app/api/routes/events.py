@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from backend.app.api.dependencies import get_current_user, get_event_service
 from backend.app.domains.seating import DomainError
 from backend.app.schemas.events import (
+    DefaultTableCapacityUpdate,
     EventResponse,
     GuestAssignmentRequest,
     GuestCreate,
@@ -109,6 +110,33 @@ async def unassign_guest(
     return build_event_response(event)
 
 
+@router.post("/tables", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
+async def create_table(service: EventService = Depends(get_event_service)) -> EventResponse:
+    """Crea una nueva mesa usando el aforo por defecto activo."""
+
+    try:
+        event = service.add_table()
+    except DomainError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return build_event_response(event)
+
+
+@router.delete("/tables/{table_id}", response_model=EventResponse)
+async def delete_table(
+    table_id: str,
+    service: EventService = Depends(get_event_service),
+) -> EventResponse:
+    """Retira una mesa vacía y recompone la numeración del salón."""
+
+    try:
+        event = service.remove_table(table_id)
+    except DomainError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return build_event_response(event)
+
+
 @router.get("/validation", response_model=ValidationResponse)
 async def get_workspace_validation(service: EventService = Depends(get_event_service)) -> ValidationResponse:
     """Expone el estado de validacion listo para el frontend."""
@@ -133,6 +161,21 @@ async def update_table_capacity(
 
     try:
         event = service.update_table_capacity(table_id, payload.capacity)
+    except DomainError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return build_event_response(event)
+
+
+@router.put("/workspace/default-table-capacity", response_model=EventResponse)
+async def update_default_table_capacity(
+    payload: DefaultTableCapacityUpdate,
+    service: EventService = Depends(get_event_service),
+) -> EventResponse:
+    """Actualiza el aforo por defecto aplicado a mesas nuevas."""
+
+    try:
+        event = service.update_default_table_capacity(payload.capacity)
     except DomainError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 

@@ -20,6 +20,7 @@ Organizar la distribución de mesas en una boda suele hacerse con hojas de cálc
 Donde-me-siento permite revisar y ajustar la distribucion de invitados dentro de un unico workspace de forma visual, rapida y fiable, combinando:
 
 - **plano interactivo** del salón con mesas redondas configurables;
+- **barra lateral editorial** para crear mesas, fijar asientos estándar y leer el estado del banquete;
 - **reglas de relación entre invitados** (juntos, separados, preferencia);
 - **herramientas de validación** que detectan conflictos antes de que sean un error;
 - **exportación e impresión** del plano y los listados finales.
@@ -39,4 +40,5 @@ Donde-me-siento permite revisar y ajustar la distribucion de invitados dentro de
 - **Relaciones explícitas**: las agrupaciones y restricciones entre invitados deben ser identificables a simple vista tanto en el diagrama como en las listas.
 - **Persistencia fiable**: el estado completo de la distribucion debe poder guardarse y recuperarse sin perdida de datos mediante backend y almacenamiento persistente en disco.
 - **Experiencia agradable**: sensación de orden y calma, jerarquía tipográfica clara, color funcional, estados vacíos bien diseñados y transiciones suaves al reorganizar invitados o mesas.
+- **Lenguaje humano y elegante**: los controles principales deben evitar tecnicismos como workspace, backend o ids visibles y expresarse con copy emocional y sobrio.
 - **Seguridad por defecto**: acceso restringido mediante login cerrado; la sesion siempre parte de una de las dos identidades permitidas, entra por una pantalla de acceso propia y queda controlada por el usuario.

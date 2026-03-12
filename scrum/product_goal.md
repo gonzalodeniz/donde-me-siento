@@ -28,11 +28,12 @@ Convertir Donde-me-siento en la herramienta de referencia para la gestión del s
 - exportar e imprimir planos y listados (por mesa, alfabético, para el salón);
 - guardar el workspace unico con persistencia fiable en backend y recuperarlo sin perdida de datos;
 - acceder de forma segura mediante un login cerrado de pareja contra backend, separado visualmente del workspace principal.
+- ofrecer un panel lateral de control con lenguaje emocional y estetica editorial, sin referencias tecnicas a workspace, ids o backend.
 
 ## Alcance por fases
 
 **MVP**
-Abrir el workspace unico, configurar mesas, gestionar invitados, definir relaciones y restricciones, asignar a mesas (manual y drag & drop), visualizar invitados sin asignar, detectar conflictos, guardado del workspace sobre backend con base de datos y autenticacion basica.
+Abrir el workspace unico, configurar mesas, gestionar invitados, definir relaciones y restricciones, asignar a mesas (manual y drag & drop), visualizar invitados sin asignar, detectar conflictos, guardado del workspace sobre backend con base de datos, autenticacion basica y panel lateral editorial para la gestion de mesas y el estado del banquete.
 
 **v2**
 Importacion de invitados desde fichero, exportacion e impresion de planos y listados, propuesta inicial automatica de distribucion, gestion de confirmaciones de asistencia, versiones/escenarios dentro del mismo workspace.

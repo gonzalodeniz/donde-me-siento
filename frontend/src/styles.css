@@ -322,6 +322,31 @@ select {
   color: var(--ink);
 }
 
+.button--outline {
+  width: 100%;
+  border: 1px solid rgba(36, 24, 20, 0.18);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--ink);
+}
+
+.button--left {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.7rem;
+}
+
+.button__icon {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  background: rgba(154, 79, 36, 0.09);
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .button--danger {
   color: #fff5f1;
   background: linear-gradient(135deg, #9f4524, #7d2f1f);
@@ -375,10 +400,69 @@ select {
   font-size: 0.84rem;
 }
 
+.section-copy--emphasis {
+  margin: 0;
+  font-style: italic;
+  color: rgba(107, 87, 75, 0.88);
+}
+
 .rail-divider {
   height: 1px;
   margin: 1.15rem 0;
   background: linear-gradient(90deg, rgba(36, 24, 20, 0.1), transparent);
+}
+
+.stepper {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr) 3rem;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.stepper__button,
+.stepper__value {
+  min-height: 3rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(36, 24, 20, 0.12);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.stepper__button {
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.stepper__value {
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+}
+
+.banquet-summary {
+  margin: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.banquet-summary__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--ink);
+}
+
+.banquet-summary__row dt {
+  color: var(--muted);
+}
+
+.banquet-summary__row dd {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.banquet-summary__row--accent dd {
+  color: #b76549;
 }
 
 .stack-form--event {
@@ -1228,6 +1312,23 @@ select {
   margin: 0;
   color: var(--muted);
   font-size: 0.84rem;
+}
+
+.selected-table-panel__table-actions {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.selected-table-panel__warning {
+  margin: 0;
+  color: #8b4d31;
+  font-size: 0.84rem;
+}
+
+.selected-table-panel__confirm-actions {
+  display: flex;
+  gap: 0.7rem;
+  flex-wrap: wrap;
 }
 
 .selected-table-panel__alerts {

@@ -37,6 +37,16 @@ class EventService:
         event.add_guest(self._build_guest(payload))
         return self.repository.save(event)
 
+    def add_table(self) -> Event:
+        event = self.ensure_workspace()
+        event.add_table()
+        return self.repository.save(event)
+
+    def remove_table(self, table_id: str) -> Event:
+        event = self.ensure_workspace()
+        event.remove_table(table_id)
+        return self.repository.save(event)
+
     def update_guest(self, guest_id: str, payload: GuestUpdate) -> Event:
         event = self.ensure_workspace()
         guest_type = self._parse_guest_type(payload.guest_type) if payload.guest_type is not None else None
@@ -66,6 +76,11 @@ class EventService:
     def update_table_capacity(self, table_id: str, capacity: int) -> Event:
         event = self.ensure_workspace()
         event.update_table_capacity(table_id, capacity)
+        return self.repository.save(event)
+
+    def update_default_table_capacity(self, capacity: int) -> Event:
+        event = self.ensure_workspace()
+        event.update_default_table_capacity(capacity)
         return self.repository.save(event)
 
     @staticmethod

@@ -72,6 +72,12 @@ class TableCapacityUpdate(BaseModel):
     capacity: int = Field(gt=0)
 
 
+class DefaultTableCapacityUpdate(BaseModel):
+    """Payload para ajustar el aforo por defecto de mesas nuevas."""
+
+    capacity: int = Field(gt=0)
+
+
 class TableSummaryResponse(BaseModel):
     """Resumen de una mesa para panel y validacion."""
 

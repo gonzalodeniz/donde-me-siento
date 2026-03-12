@@ -17,8 +17,17 @@ test("flujo MVP con workspace unico: login, alta, drag and drop y recarga", asyn
 
   await loginThroughAccessScreen(page);
 
-  await expect(page.getByText("Nuevo evento")).toHaveCount(0);
-  await expect(page.getByText("Eventos existentes")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Crear Nuestra Mesa" })).toBeVisible();
+  await expect(page.getByText("Asientos estándar")).toBeVisible();
+  await expect(page.getByText("Nuestro Banquete")).toBeVisible();
+  await expect(page.locator(".stepper__value")).toHaveText("10");
+
+  await page.getByRole("button", { name: "Crear Nuestra Mesa" }).click();
+  await expect(page.getByTestId("table-card-table-9")).toBeVisible();
+  await page.getByTestId("table-card-table-9").click();
+  await page.getByRole("button", { name: "Preparar retirada de mesa" }).click();
+  await page.getByRole("button", { name: "Confirmar retirada" }).click();
+  await expect(page.getByTestId("table-card-table-9")).toHaveCount(0);
 
   await page.getByTestId("guest-name-input").fill(guestOne);
   await page.getByRole("button", { name: "Anadir invitado" }).click();
@@ -73,6 +82,9 @@ test("estados UX del workspace unico: alertas de conflicto y aforo", async ({ pa
   const sharedGroup = `familia-${base}`;
 
   await loginThroughAccessScreen(page);
+
+  await page.locator(".stepper__button").last().click();
+  await expect(page.locator(".stepper__value")).toHaveText("11");
 
   const unassignedPanel = page.getByTestId("unassigned-guests-panel");
 

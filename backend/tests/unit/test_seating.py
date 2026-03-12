@@ -33,6 +33,58 @@ def test_create_tables_generates_expected_layout() -> None:
     assert tables[4].position_y == 310.0
 
 
+def test_add_table_uses_default_capacity_and_next_slot() -> None:
+    event = Event(id="event-1", name="Evento", default_table_capacity=6)
+    event.create_tables(4)
+
+    table = event.add_table()
+
+    assert table.id == "table-5"
+    assert table.number == 5
+    assert table.capacity == 6
+    assert table.position_x == 150.0
+    assert table.position_y == 310.0
+
+
+def test_update_default_table_capacity_changes_future_tables_only() -> None:
+    event = Event(id="event-1", name="Evento", default_table_capacity=8)
+    event.create_tables(1)
+
+    event.update_default_table_capacity(10)
+    table = event.add_table()
+
+    assert event.default_table_capacity == 10
+    assert event.tables["table-1"].capacity == 8
+    assert table.capacity == 10
+
+
+def test_remove_table_rejects_occupied_or_last_table() -> None:
+    event = Event(id="event-1", name="Evento", default_table_capacity=8)
+    event.create_tables(2)
+    event.add_guest(Guest(id="guest-1", name="Ana", guest_type=GuestType.ADULT))
+    event.assign_guest_to_table("guest-1", "table-1")
+
+    with pytest.raises(DomainError, match="mesa con invitados"):
+        event.remove_table("table-1")
+
+    event.unassign_guest("guest-1")
+    event.remove_table("table-2")
+
+    with pytest.raises(DomainError, match="al menos una mesa"):
+        event.remove_table("table-1")
+
+
+def test_remove_table_renumbers_remaining_tables() -> None:
+    event = Event(id="event-1", name="Evento", default_table_capacity=8)
+    event.create_tables(5)
+
+    event.remove_table("table-3")
+
+    assert list(event.tables) == ["table-1", "table-2", "table-3", "table-4"]
+    assert event.tables["table-3"].number == 3
+    assert event.tables["table-4"].position_x == 630.0
+
+
 def test_add_guest_rejects_duplicate_ids(event: Event) -> None:
     with pytest.raises(DomainError, match="Ya existe un invitado"):
         event.add_guest(Guest(id="guest-1", name="Repetido", guest_type=GuestType.TEEN))

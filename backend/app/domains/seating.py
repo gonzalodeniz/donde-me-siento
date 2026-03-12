@@ -92,6 +92,56 @@ class Event:
 
         return created_tables
 
+    def add_table(self) -> Table:
+        next_number = max((table.number for table in self.tables.values()), default=0) + 1
+        table = Table(
+            id=f"table-{next_number}",
+            number=next_number,
+            capacity=self.default_table_capacity,
+            position_x=self._table_position_x(next_number - 1, next_number),
+            position_y=self._table_position_y(next_number - 1, next_number),
+        )
+        self.tables[table.id] = table
+        return table
+
+    def remove_table(self, table_id: str) -> None:
+        table = self._get_table(table_id)
+        if len(self.tables) == 1:
+            raise DomainError("El salón debe conservar al menos una mesa.")
+        if self.table_occupancy(table.id) > 0:
+            raise DomainError("No se puede retirar una mesa con invitados asignados.")
+
+        remaining_tables = [
+            current_table
+            for current_table in sorted(self.tables.values(), key=lambda current: current.number)
+            if current_table.id != table_id
+        ]
+
+        id_map: dict[str, str] = {}
+        rebuilt_tables: dict[str, Table] = {}
+        for index, current_table in enumerate(remaining_tables):
+            new_id = f"table-{index + 1}"
+            id_map[current_table.id] = new_id
+            rebuilt_tables[new_id] = Table(
+                id=new_id,
+                number=index + 1,
+                capacity=current_table.capacity,
+                position_x=self._table_position_x(index, len(remaining_tables)),
+                position_y=self._table_position_y(index, len(remaining_tables)),
+            )
+
+        for guest in self.guests.values():
+            if guest.table_id in id_map:
+                guest.table_id = id_map[guest.table_id]
+
+        self.tables = rebuilt_tables
+
+    def update_default_table_capacity(self, capacity: int) -> int:
+        if capacity <= 0:
+            raise DomainError("La capacidad por defecto debe ser mayor que cero.")
+        self.default_table_capacity = capacity
+        return self.default_table_capacity
+
     def add_guest(self, guest: Guest) -> Guest:
         if guest.id in self.guests:
             raise DomainError(f"Ya existe un invitado con id '{guest.id}'.")
@@ -216,3 +266,15 @@ class Event:
             return self.tables[table_id]
         except KeyError as exc:
             raise DomainError(f"No existe la mesa '{table_id}'.") from exc
+
+    @staticmethod
+    def _table_position_x(index: int, count: int) -> float:
+        columns = min(count, 4)
+        column = index % columns
+        return 150.0 + (column * 160.0)
+
+    @staticmethod
+    def _table_position_y(index: int, count: int) -> float:
+        columns = min(count, 4)
+        row = index // columns
+        return 150.0 + (row * 160.0)
