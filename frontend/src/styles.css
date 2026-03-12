@@ -636,15 +636,6 @@ select {
   color: var(--muted);
 }
 
-.topbar__title {
-  margin: 0;
-  font-family: "Times New Roman", Times, serif;
-  font-size: 1.45rem;
-  font-weight: 400;
-  letter-spacing: -0.03em;
-  line-height: 1;
-}
-
 .topbar__couple {
   color: rgba(107, 87, 75, 0.92);
   font-size: 0.98rem;

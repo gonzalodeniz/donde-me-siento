@@ -761,9 +761,7 @@ export function App() {
 
       <main className="workspace">
         <header className="topbar">
-          <div className="topbar__brand">
-            <h1 className="topbar__title">Diseño del Salón</h1>
-          </div>
+          <div className="topbar__brand" />
           <div className="topbar__center">
             <span className="topbar__couple">Héctor & Raquel</span>
           </div>
