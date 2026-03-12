@@ -159,9 +159,6 @@ select {
 }
 
 .rail {
-  display: flex;
-  align-items: stretch;
-  gap: 0.9rem;
   padding: 2rem 1.7rem;
   border-right: 1px solid var(--line);
   background: rgba(248, 241, 232, 0.68);
@@ -171,7 +168,7 @@ select {
 }
 
 .rail--collapsed {
-  padding-inline: 0.55rem 0.4rem;
+  padding-inline: 0.55rem 0.45rem;
   border-right-color: rgba(66, 53, 46, 0.16);
 }
 
@@ -181,29 +178,55 @@ select {
   min-width: 0;
 }
 
+.rail__masthead {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 0 0 1rem;
+  padding-left: 0.45rem;
+}
+
 .rail__toggle {
-  flex: 0 0 1.8rem;
-  align-self: flex-start;
+  flex: 0 0 auto;
   display: inline-grid;
   place-items: center;
-  width: 1.8rem;
-  min-height: 100%;
+  width: 1.7rem;
+  height: 1.7rem;
   padding: 0;
-  border: 0;
-  background: transparent;
-  color: rgba(36, 24, 20, 0.66);
+  border: 1px solid rgba(66, 53, 46, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.74);
+  color: rgba(36, 24, 20, 0.72);
+  box-shadow: 0 10px 24px rgba(77, 56, 43, 0.08);
   cursor: pointer;
+  transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease;
+}
+
+.rail__toggle:hover {
+  transform: translateX(-1px);
+  background: rgba(255, 252, 247, 0.92);
+  border-color: rgba(66, 53, 46, 0.28);
 }
 
 .rail__toggle-triangle {
-  font-size: 0.82rem;
+  font-size: 0.72rem;
   line-height: 1;
 }
 
 .rail--collapsed .rail__inner {
-  width: 0;
-  opacity: 0;
-  pointer-events: none;
+  width: 100%;
+}
+
+.rail--collapsed .rail__masthead {
+  justify-content: center;
+  margin-bottom: 0;
+  padding-left: 0;
+}
+
+.rail--collapsed .rail__title,
+.rail--collapsed .eyebrow,
+.rail--collapsed .events-panel {
+  display: none;
 }
 
 .eyebrow {
@@ -1703,6 +1726,10 @@ select {
   .rail--collapsed {
     padding-block: 0.35rem;
     border-bottom-color: rgba(66, 53, 46, 0.16);
+  }
+
+  .rail__masthead {
+    padding-left: 0;
   }
 
   .topbar {

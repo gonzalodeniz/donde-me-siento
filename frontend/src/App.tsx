@@ -507,19 +507,21 @@ export function App() {
       <div className="shell__backdrop shell__backdrop--one" />
       <div className="shell__backdrop shell__backdrop--two" />
       <aside className={`rail ${isRailOpen ? "" : "rail--collapsed"}`}>
-        <button
-          aria-expanded={isRailOpen}
-          className="rail__toggle"
-          onClick={() => setIsRailOpen((current) => !current)}
-          type="button"
-        >
-          <span aria-hidden="true" className="rail__toggle-triangle">
-            {isRailOpen ? "◀" : "▶"}
-          </span>
-        </button>
         <div className="rail__inner">
           <p className="eyebrow">Donde me siento</p>
-          <h1 className="rail__title">Diseño del Salón</h1>
+          <div className="rail__masthead">
+            <button
+              aria-expanded={isRailOpen}
+              className="rail__toggle"
+              onClick={() => setIsRailOpen((current) => !current)}
+              type="button"
+            >
+              <span aria-hidden="true" className="rail__toggle-triangle">
+                {isRailOpen ? "◀" : "▶"}
+              </span>
+            </button>
+            <h1 className="rail__title">Diseño del Salón</h1>
+          </div>
 
           <section className="events-panel">
             {sectionNotices.tables ? (
