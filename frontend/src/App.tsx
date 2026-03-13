@@ -683,7 +683,6 @@ export function App() {
     try {
       await updateTablePosition(tableId, positionX, positionY, token);
       await refreshWorkspaceState(token);
-      setSectionNotice("tables", "success", "La mesa se ha recolocado en el plano.");
     } catch (error) {
       setOptimisticTablePositions((current) => {
         const nextPositions = { ...current };
