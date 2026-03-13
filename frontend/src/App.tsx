@@ -36,7 +36,7 @@ type TablePosition = {
   position_x: number;
   position_y: number;
 };
-type GuestEditableField = "name" | "type" | "group";
+type GuestEditableField = "name" | "type" | "group" | "table";
 
 function normalizeText(value: string) {
   return value.trim();
@@ -475,6 +475,10 @@ export function App() {
   }
 
   function handleGuestEditBlur() {
+    if (editingGuestField === "table") {
+      cancelGuestEdit();
+      return;
+    }
     void commitGuestEdit();
   }
 
@@ -724,8 +728,14 @@ export function App() {
       `assign-${guest.id}`,
       "guests",
       () => assignGuest(guest.id, nextTableId, null, token ?? ""),
-      `${guest.name} asignado correctamente.`,
+        `${guest.name} asignado correctamente.`,
     );
+  }
+
+  function handleAssignedGuestTableSelection(guest: Guest, nextTableId: string) {
+    setAssignmentValues((current) => ({ ...current, [guest.id]: nextTableId }));
+    handleGuestAssignmentSelection(guest, nextTableId);
+    cancelGuestEdit();
   }
 
   if (!token) {
@@ -1368,7 +1378,27 @@ export function App() {
                                       )}
                                     </td>
                                     <td>
-                                      <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
+                                      {editingGuestId === guest.id && editingGuestField === "table" ? (
+                                        <select
+                                          autoFocus
+                                          className="guest-table__select"
+                                          onBlur={handleGuestEditBlur}
+                                          onChange={(event) => handleAssignedGuestTableSelection(guest, event.target.value)}
+                                          onKeyDown={handleGuestEditKeyDown}
+                                          value={assignmentValues[guest.id] ?? guest.table_id ?? ""}
+                                        >
+                                          <option value="">Elegir mesa</option>
+                                          {workspace?.tables.map((table) => (
+                                            <option key={table.id} value={table.id}>
+                                              Mesa {table.number}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      ) : (
+                                        <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "table")} type="button">
+                                          <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
+                                        </button>
+                                      )}
                                     </td>
                                     <td>
                                       <div className="guest-table__actions guest-table__actions--tight">
