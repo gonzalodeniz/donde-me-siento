@@ -703,6 +703,31 @@ export function App() {
     );
   }
 
+  function handleGuestAssignmentSelection(guest: Guest, nextTableId: string) {
+    setAssignmentValues((current) => ({ ...current, [guest.id]: nextTableId }));
+
+    if (!nextTableId) {
+      if (guest.table_id === null) {
+        return;
+      }
+
+      void runWorkspaceAction(
+        `unassign-select-${guest.id}`,
+        "guests",
+        () => unassignGuest(guest.id, token ?? ""),
+        `${guest.name} vuelve a estar pendiente de ubicación.`,
+      );
+      return;
+    }
+
+    void runWorkspaceAction(
+      `assign-${guest.id}`,
+      "guests",
+      () => assignGuest(guest.id, nextTableId, null, token ?? ""),
+      `${guest.name} asignado correctamente.`,
+    );
+  }
+
   if (!token) {
     return (
       <main className="login-screen">
@@ -1212,9 +1237,7 @@ export function App() {
                                     <select
                                       aria-label={`Elegir mesa para ${guest.name}`}
                                       value={assignmentValues[guest.id] ?? ""}
-                                      onChange={(event) =>
-                                        setAssignmentValues((current) => ({ ...current, [guest.id]: event.target.value }))
-                                      }
+                                      onChange={(event) => handleGuestAssignmentSelection(guest, event.target.value)}
                                     >
                                       <option value="">Elegir mesa</option>
                                       {workspace?.tables.map((table) => (
@@ -1223,21 +1246,6 @@ export function App() {
                                         </option>
                                       ))}
                                     </select>
-                                    <button
-                                      className="button button--ghost button--small"
-                                      disabled={!assignmentValues[guest.id] || isActionRunning(`assign-${guest.id}`)}
-                                      onClick={() =>
-                                        void runWorkspaceAction(
-                                          `assign-${guest.id}`,
-                                          "guests",
-                                          () => assignGuest(guest.id, assignmentValues[guest.id], null, token ?? ""),
-                                          `${guest.name} asignado correctamente.`,
-                                        )
-                                      }
-                                      type="button"
-                                    >
-                                      Ubicar
-                                    </button>
                                     <button
                                       className="button button--ghost button--small"
                                       disabled={isActionRunning(`delete-${guest.id}`)}
