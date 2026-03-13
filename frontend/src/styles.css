@@ -1186,8 +1186,9 @@ select {
 }
 
 .plan-seat--conflict {
-  fill: rgba(154, 79, 36, 0.18);
-  stroke: rgba(154, 79, 36, 0.42);
+  fill: rgba(190, 68, 36, 0.42);
+  stroke: rgba(154, 49, 21, 0.72);
+  stroke-width: 2.1;
 }
 
 .plan-seat--available {
@@ -1208,7 +1209,7 @@ select {
 }
 
 .plan-seat__label--conflict {
-  fill: #822f1f;
+  fill: #5f160f;
 }
 
 .table-card,
