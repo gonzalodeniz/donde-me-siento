@@ -113,6 +113,30 @@ export function SeatingPlan({
   const conflictGuestIds = new Set(
     Object.values(workspace.validation.grouping_conflicts).flatMap((guestIds) => guestIds),
   );
+  const guestById = useMemo(
+    () =>
+      new Map(
+        [...workspace.guests.assigned, ...workspace.guests.unassigned].map((guest) => [guest.id, guest]),
+      ),
+    [workspace.guests.assigned, workspace.guests.unassigned],
+  );
+  const conflictTooltipByGuestId = useMemo(() => {
+    const tooltips = new Map<string, string>();
+
+    for (const [groupId, guestIds] of Object.entries(workspace.validation.grouping_conflicts)) {
+      const relatedNames = guestIds
+        .map((guestId) => guestById.get(guestId)?.name)
+        .filter((name): name is string => Boolean(name))
+        .sort((left, right) => left.localeCompare(right, "es"));
+      const tooltip = `Agrupación ${groupId}: ${relatedNames.join(", ")}`;
+
+      for (const guestId of guestIds) {
+        tooltips.set(guestId, tooltip);
+      }
+    }
+
+    return tooltips;
+  }, [guestById, workspace.validation.grouping_conflicts]);
   const renderedPositions = useMemo(
     () =>
       new Map(
@@ -486,6 +510,7 @@ export function SeatingPlan({
                 {seats.map(({ seatIndex, seatX, seatY, seatRadius, seatLabel, seatLabelFontSize, guest, hasConflict }) => {
                   const isDropTarget =
                     activeDropSeat?.tableId === table.id && activeDropSeat.seatIndex === seatIndex;
+                  const conflictTooltip = guest ? conflictTooltipByGuestId.get(guest.id) : null;
 
                   return (
                     <g key={`${table.id}-seat-${seatIndex}`}>
@@ -497,7 +522,7 @@ export function SeatingPlan({
                       />
                       {guest ? (
                         <>
-                          <title>{guest.name}</title>
+                          <title>{conflictTooltip ? `${guest.name}\n${conflictTooltip}` : guest.name}</title>
                           <text
                             className={`plan-seat__label ${hasConflict ? "plan-seat__label--conflict" : ""}`}
                             fontSize={seatLabelFontSize}
@@ -540,9 +565,10 @@ export function SeatingPlan({
                 if (guest) {
                   const { seatRadius } = getSeatVisualMetrics(guest.name);
                   const hitSize = seatRadius * 2 + 10;
+                  const conflictTooltip = conflictTooltipByGuestId.get(guest.id);
                   return (
                     <button
-                      aria-label={`${guest.name} en mesa ${table.number}, silla ${seatIndex + 1}`}
+                      aria-label={`${guest.name} en mesa ${table.number}, silla ${seatIndex + 1}${conflictTooltip ? `. ${conflictTooltip}` : ""}`}
                       className="plan-seat-hit plan-seat-hit--occupied"
                       draggable
                       key={`seat-hit-${table.id}-${seatIndex}`}
@@ -550,6 +576,7 @@ export function SeatingPlan({
                       onDragEnd={onGuestDragEnd}
                       onDragStart={(event) => onGuestDragStart(event, guest.id)}
                       style={{ left: `${left}%`, top: `${top}%`, width: `${hitSize}px`, height: `${hitSize}px` }}
+                      title={conflictTooltip ?? undefined}
                       type="button"
                     />
                   );
