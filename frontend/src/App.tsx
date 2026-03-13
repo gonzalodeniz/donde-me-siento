@@ -1354,130 +1354,6 @@ export function App() {
                   )}
                   </div>
                 </section>
-
-                <details className="guest-collapse guest-salon__section guest-salon__section--compact">
-                  <summary className="guest-collapse__summary">
-                    <div>
-                      <h4>Ya ubicados</h4>
-                      <p>Vista densa para revisar rápidamente mesa, familia y acciones.</p>
-                    </div>
-                    <span>
-                      {filteredAssignedGuests.length}/{workspace?.guests.assigned.length ?? 0}
-                    </span>
-                  </summary>
-                  <div className="guest-collapse__content">
-                    <div className="guest-table-shell guest-table-shell--compact">
-                      {filteredAssignedGuests.length > 0 ? (
-                        <table className="guest-table guest-table--placed">
-                          <thead>
-                            <tr>
-                              <th>Invitado</th>
-                              <th>Tipo</th>
-                              <th>Agrupación</th>
-                              <th>Mesa</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {filteredAssignedGuests.map((guest) => {
-                              const tableNumber = guest.table_id ? tableNumberById.get(guest.table_id) : null;
-
-                              return (
-                                <Fragment key={guest.id}>
-                                  <tr
-                                    className={`guest-table__row guest-table__row--placed ${conflictGuestIds.has(guest.id) ? "guest-table__row--conflict" : ""}`}
-                                  >
-                                    <td>
-                                      {editingGuestId === guest.id && editingGuestField === "name" ? (
-                                        <input
-                                          aria-invalid={Boolean(editingGuestError)}
-                                          autoFocus
-                                          className="guest-table__input"
-                                          onBlur={handleGuestEditBlur}
-                                          onChange={(event) => setEditingGuestName(event.target.value)}
-                                          onKeyDown={handleGuestEditKeyDown}
-                                          value={editingGuestName}
-                                        />
-                                      ) : (
-                                        <button className="guest-name-button" onClick={() => beginGuestEdit(guest, "name")} type="button">
-                                          <span className="guest-card__nameplate">
-                                            <strong>{guest.name}</strong>
-                                            <GuestSignal guest={guest} />
-                                          </span>
-                                        </button>
-                                      )}
-                                    </td>
-                                    <td>
-                                      {editingGuestId === guest.id && editingGuestField === "type" ? (
-                                        <select
-                                          className="guest-table__select"
-                                          onBlur={handleGuestEditBlur}
-                                          onChange={(event) => setEditingGuestType(event.target.value)}
-                                          onKeyDown={handleGuestEditKeyDown}
-                                          value={editingGuestType}
-                                        >
-                                          <option value="adulto">adulto</option>
-                                          <option value="adolescente">adolescente</option>
-                                          <option value="nino">nino</option>
-                                        </select>
-                                      ) : (
-                                        <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "type")} type="button">
-                                          {formatGuestTypeLabel(guest.guest_type)}
-                                        </button>
-                                      )}
-                                    </td>
-                                    <td>
-                                      {editingGuestId === guest.id && editingGuestField === "group" ? (
-                                        <input
-                                          className="guest-table__input"
-                                          onBlur={handleGuestEditBlur}
-                                          onChange={(event) => setEditingGuestGroupId(event.target.value)}
-                                          onKeyDown={handleGuestEditKeyDown}
-                                          value={editingGuestGroupId}
-                                        />
-                                      ) : (
-                                        <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
-                                          {guest.group_id ? guest.group_id : "Sin agrupación"}
-                                        </button>
-                                      )}
-                                    </td>
-                                    <td>
-                                      {editingGuestId === guest.id && editingGuestField === "table" ? (
-                                        <select
-                                          autoFocus
-                                          className="guest-table__select"
-                                          onBlur={handleGuestEditBlur}
-                                          onChange={(event) => handleAssignedGuestTableSelection(guest, event.target.value)}
-                                          onKeyDown={handleGuestEditKeyDown}
-                                          value={assignmentValues[guest.id] ?? guest.table_id ?? ""}
-                                        >
-                                          <option value="">Elegir mesa</option>
-                                          {workspace?.tables.map((table) => (
-                                            <option key={table.id} value={table.id}>
-                                              Mesa {table.number}
-                                            </option>
-                                          ))}
-                                        </select>
-                                      ) : (
-                                        <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "table")} type="button">
-                                          <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
-                                        </button>
-                                      )}
-                                    </td>
-                                  </tr>
-                                </Fragment>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      ) : (
-                        <p className="empty-state empty-state--paper">
-                          {guestSearchQuery ? "No hay invitados ubicados con esa búsqueda." : "Todavía no hay invitados sentados."}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </details>
-
                 <details className="guest-composer">
                   <summary className="guest-collapse__summary guest-collapse__summary--muted">
                     <div>
@@ -1516,6 +1392,134 @@ export function App() {
                   </form>
                 </details>
               </div>
+            </section>
+
+            <section className="list-card list-card--guests">
+              <div className="list-card__header list-card__header--guests">
+                <div>
+                  <h3>Invitados ubicados</h3>
+                </div>
+                <span>
+                  {filteredAssignedGuests.length}/{workspace?.guests.assigned.length ?? 0}
+                </span>
+              </div>
+              <section className="guest-salon__section guest-salon__section--standalone">
+                <div className="guest-salon__section-header">
+                  <div>
+                    <h4>Ya ubicados</h4>
+                    <p>Vista densa para revisar rápidamente mesa, familia y acciones.</p>
+                  </div>
+                </div>
+                <div className="guest-table-shell guest-table-shell--compact">
+                  {filteredAssignedGuests.length > 0 ? (
+                    <table className="guest-table guest-table--placed">
+                      <thead>
+                        <tr>
+                          <th>Invitado</th>
+                          <th>Tipo</th>
+                          <th>Agrupación</th>
+                          <th>Mesa</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredAssignedGuests.map((guest) => {
+                          const tableNumber = guest.table_id ? tableNumberById.get(guest.table_id) : null;
+
+                          return (
+                            <Fragment key={guest.id}>
+                              <tr
+                                className={`guest-table__row guest-table__row--placed ${conflictGuestIds.has(guest.id) ? "guest-table__row--conflict" : ""}`}
+                              >
+                                <td>
+                                  {editingGuestId === guest.id && editingGuestField === "name" ? (
+                                    <input
+                                      aria-invalid={Boolean(editingGuestError)}
+                                      autoFocus
+                                      className="guest-table__input"
+                                      onBlur={handleGuestEditBlur}
+                                      onChange={(event) => setEditingGuestName(event.target.value)}
+                                      onKeyDown={handleGuestEditKeyDown}
+                                      value={editingGuestName}
+                                    />
+                                  ) : (
+                                    <button className="guest-name-button" onClick={() => beginGuestEdit(guest, "name")} type="button">
+                                      <span className="guest-card__nameplate">
+                                        <strong>{guest.name}</strong>
+                                        <GuestSignal guest={guest} />
+                                      </span>
+                                    </button>
+                                  )}
+                                </td>
+                                <td>
+                                  {editingGuestId === guest.id && editingGuestField === "type" ? (
+                                    <select
+                                      className="guest-table__select"
+                                      onBlur={handleGuestEditBlur}
+                                      onChange={(event) => setEditingGuestType(event.target.value)}
+                                      onKeyDown={handleGuestEditKeyDown}
+                                      value={editingGuestType}
+                                    >
+                                      <option value="adulto">adulto</option>
+                                      <option value="adolescente">adolescente</option>
+                                      <option value="nino">nino</option>
+                                    </select>
+                                  ) : (
+                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "type")} type="button">
+                                      {formatGuestTypeLabel(guest.guest_type)}
+                                    </button>
+                                  )}
+                                </td>
+                                <td>
+                                  {editingGuestId === guest.id && editingGuestField === "group" ? (
+                                    <input
+                                      className="guest-table__input"
+                                      onBlur={handleGuestEditBlur}
+                                      onChange={(event) => setEditingGuestGroupId(event.target.value)}
+                                      onKeyDown={handleGuestEditKeyDown}
+                                      value={editingGuestGroupId}
+                                    />
+                                  ) : (
+                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
+                                      {guest.group_id ? guest.group_id : "Sin agrupación"}
+                                    </button>
+                                  )}
+                                </td>
+                                <td>
+                                  {editingGuestId === guest.id && editingGuestField === "table" ? (
+                                    <select
+                                      autoFocus
+                                      className="guest-table__select"
+                                      onBlur={handleGuestEditBlur}
+                                      onChange={(event) => handleAssignedGuestTableSelection(guest, event.target.value)}
+                                      onKeyDown={handleGuestEditKeyDown}
+                                      value={assignmentValues[guest.id] ?? guest.table_id ?? ""}
+                                    >
+                                      <option value="">Elegir mesa</option>
+                                      {workspace?.tables.map((table) => (
+                                        <option key={table.id} value={table.id}>
+                                          Mesa {table.number}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "table")} type="button">
+                                      <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <p className="empty-state empty-state--paper">
+                      {guestSearchQuery ? "No hay invitados ubicados con esa búsqueda." : "Todavía no hay invitados sentados."}
+                    </p>
+                  )}
+                </div>
+              </section>
             </section>
 
             <section className="list-card">

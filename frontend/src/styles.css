@@ -1731,6 +1731,10 @@ select {
   border-top: 1px solid rgba(119, 84, 64, 0.1);
 }
 
+.guest-salon__section--standalone {
+  margin-top: 0;
+}
+
 .guest-salon__section-header {
   display: flex;
   align-items: flex-start;
