@@ -81,8 +81,16 @@ export function SeatingPlan({
   onSeatDrop,
 }: SeatingPlanProps) {
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const scrollViewportRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [isPanningStage, setIsPanningStage] = useState(false);
+  const [stagePanStart, setStagePanStart] = useState<{
+    clientX: number;
+    clientY: number;
+    scrollLeft: number;
+    scrollTop: number;
+  } | null>(null);
   const [draggedTable, setDraggedTable] = useState<{
     tableId: string;
     offsetX: number;
@@ -112,6 +120,8 @@ export function SeatingPlan({
   const maxY = Math.max(...Array.from(renderedPositions.values(), (table) => table.positionY)) + 180;
   const width = maxX - minX;
   const height = maxY - minY;
+  const zoomedWidth = Math.max(width * zoomLevel, 640);
+  const zoomedHeight = Math.max(height * zoomLevel, 420);
   const isDraggingGuest = Boolean(draggedGuestName);
   const isDraggingTable = Boolean(draggedTable);
   const zoomPercent = Math.round(zoomLevel * 100);
@@ -133,7 +143,7 @@ export function SeatingPlan({
     return () => {
       stageElement.removeEventListener("wheel", handleNativeWheel);
     };
-  }, []);
+  }, [height, width]);
 
   useEffect(() => {
     if (!draggedTable) {
@@ -173,6 +183,37 @@ export function SeatingPlan({
       window.removeEventListener("pointercancel", handlePointerUp);
     };
   }, [draggedTable, onMoveTable]);
+
+  useEffect(() => {
+    if (!stagePanStart) {
+      return undefined;
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const viewport = scrollViewportRef.current;
+      if (!viewport) {
+        return;
+      }
+
+      viewport.scrollLeft = stagePanStart.scrollLeft - (event.clientX - stagePanStart.clientX);
+      viewport.scrollTop = stagePanStart.scrollTop - (event.clientY - stagePanStart.clientY);
+    };
+
+    const stopPanning = () => {
+      setStagePanStart(null);
+      setIsPanningStage(false);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopPanning, { once: true });
+    window.addEventListener("pointercancel", stopPanning, { once: true });
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopPanning);
+      window.removeEventListener("pointercancel", stopPanning);
+    };
+  }, [stagePanStart]);
 
   function getSvgCoordinates(clientX: number, clientY: number) {
     const svgElement = svgRef.current;
@@ -221,6 +262,10 @@ export function SeatingPlan({
     return Math.min(Math.max(nextZoom, 0.65), 1.9);
   }
 
+  function applyZoom(nextZoom: number) {
+    setZoomLevel(clampZoom(Number(nextZoom.toFixed(2))));
+  }
+
   function zoomIn() {
     setZoomLevel((current) => clampZoom(Number((current + 0.12).toFixed(2))));
   }
@@ -230,11 +275,46 @@ export function SeatingPlan({
   }
 
   function resetZoom() {
-    setZoomLevel(1);
+    applyZoom(1);
   }
 
   function fitPlanToView() {
-    setZoomLevel(1);
+    const viewport = scrollViewportRef.current;
+    if (!viewport) {
+      applyZoom(1);
+      return;
+    }
+
+    const availableWidth = Math.max(viewport.clientWidth - 24, 1);
+    const availableHeight = Math.max(viewport.clientHeight - 24, 1);
+    const fittedZoom = Math.min(availableWidth / width, availableHeight / height);
+    applyZoom(fittedZoom);
+    viewport.scrollTo({ left: 0, top: 0 });
+  }
+
+  function handleStagePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (isDraggingGuest || isDraggingTable || event.button !== 0) {
+      return;
+    }
+
+    const target = event.target as HTMLElement;
+    if (target.closest(".plan-table") || target.closest(".plan-seat-hit") || target.closest(".plan-stage__zoom-controls")) {
+      return;
+    }
+
+    const viewport = scrollViewportRef.current;
+    if (!viewport) {
+      return;
+    }
+
+    event.preventDefault();
+    setIsPanningStage(true);
+    setStagePanStart({
+      clientX: event.clientX,
+      clientY: event.clientY,
+      scrollLeft: viewport.scrollLeft,
+      scrollTop: viewport.scrollTop,
+    });
   }
 
   return (
@@ -267,7 +347,7 @@ export function SeatingPlan({
 
       <div
         ref={stageRef}
-        className={`plan-stage ${isDraggingGuest ? "plan-stage--dragging" : ""}`}
+        className={`plan-stage ${isDraggingGuest ? "plan-stage--dragging" : ""} ${isPanningStage ? "plan-stage--panning" : ""}`}
       >
         <div className="plan-stage__zoom-controls" aria-label="Controles de zoom del plano">
           <button
@@ -299,13 +379,22 @@ export function SeatingPlan({
             <span>Suelta la mesa cuando coincida con la distribución real del salón.</span>
           </div>
         ) : null}
-        <div className="plan-stage__viewport" style={{ transform: `scale(${zoomLevel})` }}>
+        <div
+          ref={scrollViewportRef}
+          className="plan-stage__scroll"
+          onPointerDown={handleStagePointerDown}
+        >
+        <div
+          className="plan-stage__viewport"
+          style={{ width: `${zoomedWidth}px`, height: `${zoomedHeight}px` }}
+        >
           <svg
             aria-label="Plano del salón"
             className="plan-stage__svg"
             ref={svgRef}
             viewBox={`${minX} ${minY} ${width} ${height}`}
             role="img"
+            style={{ width: `${zoomedWidth}px`, height: `${zoomedHeight}px` }}
           >
             <defs>
               <filter id="tableShadow" x="-20%" y="-20%" width="140%" height="140%">
@@ -412,7 +501,7 @@ export function SeatingPlan({
             })}
           </svg>
 
-          <div className="plan-stage__drops">
+          <div className="plan-stage__drops" style={{ width: `${zoomedWidth}px`, height: `${zoomedHeight}px` }}>
             {workspace.tables.flatMap((table) => {
             const position = renderedPositions.get(table.id) ?? {
               positionX: table.position_x,
@@ -483,6 +572,7 @@ export function SeatingPlan({
               });
             })}
           </div>
+        </div>
         </div>
       </div>
     </section>

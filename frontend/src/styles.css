@@ -917,6 +917,10 @@ select {
   overscroll-behavior: contain;
 }
 
+.plan-stage--panning {
+  cursor: grabbing;
+}
+
 .plan-stage__zoom-controls {
   position: absolute;
   top: 1rem;
@@ -1018,21 +1022,46 @@ select {
 }
 
 .plan-stage__svg {
-  width: 100%;
-  height: auto;
   display: block;
+}
+
+.plan-stage__scroll {
+  position: relative;
+  overflow: auto;
+  max-height: min(70vh, 46rem);
+  margin-top: 0.25rem;
+  padding: 0.35rem;
+  border-radius: 1rem;
+  cursor: grab;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(119, 84, 64, 0.42) rgba(255, 250, 245, 0.9);
+}
+
+.plan-stage__scroll::-webkit-scrollbar {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.plan-stage__scroll::-webkit-scrollbar-track {
+  background: rgba(255, 250, 245, 0.9);
+  border-radius: 999px;
+}
+
+.plan-stage__scroll::-webkit-scrollbar-thumb {
+  background: rgba(119, 84, 64, 0.42);
+  border-radius: 999px;
+  border: 2px solid rgba(255, 250, 245, 0.9);
 }
 
 .plan-stage__viewport {
   position: relative;
-  transform-origin: center center;
-  transition: transform 140ms ease;
-  will-change: transform;
+  min-width: 100%;
+  min-height: 100%;
 }
 
 .plan-stage__drops {
   position: absolute;
-  inset: 1rem;
+  inset: 0;
   pointer-events: none;
 }
 
