@@ -1255,7 +1255,27 @@ export function App() {
                                   )}
                                 </td>
                                 <td>
-                                  <span className="guest-row__table guest-row__table--muted">Pendiente</span>
+                                  {editingGuestId === guest.id && editingGuestField === "table" ? (
+                                    <select
+                                      autoFocus
+                                      className="guest-table__select"
+                                      onBlur={handleGuestEditBlur}
+                                      onChange={(event) => handleGuestAssignmentSelection(guest, event.target.value)}
+                                      onKeyDown={handleGuestEditKeyDown}
+                                      value={assignmentValues[guest.id] ?? ""}
+                                    >
+                                      <option value="">Sin mesa</option>
+                                      {workspace?.tables.map((table) => (
+                                        <option key={table.id} value={table.id}>
+                                          Mesa {table.number}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "table")} type="button">
+                                      <span className="guest-row__table guest-row__table--muted">Sin mesa</span>
+                                    </button>
+                                  )}
                                 </td>
                                 <td>
                                   <div className="guest-table__actions">
@@ -1264,35 +1284,21 @@ export function App() {
                                         {isActionRunning(`update-${guest.id}`) ? "Guardando..." : "Enter o salir para guardar"}
                                       </span>
                                     ) : (
-                                      <>
-                                    <select
-                                      aria-label={`Elegir mesa para ${guest.name}`}
-                                      value={assignmentValues[guest.id] ?? ""}
-                                      onChange={(event) => handleGuestAssignmentSelection(guest, event.target.value)}
-                                    >
-                                      <option value="">Elegir mesa</option>
-                                      {workspace?.tables.map((table) => (
-                                        <option key={table.id} value={table.id}>
-                                          Mesa {table.number}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    <button
-                                      className="button button--ghost button--small"
-                                      disabled={isActionRunning(`delete-${guest.id}`)}
-                                      onClick={() =>
-                                        void runWorkspaceAction(
-                                          `delete-${guest.id}`,
-                                          "guests",
-                                          () => deleteGuest(guest.id, token ?? ""),
-                                          `${guest.name} eliminado.`,
-                                        )
-                                      }
-                                      type="button"
-                                    >
-                                      Eliminar
-                                    </button>
-                                      </>
+                                      <button
+                                        className="button button--ghost button--small"
+                                        disabled={isActionRunning(`delete-${guest.id}`)}
+                                        onClick={() =>
+                                          void runWorkspaceAction(
+                                            `delete-${guest.id}`,
+                                            "guests",
+                                            () => deleteGuest(guest.id, token ?? ""),
+                                            `${guest.name} eliminado.`,
+                                          )
+                                        }
+                                        type="button"
+                                      >
+                                        Eliminar
+                                      </button>
                                     )}
                                   </div>
                                   {editingGuestId === guest.id && editingGuestError ? (
