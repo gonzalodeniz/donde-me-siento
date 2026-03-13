@@ -1194,7 +1194,7 @@ export function App() {
                                     />
                                   ) : (
                                     <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
-                                      {guest.group_id ? `Agrupación ${guest.group_id}` : "Sin agrupación"}
+                                      {guest.group_id ? guest.group_id : "Sin agrupación"}
                                     </button>
                                   )}
                                 </td>
@@ -1355,7 +1355,7 @@ export function App() {
                                         />
                                       ) : (
                                         <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
-                                          {guest.group_id ? `Agrupación ${guest.group_id}` : "Sin agrupación"}
+                                          {guest.group_id ? guest.group_id : "Sin agrupación"}
                                         </button>
                                       )}
                                     </td>
