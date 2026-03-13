@@ -1720,8 +1720,9 @@ export function App() {
                 <details className="guest-composer">
                   <summary className="guest-collapse__summary guest-collapse__summary--muted">
                     <div>
-                      <h4>Añadir invitado</h4>
-                      <p>Solo si necesitas incorporar a alguien manualmente.</p>
+                      <p>
+                        <span className="guest-composer__trigger">Añadir invitado</span>
+                      </p>
                     </div>
                   </summary>
                   <form className="stack-form stack-form--guest-salon" onSubmit={handleGuestCreate}>
