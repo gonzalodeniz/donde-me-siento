@@ -21,7 +21,8 @@ const TOKEN_STORAGE_KEY = "dms.auth.token";
 const LISTS_PANEL_WIDTH_STORAGE_KEY = "dms.ui.listsPanelWidth";
 const LOGIN_NAMES = ["raquel", "héctor"] as const;
 const LISTS_PANEL_MIN_WIDTH = 280;
-const LISTS_PANEL_MAX_WIDTH = 520;
+const LISTS_PANEL_MAX_WIDTH = 760;
+const CANVAS_MIN_MAIN_WIDTH = 260;
 type SectionTone = "success" | "error" | "info";
 type SectionKey = "guests" | "tables";
 type SectionNotice = {
@@ -254,7 +255,7 @@ export function App() {
         return;
       }
 
-      const maxWidth = Math.min(LISTS_PANEL_MAX_WIDTH, Math.max(LISTS_PANEL_MIN_WIDTH, canvasRect.width - 360));
+      const maxWidth = Math.min(LISTS_PANEL_MAX_WIDTH, Math.max(LISTS_PANEL_MIN_WIDTH, canvasRect.width - CANVAS_MIN_MAIN_WIDTH));
       const nextWidth = canvasRect.right - event.clientX;
       const clampedWidth = Math.min(Math.max(nextWidth, LISTS_PANEL_MIN_WIDTH), maxWidth);
       setListsPanelWidth(clampedWidth);
@@ -368,7 +369,7 @@ export function App() {
   function clampListsPanelWidth(nextWidth: number) {
     const canvasRect = canvasRef.current?.getBoundingClientRect();
     const maxWidth = canvasRect
-      ? Math.min(LISTS_PANEL_MAX_WIDTH, Math.max(LISTS_PANEL_MIN_WIDTH, canvasRect.width - 360))
+      ? Math.min(LISTS_PANEL_MAX_WIDTH, Math.max(LISTS_PANEL_MIN_WIDTH, canvasRect.width - CANVAS_MIN_MAIN_WIDTH))
       : LISTS_PANEL_MAX_WIDTH;
 
     return Math.min(Math.max(nextWidth, LISTS_PANEL_MIN_WIDTH), maxWidth);
