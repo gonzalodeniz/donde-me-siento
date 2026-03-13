@@ -26,6 +26,9 @@ type SeatDescriptor = {
   seatIndex: number;
   seatX: number;
   seatY: number;
+  seatRadius: number;
+  seatLabel: string;
+  seatLabelFontSize: number;
   guest: Guest | null;
   hasConflict: boolean;
 };
@@ -65,6 +68,15 @@ function buildSeatGuests(tableGuests: Guest[], capacity: number) {
   }
 
   return guestsBySeat;
+}
+
+function getSeatVisualMetrics(name: string) {
+  const seatLabel = truncateName(name);
+  const labelLength = seatLabel.length;
+  const seatRadius = Math.min(39, Math.max(26, 14 + labelLength * 1.8));
+  const seatLabelFontSize = labelLength <= 8 ? 11.5 : labelLength <= 10 ? 10.8 : 10;
+
+  return { seatLabel, seatRadius, seatLabelFontSize };
 }
 
 export function SeatingPlan({
@@ -419,8 +431,11 @@ export function SeatingPlan({
               const seatY = position.positionY + Math.sin(angle) * labelRadius;
               const guest = guestsBySeat.get(index) ?? null;
               const hasConflict = guest ? conflictGuestIds.has(guest.id) : false;
+              const { seatLabel, seatRadius, seatLabelFontSize } = guest
+                ? getSeatVisualMetrics(guest.name)
+                : { seatLabel: "", seatRadius: 18, seatLabelFontSize: 10 };
 
-              return { seatIndex: index, seatX, seatY, guest, hasConflict };
+              return { seatIndex: index, seatX, seatY, seatRadius, seatLabel, seatLabelFontSize, guest, hasConflict };
             });
 
               return (
@@ -468,7 +483,7 @@ export function SeatingPlan({
                   {table.occupied}/{table.capacity}
                 </text>
 
-                {seats.map(({ seatIndex, seatX, seatY, guest, hasConflict }) => {
+                {seats.map(({ seatIndex, seatX, seatY, seatRadius, seatLabel, seatLabelFontSize, guest, hasConflict }) => {
                   const isDropTarget =
                     activeDropSeat?.tableId === table.id && activeDropSeat.seatIndex === seatIndex;
 
@@ -478,18 +493,19 @@ export function SeatingPlan({
                         className={`plan-seat ${guest ? "plan-seat--occupied" : ""} ${hasConflict ? "plan-seat--conflict" : ""} ${isDropTarget ? "plan-seat--drop" : ""} ${isDraggingGuest && !guest ? "plan-seat--available" : ""}`}
                         cx={seatX}
                         cy={seatY}
-                        r={guest ? 24 : 18}
+                        r={guest ? seatRadius : 18}
                       />
                       {guest ? (
                         <>
                           <title>{guest.name}</title>
                           <text
                             className={`plan-seat__label ${hasConflict ? "plan-seat__label--conflict" : ""}`}
+                            fontSize={seatLabelFontSize}
                             textAnchor="middle"
                             x={seatX}
                             y={seatY + 4}
                           >
-                            {truncateName(guest.name)}
+                            {seatLabel}
                           </text>
                         </>
                       ) : null}
@@ -522,6 +538,8 @@ export function SeatingPlan({
                 activeDropSeat?.tableId === table.id && activeDropSeat.seatIndex === seatIndex;
 
                 if (guest) {
+                  const { seatRadius } = getSeatVisualMetrics(guest.name);
+                  const hitSize = seatRadius * 2 + 10;
                   return (
                     <button
                       aria-label={`${guest.name} en mesa ${table.number}, silla ${seatIndex + 1}`}
@@ -531,7 +549,7 @@ export function SeatingPlan({
                       onClick={() => onSelectTable(table.id)}
                       onDragEnd={onGuestDragEnd}
                       onDragStart={(event) => onGuestDragStart(event, guest.id)}
-                      style={{ left: `${left}%`, top: `${top}%` }}
+                      style={{ left: `${left}%`, top: `${top}%`, width: `${hitSize}px`, height: `${hitSize}px` }}
                       type="button"
                     />
                   );

@@ -131,6 +131,7 @@ export function App() {
   const [pendingTableRemovalId, setPendingTableRemovalId] = useState<string | null>(null);
   const [draggedGuestId, setDraggedGuestId] = useState<string | null>(null);
   const [activeDropSeat, setActiveDropSeat] = useState<SeatTarget | null>(null);
+  const [isUnassignedDropActive, setIsUnassignedDropActive] = useState(false);
   const [isRailOpen, setIsRailOpen] = useState(true);
   const [optimisticTablePositions, setOptimisticTablePositions] = useState<Record<string, TablePosition>>({});
   const [listsPanelWidth, setListsPanelWidth] = useState<number>(() => {
@@ -319,6 +320,7 @@ export function App() {
       setSelectedTableId(undefined);
       setActiveDropSeat(null);
       setDraggedGuestId(null);
+      setIsUnassignedDropActive(false);
       setOptimisticTablePositions({});
       return;
     }
@@ -618,6 +620,7 @@ export function App() {
   function handleGuestDragEnd() {
     setDraggedGuestId(null);
     setActiveDropSeat(null);
+    setIsUnassignedDropActive(false);
   }
 
   function handleSeatDragEnter(tableId: string, seatIndex: number) {
@@ -660,6 +663,50 @@ export function App() {
       "tables",
       () => assignGuest(droppedGuestId, tableId, seatIndex, token ?? ""),
       `${guest.name} colocado mediante arrastrar y soltar.`,
+    );
+  }
+
+  function handleUnassignedDragOver(event: DragEvent<HTMLElement>) {
+    if (!draggedGuestId) {
+      return;
+    }
+
+    event.preventDefault();
+    if (!isUnassignedDropActive) {
+      setIsUnassignedDropActive(true);
+    }
+    setActiveDropSeat(null);
+  }
+
+  function handleUnassignedDragLeave(event: DragEvent<HTMLElement>) {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      return;
+    }
+
+    setIsUnassignedDropActive(false);
+  }
+
+  function handleUnassignedDrop(event: DragEvent<HTMLElement>) {
+    event.preventDefault();
+    const droppedGuestId = event.dataTransfer.getData("text/plain") || draggedGuestId;
+    if (!workspace || !droppedGuestId) {
+      return;
+    }
+
+    const guest = workspace.guests.assigned.find((currentGuest) => currentGuest.id === droppedGuestId);
+    setDraggedGuestId(null);
+    setActiveDropSeat(null);
+    setIsUnassignedDropActive(false);
+
+    if (!guest) {
+      return;
+    }
+
+    void runWorkspaceAction(
+      `unassign-dnd-${droppedGuestId}`,
+      "guests",
+      () => unassignGuest(droppedGuestId, token ?? ""),
+      `${guest.name} vuelve a estar pendiente de ubicación.`,
     );
   }
 
@@ -1077,7 +1124,12 @@ export function App() {
                       {filteredUnassignedGuests.length}/{workspace?.guests.unassigned.length ?? 0}
                     </span>
                   </div>
-                  <div className="guest-list guest-list--paper">
+                  <div
+                    className={`guest-list guest-list--paper ${isUnassignedDropActive ? "guest-list--drop-active" : ""}`}
+                    onDragLeave={handleUnassignedDragLeave}
+                    onDragOver={handleUnassignedDragOver}
+                    onDrop={handleUnassignedDrop}
+                  >
                     {filteredUnassignedGuests.length > 0 ? (
                       filteredUnassignedGuests.map((guest) => (
                       <article
