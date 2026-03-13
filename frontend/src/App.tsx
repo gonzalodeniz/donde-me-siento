@@ -1206,9 +1206,6 @@ export function App() {
                         : `Generar ${tableBatchCount || "0"} mesas`}
                     </button>
                   </form>
-                  <p className="rail-table-settings__hint">
-                    Después podrás moverlas libremente en el plano y ajustar solo las excepciones mesa a mesa.
-                  </p>
                 </div>
               )}
               </div>
