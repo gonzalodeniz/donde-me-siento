@@ -12,6 +12,8 @@ from backend.app.schemas.events import (
     GuestAssignmentRequest,
     GuestCreate,
     GuestUpdate,
+    SessionCreateRequest,
+    SessionResponse,
     TableBatchCreateRequest,
     TableCapacityUpdate,
     TablePositionUpdate,
@@ -228,3 +230,49 @@ async def update_default_table_capacity(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     return build_event_response(event)
+
+
+@router.get("/sessions", response_model=list[SessionResponse])
+async def list_sessions(service: EventService = Depends(get_event_service)) -> list[SessionResponse]:
+    """Lista las sesiones guardadas del workspace."""
+
+    return [SessionResponse(**session) for session in service.list_sessions()]
+
+
+@router.post("/sessions", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
+async def save_session(
+    payload: SessionCreateRequest,
+    service: EventService = Depends(get_event_service),
+) -> SessionResponse:
+    """Guarda la distribución actual como una sesión reutilizable."""
+
+    try:
+        return SessionResponse(**service.save_session(payload.name))
+    except (DomainError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/sessions/{session_id}/load", response_model=EventResponse)
+async def load_session(
+    session_id: str,
+    service: EventService = Depends(get_event_service),
+) -> EventResponse:
+    """Carga una sesión guardada sobre el workspace actual."""
+
+    try:
+        event = service.load_session(session_id)
+    except (DomainError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return build_event_response(event)
+
+
+@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_session(
+    session_id: str,
+    service: EventService = Depends(get_event_service),
+) -> None:
+    """Elimina una sesión guardada."""
+
+    if not service.delete_session(session_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="La sesión no existe.")

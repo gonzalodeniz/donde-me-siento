@@ -1,4 +1,4 @@
-import type { LoginResponse, Workspace } from "./types";
+import type { LoginResponse, SavedSession, Workspace } from "./types";
 
 const API_HEADERS = {
   "Content-Type": "application/json",
@@ -174,5 +174,42 @@ export async function updateDefaultTableCapacity(capacity: number, token: string
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ capacity }),
+  });
+}
+
+export async function fetchSessions(token: string): Promise<SavedSession[]> {
+  return request<SavedSession[]>("/api/sessions", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function saveSession(name: string, token: string): Promise<SavedSession> {
+  return request<SavedSession>("/api/sessions", {
+    method: "POST",
+    headers: {
+      ...API_HEADERS,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function loadSession(sessionId: string, token: string): Promise<void> {
+  await request(`/api/sessions/${sessionId}/load`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function deleteSession(sessionId: string, token: string): Promise<void> {
+  await request(`/api/sessions/${sessionId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
 }

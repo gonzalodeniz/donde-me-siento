@@ -616,6 +616,16 @@ select {
   gap: 0.8rem;
 }
 
+.session-library,
+.session-library__list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.session-table {
+  min-width: 30rem;
+}
+
 .banquet-summary {
   margin: 0;
   display: grid;

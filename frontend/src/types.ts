@@ -26,6 +26,12 @@ export type ValidationTable = {
   available: number;
 };
 
+export type SavedSession = {
+  id: string;
+  name: string;
+  created_at: string;
+};
+
 export type Workspace = {
   event_id: string;
   name: string;

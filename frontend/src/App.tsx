@@ -4,18 +4,22 @@ import {
   assignGuest,
   createTablesBatch,
   createGuest,
+  deleteSession,
   deleteGuest,
   deleteTable,
   duplicateTable,
+  fetchSessions,
   fetchWorkspace,
+  loadSession,
   login,
+  saveSession,
   unassignGuest,
   updateGuest,
   updateTableCapacity,
   updateTablePosition,
 } from "./api";
 import { SeatingPlan } from "./components/SeatingPlan";
-import type { Guest, Workspace } from "./types";
+import type { Guest, SavedSession, Workspace } from "./types";
 
 const TOKEN_STORAGE_KEY = "dms.auth.token";
 const LISTS_PANEL_WIDTH_STORAGE_KEY = "dms.ui.listsPanelWidth";
@@ -71,6 +75,21 @@ function formatGuestTypeLabel(guestType: string) {
     default:
       return guestType;
   }
+}
+
+function formatSessionDate(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(parsed);
 }
 
 function matchesGuestSearch(guest: Guest, rawQuery: string) {
@@ -130,6 +149,8 @@ export function App() {
   const [guestSearchQuery, setGuestSearchQuery] = useState("");
   const [tableBatchCount, setTableBatchCount] = useState("8");
   const [tableBatchCapacity, setTableBatchCapacity] = useState("8");
+  const [sessionName, setSessionName] = useState("");
+  const [savedSessions, setSavedSessions] = useState<SavedSession[]>([]);
   const [guestFormError, setGuestFormError] = useState<string | null>(null);
   const [editingGuestId, setEditingGuestId] = useState<string | null>(null);
   const [editingGuestField, setEditingGuestField] = useState<GuestEditableField>("name");
@@ -338,6 +359,7 @@ export function App() {
   useEffect(() => {
     if (!token) {
       setWorkspace(null);
+      setSavedSessions([]);
       setSectionNotices({ guests: null, tables: null });
       setUsername(randomLoginName());
       setPassword("");
@@ -350,12 +372,16 @@ export function App() {
 
     async function loadWorkspace() {
       try {
-        const nextWorkspace = await fetchWorkspace(activeToken);
+        const [nextWorkspace, nextSessions] = await Promise.all([
+          fetchWorkspace(activeToken),
+          fetchSessions(activeToken),
+        ]);
         if (cancelled) {
           return;
         }
         startTransition(() => {
           setWorkspace(nextWorkspace);
+          setSavedSessions(nextSessions);
         });
         setSelectedTableId((currentSelected) =>
           currentSelected === undefined ? nextWorkspace.tables[0]?.id ?? null : currentSelected,
@@ -646,9 +672,13 @@ export function App() {
   }
 
   async function refreshWorkspaceState(activeToken: string) {
-    const nextWorkspace = await fetchWorkspace(activeToken);
+    const [nextWorkspace, nextSessions] = await Promise.all([
+      fetchWorkspace(activeToken),
+      fetchSessions(activeToken),
+    ]);
     startTransition(() => {
       setWorkspace(nextWorkspace);
+      setSavedSessions(nextSessions);
     });
     setSelectedTableId((currentSelected) =>
       currentSelected === undefined ? nextWorkspace.tables[0]?.id ?? null : currentSelected,
@@ -743,6 +773,32 @@ export function App() {
 
     if (created) {
       setSelectedTableId(null);
+    }
+  }
+
+  async function handleSaveSession(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token) {
+      return;
+    }
+
+    const normalizedSessionName = normalizeText(sessionName);
+    if (!normalizedSessionName) {
+      setSectionNotice("tables", "error", "Pon un nombre a la sesión antes de guardarla.");
+      return;
+    }
+
+    const saved = await runWorkspaceAction(
+      `save-session-${normalizedSessionName}`,
+      "tables",
+      async () => {
+        await saveSession(normalizedSessionName, token);
+      },
+      `Sesión "${normalizedSessionName}" guardada.`,
+    );
+
+    if (saved) {
+      setSessionName("");
     }
   }
 
@@ -1786,6 +1842,102 @@ export function App() {
                   ))
                 ) : (
                   <p className="empty-state">Sin conflictos de agrupacion.</p>
+                )}
+              </div>
+            </section>
+
+            <section className="list-card">
+              <div className="list-card__header">
+                <h3>Sesiones</h3>
+                <span>{savedSessions.length}</span>
+              </div>
+              <form className="session-library" onSubmit={handleSaveSession}>
+                <label className="mini-field">
+                  <span>Guardar distribución actual</span>
+                  <input
+                    onChange={(event) => setSessionName(event.target.value)}
+                    placeholder="Ej. banquete familiar"
+                    value={sessionName}
+                  />
+                </label>
+                <button
+                  className="button button--primary button--small"
+                  disabled={!sessionName.trim() || isActionRunning(`save-session-${normalizeText(sessionName)}`)}
+                  type="submit"
+                >
+                  {isActionRunning(`save-session-${normalizeText(sessionName)}`) ? "Guardando..." : "Guardar sesión"}
+                </button>
+              </form>
+              <div className="guest-table-shell guest-table-shell--compact session-library__list">
+                {savedSessions.length > 0 ? (
+                  <table className="guest-table session-table">
+                    <thead>
+                      <tr>
+                        <th>Sesión</th>
+                        <th>Creada</th>
+                        <th aria-label="Cargar sesión" className="guest-table__action-column" />
+                        <th aria-label="Eliminar sesión" className="guest-table__action-column" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {savedSessions.map((session) => (
+                        <tr className="guest-table__row" key={session.id}>
+                          <td>
+                            <strong>{session.name}</strong>
+                          </td>
+                          <td>{formatSessionDate(session.created_at)}</td>
+                          <td className="guest-table__action-column">
+                            <button
+                              aria-label={`Cargar sesión ${session.name}`}
+                              className="button button--ghost button--small button--icon"
+                              disabled={isActionRunning(`load-session-${session.id}`)}
+                              onClick={() =>
+                                void runWorkspaceAction(
+                                  `load-session-${session.id}`,
+                                  "tables",
+                                  () => loadSession(session.id, token ?? ""),
+                                  `Sesión "${session.name}" cargada.`,
+                                )
+                              }
+                              type="button"
+                            >
+                              <svg aria-hidden="true" className="button__icon" viewBox="0 0 24 24">
+                                <path d="M12 5.75v8.5" />
+                                <path d="M8.75 11.5 12 14.75l3.25-3.25" />
+                                <path d="M6.25 18.25h11.5" />
+                              </svg>
+                            </button>
+                          </td>
+                          <td className="guest-table__action-column">
+                            <button
+                              aria-label={`Eliminar sesión ${session.name}`}
+                              className="button button--quiet button--small button--icon"
+                              disabled={isActionRunning(`delete-session-${session.id}`)}
+                              onClick={() =>
+                                void runWorkspaceAction(
+                                  `delete-session-${session.id}`,
+                                  "tables",
+                                  () => deleteSession(session.id, token ?? ""),
+                                  `Sesión "${session.name}" eliminada.`,
+                                )
+                              }
+                              type="button"
+                            >
+                              <svg aria-hidden="true" className="button__icon" viewBox="0 0 24 24">
+                                <path d="M9 4.75h6" />
+                                <path d="M5.75 7.25h12.5" />
+                                <path d="M8.25 7.25v10.1A1.4 1.4 0 0 0 9.65 18.75h4.7a1.4 1.4 0 0 0 1.4-1.4V7.25" />
+                                <path d="M10 10.25v5.5" />
+                                <path d="M14 10.25v5.5" />
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p className="empty-state">Aún no has guardado ninguna distribución.</p>
                 )}
               </div>
             </section>

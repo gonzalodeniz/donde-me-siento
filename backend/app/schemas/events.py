@@ -95,6 +95,20 @@ class DefaultTableCapacityUpdate(BaseModel):
     capacity: int = Field(gt=0)
 
 
+class SessionCreateRequest(BaseModel):
+    """Payload para guardar un snapshot del salón."""
+
+    name: str = Field(min_length=1, max_length=255)
+
+
+class SessionResponse(BaseModel):
+    """Sesión guardada disponible para cargar."""
+
+    id: str
+    name: str
+    created_at: str
+
+
 class TableSummaryResponse(BaseModel):
     """Resumen de una mesa para panel y validacion."""
 

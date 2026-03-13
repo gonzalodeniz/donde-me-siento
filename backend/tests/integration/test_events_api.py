@@ -233,6 +233,43 @@ async def test_batch_create_and_duplicate_table_flow(client: AsyncClient) -> Non
 
 
 @pytest.mark.anyio
+async def test_save_load_and_delete_sessions_flow(client: AsyncClient) -> None:
+    await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto"})
+    await client.put("/api/guests/guest-1/assignment", json={"table_id": "table-2", "seat_index": 1})
+    await client.put("/api/tables/table-2/position", json={"position_x": 420, "position_y": 360})
+
+    save_response = await client.post("/api/sessions", json={"name": "base familiar"})
+    assert save_response.status_code == 201
+    session_id = save_response.json()["id"]
+    assert save_response.json()["created_at"]
+
+    list_response = await client.get("/api/sessions")
+    assert list_response.status_code == 200
+    assert list_response.json()[0]["id"] == session_id
+    assert list_response.json()[0]["name"] == "base familiar"
+    assert list_response.json()[0]["created_at"]
+
+    await client.put("/api/guests/guest-1/assignment", json={"table_id": "table-1", "seat_index": 0})
+    await client.put("/api/tables/table-2/position", json={"position_x": 150, "position_y": 150})
+
+    load_response = await client.post(f"/api/sessions/{session_id}/load")
+    assert load_response.status_code == 200
+    loaded_guest = next(guest for guest in load_response.json()["guests"] if guest["id"] == "guest-1")
+    loaded_table = next(table for table in load_response.json()["tables"] if table["id"] == "table-2")
+    assert loaded_guest["table_id"] == "table-2"
+    assert loaded_guest["seat_index"] == 1
+    assert loaded_table["position_x"] == 420
+    assert loaded_table["position_y"] == 360
+
+    delete_response = await client.delete(f"/api/sessions/{session_id}")
+    assert delete_response.status_code == 204
+
+    empty_list_response = await client.get("/api/sessions")
+    assert empty_list_response.status_code == 200
+    assert empty_list_response.json() == []
+
+
+@pytest.mark.anyio
 async def test_delete_table_rejects_occupied_and_reorders_empty_tables(client: AsyncClient) -> None:
     await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto"})
     await client.put("/api/guests/guest-1/assignment", json={"table_id": "table-1"})

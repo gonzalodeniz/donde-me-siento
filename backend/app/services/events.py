@@ -98,6 +98,23 @@ class EventService:
         event.update_default_table_capacity(capacity)
         return self.repository.save(event)
 
+    def list_sessions(self) -> list[dict[str, str]]:
+        event = self.ensure_workspace()
+        return self.repository.list_sessions(event.id)
+
+    def save_session(self, name: str) -> dict[str, str]:
+        event = self.ensure_workspace()
+        return self.repository.save_session(event, name)
+
+    def load_session(self, session_id: str) -> Event:
+        current_event = self.ensure_workspace()
+        loaded_event = self.repository.load_session(current_event.id, session_id)
+        return self.repository.save(loaded_event)
+
+    def delete_session(self, session_id: str) -> bool:
+        event = self.ensure_workspace()
+        return self.repository.delete_session(event.id, session_id)
+
     @staticmethod
     def _parse_guest_type(raw_guest_type: str) -> GuestType:
         try:
