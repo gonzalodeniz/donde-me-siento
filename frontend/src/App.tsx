@@ -243,6 +243,13 @@ export function App() {
     () => new Map((workspace?.tables ?? []).map((table) => [table.id, table.number])),
     [workspace],
   );
+  const guestNameById = useMemo(
+    () =>
+      new Map(
+        [...(workspace?.guests.unassigned ?? []), ...(workspace?.guests.assigned ?? [])].map((guest) => [guest.id, guest.name]),
+      ),
+    [workspace],
+  );
   const workspaceForPlan = useMemo(() => {
     if (!workspace) {
       return null;
@@ -1553,7 +1560,7 @@ export function App() {
                           <tr>
                             <th>Invitado</th>
                             <th>Tipo</th>
-                            <th>Agrupación</th>
+                            <th>Familia</th>
                             <th>Mesa</th>
                             <th aria-label="Eliminar invitado" className="guest-table__action-column" />
                           </tr>
@@ -1618,7 +1625,7 @@ export function App() {
                                     />
                                   ) : (
                                     <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
-                                      {guest.group_id ? guest.group_id : "Sin agrupación"}
+                                      {guest.group_id ? guest.group_id : "Sin familia"}
                                     </button>
                                   )}
                                 </td>
@@ -1781,7 +1788,7 @@ export function App() {
                         <tr>
                           <th>Invitado</th>
                           <th>Tipo</th>
-                          <th>Agrupación</th>
+                          <th>Familia</th>
                           <th>Mesa</th>
                         </tr>
                       </thead>
@@ -1944,12 +1951,17 @@ export function App() {
                 {workspace && groupedConflictCount > 0 ? (
                   Object.entries(workspace.validation.grouping_conflicts).map(([groupId, guestIds]) => (
                     <article className="conflict-row" key={groupId}>
-                      <strong>Agrupacion {groupId}</strong>
-                      <span>{guestIds.join(", ")}</span>
+                      <strong>Familia {groupId}</strong>
+                      <span>
+                        {guestIds
+                          .map((guestId) => guestNameById.get(guestId) ?? guestId)
+                          .sort((left, right) => left.localeCompare(right, "es"))
+                          .join(", ")}
+                      </span>
                     </article>
                   ))
                 ) : (
-                  <p className="empty-state">Sin conflictos de agrupacion.</p>
+                  <p className="empty-state">Sin conflictos de familia.</p>
                 )}
               </div>
             </section>

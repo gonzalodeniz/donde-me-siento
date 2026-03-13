@@ -133,7 +133,7 @@ export function SeatingPlan({
         .map((guestId) => guestById.get(guestId)?.name)
         .filter((name): name is string => Boolean(name))
         .sort((left, right) => left.localeCompare(right, "es"));
-      const tooltip = `Agrupación ${groupId}: ${relatedNames.join(", ")}`;
+      const tooltip = `Familia ${groupId}: ${relatedNames.join(", ")}`;
 
       for (const guestId of guestIds) {
         tooltips.set(guestId, tooltip);
