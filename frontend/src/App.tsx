@@ -1190,10 +1190,6 @@ export function App() {
             </section>
 
             <section className={`control-card rail-card ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
-              <div className="list-card__header">
-                <h3>Panel de control</h3>
-                <span>{workspace?.tables.length ?? 0} mesas</span>
-              </div>
               <div className="control-block">
                 <div className="control-block__header">
                   <h4>Resumen del banquete</h4>
