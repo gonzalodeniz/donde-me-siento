@@ -1246,6 +1246,100 @@ export function App() {
                 })}
               </div>
             </section>
+            <div className="rail-divider" />
+            <section className="list-card">
+              <div className="list-card__header">
+                <h3>Sesiones</h3>
+                <span>{savedSessions.length}</span>
+              </div>
+              <form className="session-library" onSubmit={handleSaveSession}>
+                <label className="mini-field session-library__field">
+                  <span>Guardar distribución actual</span>
+                  <input
+                    onChange={(event) => setSessionName(event.target.value)}
+                    placeholder="Ej. banquete familiar"
+                    value={sessionName}
+                  />
+                </label>
+                <button
+                  className="button button--primary button--small"
+                  disabled={!sessionName.trim() || isActionRunning(`save-session-${normalizeText(sessionName)}`)}
+                  type="submit"
+                >
+                  {isActionRunning(`save-session-${normalizeText(sessionName)}`) ? "Guardando..." : "Guardar sesión"}
+                </button>
+              </form>
+              {savedSessions.length > 0 ? (
+                <div className="guest-table-shell guest-table-shell--compact session-library__list">
+                  <table className="guest-table session-table">
+                    <thead>
+                      <tr>
+                        <th>Sesión</th>
+                        <th>Creada</th>
+                        <th aria-label="Cargar sesión" className="guest-table__action-column" />
+                        <th aria-label="Eliminar sesión" className="guest-table__action-column" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {savedSessions.map((session) => (
+                        <tr className="guest-table__row" key={session.id}>
+                          <td>
+                            <strong>{session.name}</strong>
+                          </td>
+                          <td>{formatSessionDate(session.created_at)}</td>
+                          <td className="guest-table__action-column">
+                            <button
+                              aria-label={`Cargar sesión ${session.name}`}
+                              className="button button--ghost button--small button--icon"
+                              disabled={isActionRunning(`load-session-${session.id}`)}
+                              onClick={() =>
+                                void runWorkspaceAction(
+                                  `load-session-${session.id}`,
+                                  "tables",
+                                  () => loadSession(session.id, token ?? ""),
+                                  `Sesión "${session.name}" cargada.`,
+                                )
+                              }
+                              type="button"
+                            >
+                              <svg aria-hidden="true" className="button__icon" viewBox="0 0 24 24">
+                                <path d="M12 5.75v8.5" />
+                                <path d="M8.75 11.5 12 14.75l3.25-3.25" />
+                                <path d="M6.25 18.25h11.5" />
+                              </svg>
+                            </button>
+                          </td>
+                          <td className="guest-table__action-column">
+                            <button
+                              aria-label={`Eliminar sesión ${session.name}`}
+                              className="button button--quiet button--small button--icon"
+                              disabled={isActionRunning(`delete-session-${session.id}`)}
+                              onClick={() =>
+                                void runWorkspaceAction(
+                                  `delete-session-${session.id}`,
+                                  "tables",
+                                  () => deleteSession(session.id, token ?? ""),
+                                  `Sesión "${session.name}" eliminada.`,
+                                )
+                              }
+                              type="button"
+                            >
+                              <svg aria-hidden="true" className="button__icon" viewBox="0 0 24 24">
+                                <path d="M9 4.75h6" />
+                                <path d="M5.75 7.25h12.5" />
+                                <path d="M8.25 7.25v10.1A1.4 1.4 0 0 0 9.65 18.75h4.7a1.4 1.4 0 0 0 1.4-1.4V7.25" />
+                                <path d="M10 10.25v5.5" />
+                                <path d="M14 10.25v5.5" />
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+            </section>
           </section>
         </div>
       </aside>
@@ -1846,99 +1940,6 @@ export function App() {
               </div>
             </section>
 
-            <section className="list-card">
-              <div className="list-card__header">
-                <h3>Sesiones</h3>
-                <span>{savedSessions.length}</span>
-              </div>
-              <form className="session-library" onSubmit={handleSaveSession}>
-                <label className="mini-field session-library__field">
-                  <span>Guardar distribución actual</span>
-                  <input
-                    onChange={(event) => setSessionName(event.target.value)}
-                    placeholder="Ej. banquete familiar"
-                    value={sessionName}
-                  />
-                </label>
-                <button
-                  className="button button--primary button--small"
-                  disabled={!sessionName.trim() || isActionRunning(`save-session-${normalizeText(sessionName)}`)}
-                  type="submit"
-                >
-                  {isActionRunning(`save-session-${normalizeText(sessionName)}`) ? "Guardando..." : "Guardar sesión"}
-                </button>
-              </form>
-              {savedSessions.length > 0 ? (
-                <div className="guest-table-shell guest-table-shell--compact session-library__list">
-                  <table className="guest-table session-table">
-                    <thead>
-                      <tr>
-                        <th>Sesión</th>
-                        <th>Creada</th>
-                        <th aria-label="Cargar sesión" className="guest-table__action-column" />
-                        <th aria-label="Eliminar sesión" className="guest-table__action-column" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {savedSessions.map((session) => (
-                        <tr className="guest-table__row" key={session.id}>
-                          <td>
-                            <strong>{session.name}</strong>
-                          </td>
-                          <td>{formatSessionDate(session.created_at)}</td>
-                          <td className="guest-table__action-column">
-                            <button
-                              aria-label={`Cargar sesión ${session.name}`}
-                              className="button button--ghost button--small button--icon"
-                              disabled={isActionRunning(`load-session-${session.id}`)}
-                              onClick={() =>
-                                void runWorkspaceAction(
-                                  `load-session-${session.id}`,
-                                  "tables",
-                                  () => loadSession(session.id, token ?? ""),
-                                  `Sesión "${session.name}" cargada.`,
-                                )
-                              }
-                              type="button"
-                            >
-                              <svg aria-hidden="true" className="button__icon" viewBox="0 0 24 24">
-                                <path d="M12 5.75v8.5" />
-                                <path d="M8.75 11.5 12 14.75l3.25-3.25" />
-                                <path d="M6.25 18.25h11.5" />
-                              </svg>
-                            </button>
-                          </td>
-                          <td className="guest-table__action-column">
-                            <button
-                              aria-label={`Eliminar sesión ${session.name}`}
-                              className="button button--quiet button--small button--icon"
-                              disabled={isActionRunning(`delete-session-${session.id}`)}
-                              onClick={() =>
-                                void runWorkspaceAction(
-                                  `delete-session-${session.id}`,
-                                  "tables",
-                                  () => deleteSession(session.id, token ?? ""),
-                                  `Sesión "${session.name}" eliminada.`,
-                                )
-                              }
-                              type="button"
-                            >
-                              <svg aria-hidden="true" className="button__icon" viewBox="0 0 24 24">
-                                <path d="M9 4.75h6" />
-                                <path d="M5.75 7.25h12.5" />
-                                <path d="M8.25 7.25v10.1A1.4 1.4 0 0 0 9.65 18.75h4.7a1.4 1.4 0 0 0 1.4-1.4V7.25" />
-                                <path d="M10 10.25v5.5" />
-                                <path d="M14 10.25v5.5" />
-                              </svg>
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
-            </section>
               </>
             ) : null}
           </div>

@@ -656,12 +656,21 @@ select {
 .session-table th:nth-child(2) {
   white-space: nowrap;
   width: 1%;
+  padding-left: 0.3rem;
+  padding-right: 0.3rem;
+  font-size: 0.82rem;
 }
 
 .session-table .guest-table__action-column {
-  width: 2.25rem;
-  padding-left: 0.25rem;
-  padding-right: 0.25rem;
+  width: 1%;
+  padding-left: 0.08rem;
+  padding-right: 0.08rem;
+  white-space: nowrap;
+}
+
+.session-table .button--icon {
+  width: 1.75rem;
+  min-width: 1.75rem;
 }
 
 .banquet-summary {
