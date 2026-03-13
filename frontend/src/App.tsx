@@ -1338,7 +1338,6 @@ export function App() {
                               <th>Tipo</th>
                               <th>Agrupación</th>
                               <th>Mesa</th>
-                              <th>Acciones</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1426,34 +1425,6 @@ export function App() {
                                           <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
                                         </button>
                                       )}
-                                    </td>
-                                    <td>
-                                      <div className="guest-table__actions guest-table__actions--tight">
-                                        {editingGuestId === guest.id ? (
-                                          <span className="guest-table__autosave">
-                                            {isActionRunning(`update-${guest.id}`) ? "Guardando..." : "Enter o salir para guardar"}
-                                          </span>
-                                        ) : (
-                                          <button
-                                            className="button button--ghost button--small"
-                                            disabled={isActionRunning(`unassign-${guest.id}`)}
-                                            onClick={() =>
-                                              void runWorkspaceAction(
-                                                `unassign-${guest.id}`,
-                                                "guests",
-                                                () => unassignGuest(guest.id, token ?? ""),
-                                                `${guest.name} vuelve a estar pendiente de ubicación.`,
-                                              )
-                                            }
-                                            type="button"
-                                          >
-                                            Quitar ubicación
-                                          </button>
-                                        )}
-                                      </div>
-                                      {editingGuestId === guest.id && editingGuestError ? (
-                                        <p className="inline-feedback inline-feedback--error">{editingGuestError}</p>
-                                      ) : null}
                                     </td>
                                   </tr>
                                 </Fragment>
