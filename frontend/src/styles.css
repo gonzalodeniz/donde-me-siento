@@ -1428,6 +1428,12 @@ select {
   gap: 0.2rem;
 }
 
+.guest-row__actions {
+  display: grid;
+  justify-items: end;
+  gap: 0.5rem;
+}
+
 .guest-card__identity span,
 .guest-row__identity span {
   color: var(--muted);

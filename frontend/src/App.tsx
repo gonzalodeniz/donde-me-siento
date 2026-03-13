@@ -8,6 +8,7 @@ import {
   deleteTable,
   fetchWorkspace,
   login,
+  unassignGuest,
   updateDefaultTableCapacity,
   updateGuest,
   updateTableCapacity,
@@ -1200,7 +1201,24 @@ export function App() {
                                     </button>
                                     <span>{guest.group_id ? `Agrupación ${guest.group_id}` : formatGuestTypeLabel(guest.guest_type)}</span>
                                   </div>
-                                  <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
+                                  <div className="guest-row__actions">
+                                    <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
+                                    <button
+                                      className="button button--ghost button--small"
+                                      disabled={isActionRunning(`unassign-${guest.id}`)}
+                                      onClick={() =>
+                                        void runWorkspaceAction(
+                                          `unassign-${guest.id}`,
+                                          "guests",
+                                          () => unassignGuest(guest.id, token ?? ""),
+                                          `${guest.name} vuelve a estar pendiente de ubicación.`,
+                                        )
+                                      }
+                                      type="button"
+                                    >
+                                      Quitar ubicación
+                                    </button>
+                                  </div>
                                 </>
                               )}
                             </article>
