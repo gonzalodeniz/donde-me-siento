@@ -1667,6 +1667,34 @@ select {
   padding: 0.35rem 0;
 }
 
+.guest-search__clear {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(119, 84, 64, 0.08);
+  color: rgba(107, 87, 75, 0.88);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  flex: 0 0 auto;
+  transition: background-color 160ms ease, color 160ms ease, opacity 160ms ease;
+}
+
+.guest-search__clear:hover,
+.guest-search__clear:focus-visible {
+  background: rgba(154, 79, 36, 0.16);
+  color: #7d2f1f;
+  outline: none;
+}
+
+.guest-search__clear:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
 .guest-search input::placeholder {
   color: rgba(107, 87, 75, 0.8);
   font-style: italic;

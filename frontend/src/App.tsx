@@ -1057,8 +1057,8 @@ export function App() {
               <SeatingPlan
                 activeDropSeat={activeDropSeat}
                 draggedGuestName={draggedGuest?.name ?? null}
-                highlightedGuestIds={filteredAssignedGuests.map((guest) => guest.id)}
-                isSearchActive={Boolean(deferredGuestSearchQuery)}
+                highlightedGuestIds={guestSearchQuery.trim() ? filteredAssignedGuests.map((guest) => guest.id) : []}
+                isSearchActive={Boolean(guestSearchQuery.trim()) && Boolean(deferredGuestSearchQuery.trim())}
                 onGuestDragEnd={handleGuestDragEnd}
                 onGuestDragStart={handleGuestDragStart}
                 onMoveTable={handleTableMove}
@@ -1137,6 +1137,15 @@ export function App() {
                   type="search"
                   value={guestSearchQuery}
                 />
+                <button
+                  aria-label="Borrar búsqueda"
+                  className="guest-search__clear"
+                  disabled={!guestSearchQuery}
+                  onClick={() => setGuestSearchQuery("")}
+                  type="button"
+                >
+                  ×
+                </button>
               </label>
             </section>
 
