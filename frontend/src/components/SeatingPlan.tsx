@@ -359,7 +359,6 @@ export function SeatingPlan({
     }
 
     event.preventDefault();
-    onSelectTable(tableId);
     setDraggedTable({
       tableId,
       offsetX: point.x - positionX,

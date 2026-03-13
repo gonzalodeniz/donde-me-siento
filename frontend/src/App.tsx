@@ -831,7 +831,7 @@ export function App() {
 
   function selectTable(tableId: string) {
     setPendingTableRemovalId(null);
-    setSelectedTableId(tableId);
+    setSelectedTableId((currentSelected) => (currentSelected === tableId ? null : tableId));
   }
 
   function handleSeatDragLeave(tableId: string, seatIndex: number) {
