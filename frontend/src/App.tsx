@@ -20,6 +20,7 @@ import type { Guest, Workspace } from "./types";
 const TOKEN_STORAGE_KEY = "dms.auth.token";
 const LISTS_PANEL_WIDTH_STORAGE_KEY = "dms.ui.listsPanelWidth";
 const RAIL_PANEL_WIDTH_STORAGE_KEY = "dms.ui.railPanelWidth";
+const LISTS_PANEL_OPEN_STORAGE_KEY = "dms.ui.listsPanelOpen";
 const LOGIN_NAMES = ["raquel", "héctor"] as const;
 const LISTS_PANEL_MIN_WIDTH = 280;
 const LISTS_PANEL_MAX_WIDTH = 760;
@@ -162,6 +163,10 @@ export function App() {
 
     return 320;
   });
+  const [isListsPanelOpen, setIsListsPanelOpen] = useState<boolean>(() => {
+    const stored = localStorage.getItem(LISTS_PANEL_OPEN_STORAGE_KEY);
+    return stored === null ? true : stored === "true";
+  });
   const [isResizingListsPanel, setIsResizingListsPanel] = useState(false);
   const [sectionNotices, setSectionNotices] = useState<Record<SectionKey, SectionNotice | null>>({
     guests: null,
@@ -261,6 +266,10 @@ export function App() {
   }, [railPanelWidth]);
 
   useEffect(() => {
+    localStorage.setItem(LISTS_PANEL_OPEN_STORAGE_KEY, String(isListsPanelOpen));
+  }, [isListsPanelOpen]);
+
+  useEffect(() => {
     localStorage.setItem(LISTS_PANEL_WIDTH_STORAGE_KEY, String(listsPanelWidth));
   }, [listsPanelWidth]);
 
@@ -295,7 +304,7 @@ export function App() {
   }, [isRailOpen, isResizingRailPanel]);
 
   useEffect(() => {
-    if (!isResizingListsPanel) {
+    if (!isResizingListsPanel || !isListsPanelOpen) {
       return undefined;
     }
 
@@ -322,7 +331,7 @@ export function App() {
       window.removeEventListener("pointerup", stopResizing);
       window.removeEventListener("pointercancel", stopResizing);
     };
-  }, [isResizingListsPanel]);
+  }, [isListsPanelOpen, isResizingListsPanel]);
 
   useEffect(() => {
     if (!token) {
@@ -473,6 +482,9 @@ export function App() {
   }
 
   function startListsPanelResize() {
+    if (!isListsPanelOpen) {
+      return;
+    }
     setIsResizingListsPanel(true);
   }
 
@@ -1167,7 +1179,11 @@ export function App() {
         <section
           ref={canvasRef}
           className={`canvas ${isResizingListsPanel ? "canvas--resizing" : ""}`}
-          style={{ gridTemplateColumns: `minmax(0, 1fr) 0.85rem minmax(${LISTS_PANEL_MIN_WIDTH}px, ${listsPanelWidth}px)` }}
+          style={{
+            gridTemplateColumns: isListsPanelOpen
+              ? `minmax(0, 1fr) 0.85rem minmax(${LISTS_PANEL_MIN_WIDTH}px, ${listsPanelWidth}px)`
+              : `minmax(0, 1fr) 0.85rem 2.75rem`,
+          }}
         >
           <div className={`canvas__tables ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
             {workspace ? (
@@ -1227,45 +1243,81 @@ export function App() {
           </div>
 
           <div
+            aria-hidden={!isListsPanelOpen}
             aria-label="Ajustar ancho de la columna derecha"
             aria-orientation="vertical"
             aria-valuemax={LISTS_PANEL_MAX_WIDTH}
             aria-valuemin={LISTS_PANEL_MIN_WIDTH}
             aria-valuenow={Math.round(listsPanelWidth)}
-            className="canvas__resizer"
-            onKeyDown={handleListsPanelResizeKeyDown}
-            onPointerDown={startListsPanelResize}
+            className={`canvas__resizer ${isListsPanelOpen ? "" : "canvas__resizer--inactive"}`}
+            onKeyDown={isListsPanelOpen ? handleListsPanelResizeKeyDown : undefined}
+            onPointerDown={isListsPanelOpen ? startListsPanelResize : undefined}
             role="separator"
-            tabIndex={0}
+            tabIndex={isListsPanelOpen ? 0 : -1}
           />
 
-          <div className={`lists-panel ${guestSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={guestSectionBusy}>
-            <section className="list-card list-card--search">
-              <label className="guest-search guest-search--panel">
-                <span aria-hidden="true" className="guest-search__icon">
-                  <svg viewBox="0 0 24 24">
-                    <circle cx="11" cy="11" r="6.5" />
-                    <path d="M16 16l4.5 4.5" />
-                  </svg>
-                </span>
-                <input
-                  onChange={(event) => setGuestSearchQuery(event.target.value)}
-                  placeholder="Encuentra a un ser querido..."
-                  type="search"
-                  value={guestSearchQuery}
-                />
+          <div
+            className={`lists-panel ${isListsPanelOpen ? "" : "lists-panel--collapsed"} ${guestSectionBusy ? "section-shell section-shell--busy" : ""}`}
+            aria-busy={guestSectionBusy}
+          >
+            {isListsPanelOpen ? (
+              <>
+                <section className="list-card list-card--search">
+                  <div className="lists-panel__search-row">
+                    <label className="guest-search guest-search--panel">
+                      <span aria-hidden="true" className="guest-search__icon">
+                        <svg viewBox="0 0 24 24">
+                          <circle cx="11" cy="11" r="6.5" />
+                          <path d="M16 16l4.5 4.5" />
+                        </svg>
+                      </span>
+                      <input
+                        onChange={(event) => setGuestSearchQuery(event.target.value)}
+                        placeholder="Encuentra a un ser querido..."
+                        type="search"
+                        value={guestSearchQuery}
+                      />
+                      <button
+                        aria-label="Borrar búsqueda"
+                        className="guest-search__clear"
+                        disabled={!guestSearchQuery}
+                        onClick={() => setGuestSearchQuery("")}
+                        type="button"
+                      >
+                        ×
+                      </button>
+                    </label>
+                    <button
+                      aria-expanded={isListsPanelOpen}
+                      aria-label="Cerrar panel derecho"
+                      className="lists-panel__toggle"
+                      onClick={() => setIsListsPanelOpen(false)}
+                      type="button"
+                    >
+                      <span aria-hidden="true" className="lists-panel__toggle-triangle">
+                        ▶
+                      </span>
+                    </button>
+                  </div>
+                </section>
+              </>
+            ) : (
+              <div className="lists-panel__collapsed-strip">
                 <button
-                  aria-label="Borrar búsqueda"
-                  className="guest-search__clear"
-                  disabled={!guestSearchQuery}
-                  onClick={() => setGuestSearchQuery("")}
+                  aria-expanded={isListsPanelOpen}
+                  aria-label="Abrir panel derecho"
+                  className="lists-panel__toggle"
+                  onClick={() => setIsListsPanelOpen(true)}
                   type="button"
                 >
-                  ×
+                  <span aria-hidden="true" className="lists-panel__toggle-triangle">
+                    ◀
+                  </span>
                 </button>
-              </label>
-            </section>
-
+              </div>
+            )}
+            {isListsPanelOpen ? (
+              <>
             <section className="list-card list-card--guests">
               <div data-testid="unassigned-guests-panel">
                 {sectionNotices.guests ? (
@@ -1700,6 +1752,8 @@ export function App() {
                 )}
               </div>
             </section>
+              </>
+            ) : null}
           </div>
         </section>
 
