@@ -19,10 +19,14 @@ import type { Guest, Workspace } from "./types";
 
 const TOKEN_STORAGE_KEY = "dms.auth.token";
 const LISTS_PANEL_WIDTH_STORAGE_KEY = "dms.ui.listsPanelWidth";
+const RAIL_PANEL_WIDTH_STORAGE_KEY = "dms.ui.railPanelWidth";
 const LOGIN_NAMES = ["raquel", "héctor"] as const;
 const LISTS_PANEL_MIN_WIDTH = 280;
 const LISTS_PANEL_MAX_WIDTH = 760;
 const CANVAS_MIN_MAIN_WIDTH = 260;
+const RAIL_PANEL_MIN_WIDTH = 360;
+const RAIL_PANEL_MAX_WIDTH = 760;
+const SHELL_MIN_MAIN_WIDTH = 720;
 type SectionTone = "success" | "error" | "info";
 type SectionKey = "guests" | "tables";
 type SectionNotice = {
@@ -109,6 +113,7 @@ function GuestSignal({ guest }: { guest: Guest }) {
 }
 
 export function App() {
+  const shellRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLElement | null>(null);
   const [username, setUsername] = useState<string>(() => randomLoginName());
   const [password, setPassword] = useState("");
@@ -137,6 +142,16 @@ export function App() {
   const [activeDropSeat, setActiveDropSeat] = useState<SeatTarget | null>(null);
   const [isUnassignedDropActive, setIsUnassignedDropActive] = useState(false);
   const [isRailOpen, setIsRailOpen] = useState(true);
+  const [railPanelWidth, setRailPanelWidth] = useState<number>(() => {
+    const storedWidth = Number(localStorage.getItem(RAIL_PANEL_WIDTH_STORAGE_KEY));
+
+    if (Number.isFinite(storedWidth) && storedWidth >= RAIL_PANEL_MIN_WIDTH && storedWidth <= RAIL_PANEL_MAX_WIDTH) {
+      return storedWidth;
+    }
+
+    return 420;
+  });
+  const [isResizingRailPanel, setIsResizingRailPanel] = useState(false);
   const [optimisticTablePositions, setOptimisticTablePositions] = useState<Record<string, TablePosition>>({});
   const [listsPanelWidth, setListsPanelWidth] = useState<number>(() => {
     const storedWidth = Number(localStorage.getItem(LISTS_PANEL_WIDTH_STORAGE_KEY));
@@ -242,8 +257,42 @@ export function App() {
         submittingAction.startsWith("assign-dnd-")));
 
   useEffect(() => {
+    localStorage.setItem(RAIL_PANEL_WIDTH_STORAGE_KEY, String(railPanelWidth));
+  }, [railPanelWidth]);
+
+  useEffect(() => {
     localStorage.setItem(LISTS_PANEL_WIDTH_STORAGE_KEY, String(listsPanelWidth));
   }, [listsPanelWidth]);
+
+  useEffect(() => {
+    if (!isResizingRailPanel || !isRailOpen) {
+      return undefined;
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const shellRect = shellRef.current?.getBoundingClientRect();
+      if (!shellRect) {
+        return;
+      }
+
+      const maxWidth = Math.min(RAIL_PANEL_MAX_WIDTH, Math.max(RAIL_PANEL_MIN_WIDTH, shellRect.width - SHELL_MIN_MAIN_WIDTH));
+      const nextWidth = event.clientX - shellRect.left;
+      const clampedWidth = Math.min(Math.max(nextWidth, RAIL_PANEL_MIN_WIDTH), maxWidth);
+      setRailPanelWidth(clampedWidth);
+    };
+
+    const stopResizing = () => setIsResizingRailPanel(false);
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopResizing);
+    window.addEventListener("pointercancel", stopResizing);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopResizing);
+      window.removeEventListener("pointercancel", stopResizing);
+    };
+  }, [isRailOpen, isResizingRailPanel]);
 
   useEffect(() => {
     if (!isResizingListsPanel) {
@@ -382,6 +431,45 @@ export function App() {
       : LISTS_PANEL_MAX_WIDTH;
 
     return Math.min(Math.max(nextWidth, LISTS_PANEL_MIN_WIDTH), maxWidth);
+  }
+
+  function clampRailPanelWidth(nextWidth: number) {
+    const shellRect = shellRef.current?.getBoundingClientRect();
+    const maxWidth = shellRect
+      ? Math.min(RAIL_PANEL_MAX_WIDTH, Math.max(RAIL_PANEL_MIN_WIDTH, shellRect.width - SHELL_MIN_MAIN_WIDTH))
+      : RAIL_PANEL_MAX_WIDTH;
+
+    return Math.min(Math.max(nextWidth, RAIL_PANEL_MIN_WIDTH), maxWidth);
+  }
+
+  function startRailPanelResize() {
+    if (!isRailOpen) {
+      return;
+    }
+
+    setIsResizingRailPanel(true);
+  }
+
+  function handleRailPanelResizeKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight" && event.key !== "Home" && event.key !== "End") {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (event.key === "Home") {
+      setRailPanelWidth(clampRailPanelWidth(RAIL_PANEL_MIN_WIDTH));
+      return;
+    }
+
+    if (event.key === "End") {
+      setRailPanelWidth(clampRailPanelWidth(RAIL_PANEL_MAX_WIDTH));
+      return;
+    }
+
+    const step = event.shiftKey ? 24 : 12;
+    const direction = event.key === "ArrowLeft" ? -1 : 1;
+    setRailPanelWidth((current) => clampRailPanelWidth(current + direction * step));
   }
 
   function startListsPanelResize() {
@@ -783,7 +871,11 @@ export function App() {
   }
 
   return (
-    <div className={`shell ${isRailOpen ? "" : "shell--rail-collapsed"}`}>
+    <div
+      ref={shellRef}
+      className={`shell ${isRailOpen ? "" : "shell--rail-collapsed"} ${isResizingRailPanel ? "shell--resizing" : ""}`}
+      style={isRailOpen ? { gridTemplateColumns: `minmax(${RAIL_PANEL_MIN_WIDTH}px, ${railPanelWidth}px) 0.85rem minmax(0, 1fr)` } : undefined}
+    >
       <div className="shell__backdrop shell__backdrop--one" />
       <div className="shell__backdrop shell__backdrop--two" />
       <aside className={`rail ${isRailOpen ? "" : "rail--collapsed"}`}>
@@ -1040,6 +1132,21 @@ export function App() {
           </section>
         </div>
       </aside>
+
+      {isRailOpen ? (
+        <div
+          aria-label="Ajustar ancho de la columna izquierda"
+          aria-orientation="vertical"
+          aria-valuemax={RAIL_PANEL_MAX_WIDTH}
+          aria-valuemin={RAIL_PANEL_MIN_WIDTH}
+          aria-valuenow={Math.round(railPanelWidth)}
+          className="shell__resizer"
+          onKeyDown={handleRailPanelResizeKeyDown}
+          onPointerDown={startRailPanelResize}
+          role="separator"
+          tabIndex={0}
+        />
+      ) : null}
 
       <main className="workspace">
         <header className="topbar">
