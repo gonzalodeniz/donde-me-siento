@@ -1,4 +1,4 @@
-import { DragEvent, FormEvent, KeyboardEvent as ReactKeyboardEvent, startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { DragEvent, FormEvent, Fragment, KeyboardEvent as ReactKeyboardEvent, startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   assignGuest,
@@ -1118,99 +1118,110 @@ export function App() {
                   <div className="guest-salon__section-header">
                     <div>
                       <h4>Por asignar</h4>
-                      <p>Etiquetas listas para llevar al plano.</p>
+                      <p>Formato compacto para trabajar con listados largos.</p>
                     </div>
                     <span>
                       {filteredUnassignedGuests.length}/{workspace?.guests.unassigned.length ?? 0}
                     </span>
                   </div>
                   <div
-                    className={`guest-list guest-list--paper ${isUnassignedDropActive ? "guest-list--drop-active" : ""}`}
+                    className={`guest-table-shell ${isUnassignedDropActive ? "guest-table-shell--drop-active" : ""}`}
                     onDragLeave={handleUnassignedDragLeave}
                     onDragOver={handleUnassignedDragOver}
                     onDrop={handleUnassignedDrop}
                   >
                     {filteredUnassignedGuests.length > 0 ? (
-                      filteredUnassignedGuests.map((guest) => (
-                      <article
-                        className={`guest-card guest-card--paper ${conflictGuestIds.has(guest.id) ? "guest-card--conflict" : ""} ${draggedGuestId === guest.id ? "guest-card--dragging" : ""}`}
-                        data-testid={`unassigned-guest-${guest.id}`}
-                        key={guest.id}
-                        draggable
-                        onDragEnd={handleGuestDragEnd}
-                        onDragStart={(event) => handleGuestDragStart(event, guest.id)}
-                      >
-                        {editingGuestId === guest.id ? (
-                          renderInlineGuestEditor(guest)
-                        ) : (
-                          <>
-                            <div className="guest-card__header guest-card__header--paper">
-                              <div className="guest-card__identity">
-                                <button className="guest-name-button" onClick={() => beginGuestEdit(guest)} type="button">
-                                  <span className="guest-card__nameplate">
-                                    <strong>{guest.name}</strong>
-                                    <GuestSignal guest={guest} />
-                                  </span>
-                                </button>
-                                <span>{guest.group_id ? `Agrupación ${guest.group_id}` : "Sin agrupación"}</span>
-                              </div>
-                              <span className="guest-card__type">{formatGuestTypeLabel(guest.guest_type)}</span>
-                            </div>
-                            {draggedGuestId === guest.id ? (
-                              <div className="guest-card__drag-hint">En movimiento: suelta esta tarjeta sobre una mesa.</div>
-                            ) : (
-                              <p className="guest-card__dragline">Lista para llevar al salón.</p>
-                            )}
-                            <div className="guest-card__actions guest-card__actions--paper">
-                              <select
-                                aria-label={`Elegir mesa para ${guest.name}`}
-                                value={assignmentValues[guest.id] ?? ""}
-                                onChange={(event) =>
-                                  setAssignmentValues((current) => ({ ...current, [guest.id]: event.target.value }))
-                                }
+                      <table className="guest-table">
+                        <thead>
+                          <tr>
+                            <th>Invitado</th>
+                            <th>Tipo</th>
+                            <th>Agrupación</th>
+                            <th>Mesa</th>
+                            <th>Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredUnassignedGuests.map((guest) => (
+                            <Fragment key={guest.id}>
+                              <tr
+                                className={`guest-table__row ${conflictGuestIds.has(guest.id) ? "guest-table__row--conflict" : ""} ${draggedGuestId === guest.id ? "guest-table__row--dragging" : ""}`}
+                                data-testid={`unassigned-guest-${guest.id}`}
+                                draggable
+                                onDragEnd={handleGuestDragEnd}
+                                onDragStart={(event) => handleGuestDragStart(event, guest.id)}
                               >
-                                <option value="">Elegir mesa</option>
-                                {workspace?.tables.map((table) => (
-                                  <option key={table.id} value={table.id}>
-                                    Mesa {table.number}
-                                  </option>
-                                ))}
-                              </select>
-                              <button
-                                className="button button--ghost button--small"
-                                disabled={!assignmentValues[guest.id] || isActionRunning(`assign-${guest.id}`)}
-                                onClick={() =>
-                                  void runWorkspaceAction(
-                                    `assign-${guest.id}`,
-                                    "guests",
-                                    () => assignGuest(guest.id, assignmentValues[guest.id], null, token ?? ""),
-                                    `${guest.name} asignado correctamente.`,
-                                  )
-                                }
-                                type="button"
-                              >
-                                Ubicar
-                              </button>
-                              <button
-                                className="button button--ghost button--small"
-                                disabled={isActionRunning(`delete-${guest.id}`)}
-                                onClick={() =>
-                                  void runWorkspaceAction(
-                                    `delete-${guest.id}`,
-                                    "guests",
-                                    () => deleteGuest(guest.id, token ?? ""),
-                                    `${guest.name} eliminado.`,
-                                  )
-                                }
-                                type="button"
-                              >
-                                Eliminar
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </article>
-                    ))
+                                <td>
+                                  <button className="guest-name-button" onClick={() => beginGuestEdit(guest)} type="button">
+                                    <span className="guest-card__nameplate">
+                                      <strong>{guest.name}</strong>
+                                      <GuestSignal guest={guest} />
+                                    </span>
+                                  </button>
+                                </td>
+                                <td>{formatGuestTypeLabel(guest.guest_type)}</td>
+                                <td>{guest.group_id ? `Agrupación ${guest.group_id}` : "Sin agrupación"}</td>
+                                <td>
+                                  <span className="guest-row__table guest-row__table--muted">Pendiente</span>
+                                </td>
+                                <td>
+                                  <div className="guest-table__actions">
+                                    <select
+                                      aria-label={`Elegir mesa para ${guest.name}`}
+                                      value={assignmentValues[guest.id] ?? ""}
+                                      onChange={(event) =>
+                                        setAssignmentValues((current) => ({ ...current, [guest.id]: event.target.value }))
+                                      }
+                                    >
+                                      <option value="">Elegir mesa</option>
+                                      {workspace?.tables.map((table) => (
+                                        <option key={table.id} value={table.id}>
+                                          Mesa {table.number}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <button
+                                      className="button button--ghost button--small"
+                                      disabled={!assignmentValues[guest.id] || isActionRunning(`assign-${guest.id}`)}
+                                      onClick={() =>
+                                        void runWorkspaceAction(
+                                          `assign-${guest.id}`,
+                                          "guests",
+                                          () => assignGuest(guest.id, assignmentValues[guest.id], null, token ?? ""),
+                                          `${guest.name} asignado correctamente.`,
+                                        )
+                                      }
+                                      type="button"
+                                    >
+                                      Ubicar
+                                    </button>
+                                    <button
+                                      className="button button--ghost button--small"
+                                      disabled={isActionRunning(`delete-${guest.id}`)}
+                                      onClick={() =>
+                                        void runWorkspaceAction(
+                                          `delete-${guest.id}`,
+                                          "guests",
+                                          () => deleteGuest(guest.id, token ?? ""),
+                                          `${guest.name} eliminado.`,
+                                        )
+                                      }
+                                      type="button"
+                                    >
+                                      Eliminar
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                              {editingGuestId === guest.id ? (
+                                <tr className="guest-table__editor-row">
+                                  <td colSpan={5}>{renderInlineGuestEditor(guest)}</td>
+                                </tr>
+                              ) : null}
+                            </Fragment>
+                          ))}
+                        </tbody>
+                      </table>
                   ) : (
                     <p className="empty-state empty-state--paper">
                       {guestSearchQuery ? "No encontramos a nadie con esa búsqueda." : "Todo el mundo tiene ya su lugar reservado."}
@@ -1223,59 +1234,77 @@ export function App() {
                   <summary className="guest-collapse__summary">
                     <div>
                       <h4>Ya ubicados</h4>
-                      <p>Un bloque discreto para quienes ya tienen mesa.</p>
+                      <p>Vista densa para revisar rápidamente mesa, familia y acciones.</p>
                     </div>
                     <span>
                       {filteredAssignedGuests.length}/{workspace?.guests.assigned.length ?? 0}
                     </span>
                   </summary>
                   <div className="guest-collapse__content">
-                    <div className="guest-list guest-list--compact">
+                    <div className="guest-table-shell guest-table-shell--compact">
                       {filteredAssignedGuests.length > 0 ? (
-                        filteredAssignedGuests.map((guest) => {
-                          const tableNumber = guest.table_id ? tableNumberById.get(guest.table_id) : null;
+                        <table className="guest-table guest-table--placed">
+                          <thead>
+                            <tr>
+                              <th>Invitado</th>
+                              <th>Tipo</th>
+                              <th>Agrupación</th>
+                              <th>Mesa</th>
+                              <th>Acciones</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredAssignedGuests.map((guest) => {
+                              const tableNumber = guest.table_id ? tableNumberById.get(guest.table_id) : null;
 
-                          return (
-                            <article
-                              className={`guest-row guest-row--placed ${conflictGuestIds.has(guest.id) ? "guest-row--conflict" : ""}`}
-                              key={guest.id}
-                            >
-                              {editingGuestId === guest.id ? (
-                                renderInlineGuestEditor(guest, tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada")
-                              ) : (
-                                <>
-                                  <div className="guest-row__identity">
-                                    <button className="guest-name-button" onClick={() => beginGuestEdit(guest)} type="button">
-                                      <span className="guest-card__nameplate">
-                                        <strong>{guest.name}</strong>
-                                        <GuestSignal guest={guest} />
-                                      </span>
-                                    </button>
-                                    <span>{guest.group_id ? `Agrupación ${guest.group_id}` : formatGuestTypeLabel(guest.guest_type)}</span>
-                                  </div>
-                                  <div className="guest-row__actions">
-                                    <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
-                                    <button
-                                      className="button button--ghost button--small"
-                                      disabled={isActionRunning(`unassign-${guest.id}`)}
-                                      onClick={() =>
-                                        void runWorkspaceAction(
-                                          `unassign-${guest.id}`,
-                                          "guests",
-                                          () => unassignGuest(guest.id, token ?? ""),
-                                          `${guest.name} vuelve a estar pendiente de ubicación.`,
-                                        )
-                                      }
-                                      type="button"
-                                    >
-                                      Quitar ubicación
-                                    </button>
-                                  </div>
-                                </>
-                              )}
-                            </article>
-                          );
-                        })
+                              return (
+                                <Fragment key={guest.id}>
+                                  <tr
+                                    className={`guest-table__row guest-table__row--placed ${conflictGuestIds.has(guest.id) ? "guest-table__row--conflict" : ""}`}
+                                  >
+                                    <td>
+                                      <button className="guest-name-button" onClick={() => beginGuestEdit(guest)} type="button">
+                                        <span className="guest-card__nameplate">
+                                          <strong>{guest.name}</strong>
+                                          <GuestSignal guest={guest} />
+                                        </span>
+                                      </button>
+                                    </td>
+                                    <td>{formatGuestTypeLabel(guest.guest_type)}</td>
+                                    <td>{guest.group_id ? `Agrupación ${guest.group_id}` : "Sin agrupación"}</td>
+                                    <td>
+                                      <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
+                                    </td>
+                                    <td>
+                                      <div className="guest-table__actions guest-table__actions--tight">
+                                        <button
+                                          className="button button--ghost button--small"
+                                          disabled={isActionRunning(`unassign-${guest.id}`)}
+                                          onClick={() =>
+                                            void runWorkspaceAction(
+                                              `unassign-${guest.id}`,
+                                              "guests",
+                                              () => unassignGuest(guest.id, token ?? ""),
+                                              `${guest.name} vuelve a estar pendiente de ubicación.`,
+                                            )
+                                          }
+                                          type="button"
+                                        >
+                                          Quitar ubicación
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                  {editingGuestId === guest.id ? (
+                                    <tr className="guest-table__editor-row">
+                                      <td colSpan={5}>{renderInlineGuestEditor(guest, tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada")}</td>
+                                    </tr>
+                                  ) : null}
+                                </Fragment>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       ) : (
                         <p className="empty-state empty-state--paper">
                           {guestSearchQuery ? "No hay invitados ubicados con esa búsqueda." : "Todavía no hay invitados sentados."}
