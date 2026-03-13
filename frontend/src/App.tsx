@@ -1745,7 +1745,7 @@ export function App() {
                         </select>
                       </label>
                       <label className="mini-field">
-                        <span>Agrupacion</span>
+                        <span>Familia</span>
                         <input placeholder="opcional" value={guestGroupId} onChange={(event) => setGuestGroupId(event.target.value)} />
                       </label>
                     </div>
