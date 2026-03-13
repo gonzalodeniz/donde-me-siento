@@ -933,7 +933,8 @@ select {
 }
 
 .plan-stage__zoom-button,
-.plan-stage__zoom-reset {
+.plan-stage__zoom-reset,
+.plan-stage__zoom-fit {
   display: inline-grid;
   place-items: center;
   min-width: 2.15rem;
@@ -952,7 +953,9 @@ select {
 .plan-stage__zoom-button:hover,
 .plan-stage__zoom-button:focus-visible,
 .plan-stage__zoom-reset:hover,
-.plan-stage__zoom-reset:focus-visible {
+.plan-stage__zoom-reset:focus-visible,
+.plan-stage__zoom-fit:hover,
+.plan-stage__zoom-fit:focus-visible {
   background: rgba(154, 79, 36, 0.16);
   transform: translateY(-1px);
   outline: none;
@@ -961,6 +964,12 @@ select {
 .plan-stage__zoom-reset {
   min-width: 3.8rem;
   font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.plan-stage__zoom-fit {
+  min-width: 4.9rem;
+  font-size: 0.76rem;
   letter-spacing: 0.04em;
 }
 

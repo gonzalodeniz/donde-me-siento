@@ -233,6 +233,10 @@ export function SeatingPlan({
     setZoomLevel(1);
   }
 
+  function fitPlanToView() {
+    setZoomLevel(1);
+  }
+
   return (
     <section className="plan-card">
       <div className="plan-card__header">
@@ -266,6 +270,14 @@ export function SeatingPlan({
         className={`plan-stage ${isDraggingGuest ? "plan-stage--dragging" : ""}`}
       >
         <div className="plan-stage__zoom-controls" aria-label="Controles de zoom del plano">
+          <button
+            aria-label="Ajustar todas las mesas al plano visible"
+            className="plan-stage__zoom-fit"
+            onClick={fitPlanToView}
+            type="button"
+          >
+            Ajustar
+          </button>
           <button aria-label="Alejar plano" className="plan-stage__zoom-button" onClick={zoomOut} type="button">
             −
           </button>
