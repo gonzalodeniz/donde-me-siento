@@ -679,19 +679,12 @@ select {
   margin-top: 0;
 }
 
-.control-block {
-  margin-top: 0.9rem;
-  padding: 0.9rem;
-  border-radius: 1rem;
-  background: rgba(255, 252, 247, 0.84);
-  border: 1px solid rgba(36, 24, 20, 0.08);
+.rail-summary {
+  display: grid;
+  gap: 0.9rem;
 }
 
-.control-block__header {
-  margin-bottom: 0.7rem;
-}
-
-.control-block__header h4 {
+.rail-summary__header h4 {
   margin: 0;
   font-size: 0.95rem;
 }

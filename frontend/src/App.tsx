@@ -1189,25 +1189,23 @@ export function App() {
               </div>
             </section>
 
-            <section className={`control-card rail-card ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
-              <div className="control-block">
-                <div className="control-block__header">
-                  <h4>Resumen del banquete</h4>
-                </div>
-                <div className="control-metrics control-metrics--summary">
-                  <article className="control-metric">
-                    <span>Total invitados</span>
-                    <strong>{(workspace?.guests.unassigned.length ?? 0) + (workspace?.guests.assigned.length ?? 0)}</strong>
-                  </article>
-                  <article className="control-metric">
-                    <span>Total sentados</span>
-                    <strong>{workspace?.guests.assigned.length ?? 0}</strong>
-                  </article>
-                  <article className="control-metric">
-                    <span>Total sin sentar</span>
-                    <strong>{pendingGuestsCount}</strong>
-                  </article>
-                </div>
+            <section className={`list-card rail-card rail-summary ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
+              <div className="rail-summary__header">
+                <h4>Resumen del banquete</h4>
+              </div>
+              <div className="control-metrics control-metrics--summary">
+                <article className="control-metric">
+                  <span>Total invitados</span>
+                  <strong>{(workspace?.guests.unassigned.length ?? 0) + (workspace?.guests.assigned.length ?? 0)}</strong>
+                </article>
+                <article className="control-metric">
+                  <span>Total sentados</span>
+                  <strong>{workspace?.guests.assigned.length ?? 0}</strong>
+                </article>
+                <article className="control-metric">
+                  <span>Total sin sentar</span>
+                  <strong>{pendingGuestsCount}</strong>
+                </article>
               </div>
               <div className="control-metrics">
                 <article className="control-metric">
