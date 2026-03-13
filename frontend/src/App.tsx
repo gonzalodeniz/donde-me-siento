@@ -12,6 +12,7 @@ import {
   fetchWorkspace,
   loadSession,
   login,
+  resetWorkspace,
   saveSession,
   unassignGuest,
   updateGuest,
@@ -151,6 +152,7 @@ export function App() {
   const [tableBatchCapacity, setTableBatchCapacity] = useState("8");
   const [sessionName, setSessionName] = useState("");
   const [savedSessions, setSavedSessions] = useState<SavedSession[]>([]);
+  const [isResetSessionPending, setIsResetSessionPending] = useState(false);
   const [guestFormError, setGuestFormError] = useState<string | null>(null);
   const [editingGuestId, setEditingGuestId] = useState<string | null>(null);
   const [editingGuestField, setEditingGuestField] = useState<GuestEditableField>("name");
@@ -1289,8 +1291,7 @@ export function App() {
                           <td>{formatSessionDate(session.created_at)}</td>
                           <td className="guest-table__action-column">
                             <button
-                              aria-label={`Cargar sesión ${session.name}`}
-                              className="button button--ghost button--small button--icon"
+                              className="button button--ghost button--small"
                               disabled={isActionRunning(`load-session-${session.id}`)}
                               onClick={() =>
                                 void runWorkspaceAction(
@@ -1302,11 +1303,7 @@ export function App() {
                               }
                               type="button"
                             >
-                              <svg aria-hidden="true" className="button__icon" viewBox="0 0 24 24">
-                                <path d="M12 5.75v8.5" />
-                                <path d="M8.75 11.5 12 14.75l3.25-3.25" />
-                                <path d="M6.25 18.25h11.5" />
-                              </svg>
+                              Cargar sesión
                             </button>
                           </td>
                           <td className="guest-table__action-column">
@@ -1339,6 +1336,47 @@ export function App() {
                   </table>
                 </div>
               ) : null}
+              {isResetSessionPending ? (
+                <div className="rail-table-settings__confirm rail-table-settings__confirm--danger">
+                  <p className="rail-warning">
+                    <svg aria-hidden="true" className="rail-warning__icon" viewBox="0 0 24 24">
+                      <path d="M12 4.75 20 18.5H4Z" />
+                      <path d="M12 9v4.75" />
+                      <path d="M12 16.75h.01" />
+                    </svg>
+                    <span>¿Crear una nueva sesión vacía?</span>
+                  </p>
+                  <p>
+                    Se <strong>eliminarán</strong> todas las mesas y toda la lista de invitados del workspace actual.
+                  </p>
+                  <button className="button button--quiet button--small" onClick={() => setIsResetSessionPending(false)} type="button">
+                    Cancelar
+                  </button>
+                  <button
+                    className="button button--primary button--small"
+                    disabled={isActionRunning("reset-workspace")}
+                    onClick={() =>
+                      void runWorkspaceAction(
+                        "reset-workspace",
+                        "tables",
+                        async () => {
+                          await resetWorkspace(token ?? "");
+                          setIsResetSessionPending(false);
+                          setSelectedTableId(null);
+                        },
+                        "Workspace reiniciado para una nueva sesión.",
+                      )
+                    }
+                    type="button"
+                  >
+                    {isActionRunning("reset-workspace") ? "Reiniciando..." : "Confirmar nueva sesión"}
+                  </button>
+                </div>
+              ) : (
+                <button className="button button--primary button--small session-library__new" onClick={() => setIsResetSessionPending(true)} type="button">
+                  Nueva sesión
+                </button>
+              )}
             </section>
           </section>
         </div>

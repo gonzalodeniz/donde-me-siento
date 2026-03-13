@@ -115,6 +115,12 @@ class EventService:
         event = self.ensure_workspace()
         return self.repository.delete_session(event.id, session_id)
 
+    def reset_workspace(self) -> Event:
+        event = self.ensure_workspace()
+        event.tables.clear()
+        event.guests.clear()
+        return self.repository.save(event)
+
     @staticmethod
     def _parse_guest_type(raw_guest_type: str) -> GuestType:
         try:

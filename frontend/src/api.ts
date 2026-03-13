@@ -213,3 +213,12 @@ export async function deleteSession(sessionId: string, token: string): Promise<v
     },
   });
 }
+
+export async function resetWorkspace(token: string): Promise<void> {
+  await request("/api/workspace/reset", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}

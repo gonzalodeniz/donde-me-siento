@@ -232,6 +232,18 @@ async def update_default_table_capacity(
     return build_event_response(event)
 
 
+@router.post("/workspace/reset", response_model=EventResponse)
+async def reset_workspace(service: EventService = Depends(get_event_service)) -> EventResponse:
+    """Vacía el salón para iniciar una nueva sesión desde cero."""
+
+    try:
+        event = service.reset_workspace()
+    except DomainError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return build_event_response(event)
+
+
 @router.get("/sessions", response_model=list[SessionResponse])
 async def list_sessions(service: EventService = Depends(get_event_service)) -> list[SessionResponse]:
     """Lista las sesiones guardadas del workspace."""

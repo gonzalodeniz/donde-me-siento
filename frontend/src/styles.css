@@ -611,6 +611,24 @@ select {
   font-size: 0.84rem;
 }
 
+.rail-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #7d2f1f;
+}
+
+.rail-warning__icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  flex: 0 0 auto;
+}
+
 .rail-batch-form {
   display: grid;
   gap: 0.8rem;
@@ -671,6 +689,10 @@ select {
 .session-table .button--icon {
   width: 1.75rem;
   min-width: 1.75rem;
+}
+
+.session-library__new {
+  margin-top: 0.65rem;
 }
 
 .banquet-summary {

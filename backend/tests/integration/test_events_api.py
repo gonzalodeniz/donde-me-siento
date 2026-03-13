@@ -270,6 +270,23 @@ async def test_save_load_and_delete_sessions_flow(client: AsyncClient) -> None:
 
 
 @pytest.mark.anyio
+async def test_reset_workspace_clears_tables_and_guests(client: AsyncClient) -> None:
+    await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto"})
+    await client.put("/api/tables/table-1", json={"capacity": 5})
+
+    reset_response = await client.post("/api/workspace/reset")
+    assert reset_response.status_code == 200
+    assert reset_response.json()["tables"] == []
+    assert reset_response.json()["guests"] == []
+
+    workspace_response = await client.get("/api/workspace")
+    assert workspace_response.status_code == 200
+    assert workspace_response.json()["tables"] == []
+    assert workspace_response.json()["guests"]["assigned"] == []
+    assert workspace_response.json()["guests"]["unassigned"] == []
+
+
+@pytest.mark.anyio
 async def test_delete_table_rejects_occupied_and_reorders_empty_tables(client: AsyncClient) -> None:
     await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto"})
     await client.put("/api/guests/guest-1/assignment", json={"table_id": "table-1"})
