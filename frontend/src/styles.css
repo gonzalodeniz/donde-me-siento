@@ -229,9 +229,8 @@ select {
 .rail__masthead {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
-  margin: 0 0 1rem;
-  padding-left: 0.45rem;
+  margin: 0 0 0.4rem;
+  padding-left: 0.1rem;
 }
 
 .rail__toggle {
@@ -271,7 +270,6 @@ select {
   padding-left: 0;
 }
 
-.rail--collapsed .rail__title,
 .rail--collapsed .eyebrow,
 .rail--collapsed .events-panel {
   display: none;
@@ -289,13 +287,6 @@ select {
   margin-bottom: 0.35rem;
   font-size: 0.64rem;
   letter-spacing: 0.2em;
-}
-
-.rail__title {
-  margin: 0;
-  font-family: "Times New Roman", Times, serif;
-  font-size: clamp(2rem, 2.8vw, 3.5rem);
-  line-height: 0.96;
 }
 
 .rail__copy,

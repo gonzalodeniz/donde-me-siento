@@ -1051,7 +1051,6 @@ export function App() {
                 {isRailOpen ? "◀" : "▶"}
               </span>
             </button>
-            <h1 className="rail__title">Diseño del Salón</h1>
           </div>
 
           <section className="events-panel">
