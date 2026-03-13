@@ -1922,6 +1922,11 @@ select {
   border-bottom: 1px solid rgba(119, 84, 64, 0.08);
 }
 
+.guest-table__action-column {
+  width: 1%;
+  white-space: nowrap;
+}
+
 .guest-table th {
   position: sticky;
   top: 0;
@@ -1970,15 +1975,31 @@ select {
   justify-content: flex-start;
 }
 
+.guest-table__actions--icon-only {
+  justify-content: flex-start;
+  gap: 0.2rem;
+  margin-left: -0.25rem;
+}
+
 .guest-table__confirm {
   display: flex;
   align-items: center;
   gap: 0.4rem;
 }
 
+.guest-table__confirm--inline {
+  flex-wrap: wrap;
+}
+
 .guest-table__confirm span {
   color: rgba(107, 87, 75, 0.88);
   font-size: 0.76rem;
+}
+
+.guest-table__cell-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .guest-table__autosave {
