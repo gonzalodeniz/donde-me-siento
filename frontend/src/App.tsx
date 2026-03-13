@@ -1852,7 +1852,7 @@ export function App() {
                 <span>{savedSessions.length}</span>
               </div>
               <form className="session-library" onSubmit={handleSaveSession}>
-                <label className="mini-field">
+                <label className="mini-field session-library__field">
                   <span>Guardar distribución actual</span>
                   <input
                     onChange={(event) => setSessionName(event.target.value)}
@@ -1868,8 +1868,8 @@ export function App() {
                   {isActionRunning(`save-session-${normalizeText(sessionName)}`) ? "Guardando..." : "Guardar sesión"}
                 </button>
               </form>
-              <div className="guest-table-shell guest-table-shell--compact session-library__list">
-                {savedSessions.length > 0 ? (
+              {savedSessions.length > 0 ? (
+                <div className="guest-table-shell guest-table-shell--compact session-library__list">
                   <table className="guest-table session-table">
                     <thead>
                       <tr>
@@ -1936,10 +1936,8 @@ export function App() {
                       ))}
                     </tbody>
                   </table>
-                ) : (
-                  <p className="empty-state">Aún no has guardado ninguna distribución.</p>
-                )}
-              </div>
+                </div>
+              ) : null}
             </section>
               </>
             ) : null}
