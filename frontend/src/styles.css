@@ -178,22 +178,26 @@ select {
 
 .rail {
   padding: 1.35rem 1.7rem 2rem;
-  border-right: 1px solid var(--line);
-  background: rgba(248, 241, 232, 0.68);
-  backdrop-filter: blur(22px);
+  border-right: 0;
+  background: transparent;
+  backdrop-filter: none;
   overflow: hidden;
-  transition: padding 260ms ease, opacity 220ms ease, border-color 220ms ease;
+  transition: padding 260ms ease, opacity 220ms ease;
 }
 
 .rail--collapsed {
   padding-inline: 0.55rem 0.45rem;
-  border-right-color: rgba(66, 53, 46, 0.16);
 }
 
 .rail__inner {
   width: 100%;
   max-width: 100%;
   min-width: 0;
+}
+
+.rail-panels {
+  display: grid;
+  gap: 1rem;
 }
 
 .shell__resizer {
@@ -271,7 +275,7 @@ select {
 }
 
 .rail--collapsed .eyebrow,
-.rail--collapsed .events-panel {
+.rail--collapsed .rail-panels {
   display: none;
 }
 
@@ -298,7 +302,6 @@ select {
 
 .auth-card,
 .session-card,
-.events-panel,
 .list-card,
 .table-card,
 .metric-tile {
@@ -307,8 +310,7 @@ select {
   box-shadow: var(--shadow);
 }
 
-.auth-card,
-.events-panel {
+.auth-card {
   margin-top: 1.5rem;
   padding: 1.15rem;
   border-radius: 1.4rem;
@@ -459,7 +461,6 @@ select {
   stroke-width: 1.8;
 }
 
-.events-panel__header,
 .list-card__header,
 .table-card__header {
   display: flex;
@@ -472,10 +473,6 @@ select {
 .guest-list {
   display: grid;
   gap: 0.75rem;
-}
-
-.events-panel__header--spaced {
-  margin-top: 0.2rem;
 }
 
 .rail-section {
@@ -505,12 +502,6 @@ select {
   margin: 0;
   font-style: italic;
   color: rgba(107, 87, 75, 0.88);
-}
-
-.rail-divider {
-  height: 1px;
-  margin: 1.15rem 0;
-  background: linear-gradient(90deg, rgba(36, 24, 20, 0.1), transparent);
 }
 
 .stepper {
@@ -560,12 +551,10 @@ select {
 }
 
 .rail-table-settings--planner {
-  padding: 1rem;
-  border-radius: 1.15rem;
-  background:
-    linear-gradient(180deg, rgba(255, 253, 249, 0.96), rgba(246, 238, 227, 0.9)),
-    var(--paper);
-  border: 1px solid rgba(119, 84, 64, 0.1);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
 }
 
 .rail-table-settings__meta {
@@ -684,6 +673,10 @@ select {
 
 .session-library__new {
   margin-top: 0.65rem;
+}
+
+.rail-card {
+  margin-top: 0;
 }
 
 .banquet-summary {

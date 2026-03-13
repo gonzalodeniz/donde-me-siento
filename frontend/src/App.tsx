@@ -1053,8 +1053,9 @@ export function App() {
             </button>
           </div>
 
-          <section className="events-panel">
-            <div className="rail-section">
+          <div className="rail-panels">
+            <section className="list-card rail-card">
+              <div className="rail-section">
               <div className="rail-section__header">
                 <div>
                   <p className="eyebrow eyebrow--compact">{selectedTable ? "Mesa seleccionada" : "Preparación"}</p>
@@ -1210,28 +1211,31 @@ export function App() {
                   </p>
                 </div>
               )}
-            </div>
-            <div className="rail-divider" />
-            <div className="rail-section">
-              <div className="rail-section__header">
-                <div>
-                  <p className="eyebrow eyebrow--compact">Banquete</p>
-                  <h2>Resumen del Banquete</h2>
-                </div>
               </div>
-              <dl className="banquet-summary">
-                <div className="banquet-summary__row">
-                  <dt>Invitados sentados</dt>
-                  <dd>{workspace?.guests.assigned.length ?? 0}</dd>
+            </section>
+
+            <section className="list-card rail-card">
+              <div className="rail-section">
+                <div className="rail-section__header">
+                  <div>
+                    <p className="eyebrow eyebrow--compact">Banquete</p>
+                    <h2>Resumen del Banquete</h2>
+                  </div>
                 </div>
-                <div className="banquet-summary__row banquet-summary__row--accent">
-                  <dt>Invitados pendientes</dt>
-                  <dd>{pendingGuestsCount}</dd>
-                </div>
-              </dl>
-            </div>
-            <div className="rail-divider" />
-            <section className={`control-card ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
+                <dl className="banquet-summary">
+                  <div className="banquet-summary__row">
+                    <dt>Invitados sentados</dt>
+                    <dd>{workspace?.guests.assigned.length ?? 0}</dd>
+                  </div>
+                  <div className="banquet-summary__row banquet-summary__row--accent">
+                    <dt>Invitados pendientes</dt>
+                    <dd>{pendingGuestsCount}</dd>
+                  </div>
+                </dl>
+              </div>
+            </section>
+
+            <section className={`control-card rail-card ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
               <div className="list-card__header">
                 <h3>Panel de control</h3>
                 <span>{workspace?.tables.length ?? 0} mesas</span>
@@ -1286,8 +1290,8 @@ export function App() {
                 })}
               </div>
             </section>
-            <div className="rail-divider" />
-            <section className="list-card">
+
+            <section className="list-card rail-card">
               <div className="list-card__header">
                 <h3>Sesiones</h3>
                 <span>{savedSessions.length}</span>
@@ -1416,7 +1420,7 @@ export function App() {
                 </button>
               )}
             </section>
-          </section>
+          </div>
         </div>
       </aside>
 
