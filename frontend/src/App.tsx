@@ -31,6 +31,10 @@ type SeatTarget = {
   tableId: string;
   seatIndex: number;
 };
+type TablePosition = {
+  position_x: number;
+  position_y: number;
+};
 
 function normalizeText(value: string) {
   return value.trim();
@@ -127,6 +131,7 @@ export function App() {
   const [draggedGuestId, setDraggedGuestId] = useState<string | null>(null);
   const [activeDropSeat, setActiveDropSeat] = useState<SeatTarget | null>(null);
   const [isRailOpen, setIsRailOpen] = useState(true);
+  const [optimisticTablePositions, setOptimisticTablePositions] = useState<Record<string, TablePosition>>({});
   const [listsPanelWidth, setListsPanelWidth] = useState<number>(() => {
     const storedWidth = Number(localStorage.getItem(LISTS_PANEL_WIDTH_STORAGE_KEY));
 
@@ -192,6 +197,19 @@ export function App() {
     () => new Map((workspace?.tables ?? []).map((table) => [table.id, table.number])),
     [workspace],
   );
+  const workspaceForPlan = useMemo(() => {
+    if (!workspace) {
+      return null;
+    }
+
+    return {
+      ...workspace,
+      tables: workspace.tables.map((table) => {
+        const optimisticPosition = optimisticTablePositions[table.id];
+        return optimisticPosition ? { ...table, ...optimisticPosition } : table;
+      }),
+    };
+  }, [optimisticTablePositions, workspace]);
   const filteredUnassignedGuests = useMemo(
     () =>
       (workspace?.guests.unassigned ?? []).filter((guest) => matchesGuestSearch(guest, deferredGuestSearchQuery)),
@@ -212,6 +230,7 @@ export function App() {
     loadingWorkspace ||
     (submittingAction !== null &&
       (submittingAction.startsWith("capacity-") ||
+        submittingAction.startsWith("position-") ||
         submittingAction.startsWith("remove-table-") ||
         submittingAction.startsWith("unassign-") ||
         submittingAction.startsWith("assign-dnd-")));
@@ -299,6 +318,7 @@ export function App() {
       setSelectedTableId(undefined);
       setActiveDropSeat(null);
       setDraggedGuestId(null);
+      setOptimisticTablePositions({});
       return;
     }
 
@@ -402,13 +422,36 @@ export function App() {
     if (!token) {
       return;
     }
+    const nextPosition = { position_x: positionX, position_y: positionY };
 
-    await runWorkspaceAction(
-      `position-${tableId}`,
-      "tables",
-      () => updateTablePosition(tableId, positionX, positionY, token),
-      "La mesa se ha recolocado en el plano.",
-    );
+    setSubmittingAction(`position-${tableId}`);
+    setErrorMessage(null);
+    clearSectionNotice("tables");
+    setOptimisticTablePositions((current) => ({ ...current, [tableId]: nextPosition }));
+
+    try {
+      await updateTablePosition(tableId, positionX, positionY, token);
+      await refreshWorkspaceState(token);
+      setSectionNotice("tables", "success", "La mesa se ha recolocado en el plano.");
+    } catch (error) {
+      setOptimisticTablePositions((current) => {
+        const nextPositions = { ...current };
+        delete nextPositions[tableId];
+        return nextPositions;
+      });
+      setSectionNotice(
+        "tables",
+        "error",
+        error instanceof Error ? error.message : "No se pudo completar la accion.",
+      );
+    } finally {
+      setOptimisticTablePositions((current) => {
+        const nextPositions = { ...current };
+        delete nextPositions[tableId];
+        return nextPositions;
+      });
+      setSubmittingAction(null);
+    }
   }
 
   async function refreshWorkspaceState(activeToken: string) {
@@ -892,7 +935,7 @@ export function App() {
                 onSeatDragLeave={handleSeatDragLeave}
                 onSeatDrop={handleSeatDrop}
                 selectedTableId={selectedTableId ?? null}
-                workspace={workspace}
+                workspace={workspaceForPlan ?? workspace}
               />
             ) : null}
             {workspace?.tables.map((table) => (
