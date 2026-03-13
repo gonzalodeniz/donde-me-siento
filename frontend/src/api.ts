@@ -137,6 +137,26 @@ export async function createTable(token: string): Promise<void> {
   });
 }
 
+export async function createTablesBatch(token: string, payload: { count: number; capacity: number }): Promise<void> {
+  await request("/api/tables/batch", {
+    method: "POST",
+    headers: {
+      ...API_HEADERS,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function duplicateTable(tableId: string, token: string): Promise<void> {
+  await request(`/api/tables/${tableId}/duplicate`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
 export async function deleteTable(tableId: string, token: string): Promise<void> {
   await request(`/api/tables/${tableId}`, {
     method: "DELETE",

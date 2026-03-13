@@ -12,6 +12,7 @@ from backend.app.schemas.events import (
     GuestAssignmentRequest,
     GuestCreate,
     GuestUpdate,
+    TableBatchCreateRequest,
     TableCapacityUpdate,
     TablePositionUpdate,
     TableSummaryResponse,
@@ -117,6 +118,36 @@ async def create_table(service: EventService = Depends(get_event_service)) -> Ev
 
     try:
         event = service.add_table()
+    except DomainError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return build_event_response(event)
+
+
+@router.post("/tables/batch", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
+async def create_tables_batch(
+    payload: TableBatchCreateRequest,
+    service: EventService = Depends(get_event_service),
+) -> EventResponse:
+    """Crea varias mesas en una sola acción."""
+
+    try:
+        event = service.add_tables(payload.count, payload.capacity)
+    except DomainError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return build_event_response(event)
+
+
+@router.post("/tables/{table_id}/duplicate", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
+async def duplicate_table(
+    table_id: str,
+    service: EventService = Depends(get_event_service),
+) -> EventResponse:
+    """Duplica una mesa existente con el mismo aforo."""
+
+    try:
+        event = service.duplicate_table(table_id)
     except DomainError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 

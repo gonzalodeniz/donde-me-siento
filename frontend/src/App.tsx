@@ -2,14 +2,14 @@ import { DragEvent, FormEvent, Fragment, KeyboardEvent as ReactKeyboardEvent, st
 
 import {
   assignGuest,
-  createTable,
+  createTablesBatch,
   createGuest,
   deleteGuest,
   deleteTable,
+  duplicateTable,
   fetchWorkspace,
   login,
   unassignGuest,
-  updateDefaultTableCapacity,
   updateGuest,
   updateTableCapacity,
   updateTablePosition,
@@ -128,6 +128,8 @@ export function App() {
   const [guestType, setGuestType] = useState("adulto");
   const [guestGroupId, setGuestGroupId] = useState("");
   const [guestSearchQuery, setGuestSearchQuery] = useState("");
+  const [tableBatchCount, setTableBatchCount] = useState("8");
+  const [tableBatchCapacity, setTableBatchCapacity] = useState("8");
   const [guestFormError, setGuestFormError] = useState<string | null>(null);
   const [editingGuestId, setEditingGuestId] = useState<string | null>(null);
   const [editingGuestField, setEditingGuestField] = useState<GuestEditableField>("name");
@@ -387,6 +389,8 @@ export function App() {
       setPendingGuestRemovalId(null);
       return;
     }
+
+    setTableBatchCapacity(String(workspace.default_table_capacity));
 
     const selectedStillExists =
       selectedTableId === null || selectedTableId === undefined
@@ -713,6 +717,35 @@ export function App() {
     }
   }
 
+  async function handleTableBatchCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token) {
+      return;
+    }
+
+    const count = Number(tableBatchCount);
+    const capacity = Number(tableBatchCapacity);
+    if (!Number.isInteger(count) || count <= 0) {
+      setSectionNotice("tables", "error", "Indica cuántas mesas quieres añadir.");
+      return;
+    }
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      setSectionNotice("tables", "error", "Indica cuántos asientos tendrá cada mesa.");
+      return;
+    }
+
+    const created = await runWorkspaceAction(
+      `create-table-batch-${count}-${capacity}`,
+      "tables",
+      () => createTablesBatch(token, { count, capacity }),
+      count === 1 ? "Se ha añadido una mesa nueva al salón." : `Se han añadido ${count} mesas al salón.`,
+    );
+
+    if (created) {
+      setSelectedTableId(null);
+    }
+  }
+
   function isActionRunning(actionKey: string) {
     return submittingAction === actionKey;
   }
@@ -928,22 +961,25 @@ export function App() {
             <div className="rail-section">
               <div className="rail-section__header">
                 <div>
-                  <p className="eyebrow eyebrow--compact">Mesa seleccionada</p>
-                  <h2>Ajustes de Mesa seleccionada</h2>
+                  <p className="eyebrow eyebrow--compact">{selectedTable ? "Mesa seleccionada" : "Preparación"}</p>
+                  <h2>{selectedTable ? `Mesa ${selectedTable.number}` : "Configuración maestra"}</h2>
                 </div>
               </div>
               {selectedTable ? (
-                <div className="rail-table-settings">
+                <div className="rail-table-settings rail-table-settings--selected">
                   <div className="rail-table-settings__meta">
                     <span>Mesa {selectedTable.number}</span>
                     <strong>{selectedTable.occupied} sentados</strong>
                   </div>
+                  <p className="section-copy">
+                    Ajusta esta excepción concreta sin tocar la configuración base del resto del salón.
+                  </p>
                   <button
                     className="button button--link button--small"
                     onClick={() => setSelectedTableId(null)}
                     type="button"
                   >
-                    Ajustar asientos generales
+                    Volver a configuración maestra
                   </button>
                   <div className="stepper" aria-label="Asientos">
                     <button
@@ -983,8 +1019,24 @@ export function App() {
                       +
                     </button>
                   </div>
+                  <button
+                    className="button button--ghost button--small"
+                    disabled={isActionRunning(`duplicate-table-${selectedTable.id}`)}
+                    onClick={() =>
+                      void runWorkspaceAction(
+                        `duplicate-table-${selectedTable.id}`,
+                        "tables",
+                        () => duplicateTable(selectedTable.id, token ?? ""),
+                        `La mesa ${selectedTable.number} se ha duplicado.`,
+                      )
+                    }
+                    type="button"
+                  >
+                    {isActionRunning(`duplicate-table-${selectedTable.id}`) ? "Duplicando..." : "Duplicar mesa"}
+                  </button>
                   {pendingTableRemovalId === selectedTable.id ? (
-                    <div className="rail-table-settings__confirm">
+                    <div className="rail-table-settings__confirm rail-table-settings__confirm--danger">
+                      <p>Se eliminará la mesa vacía y la numeración se ajustará automáticamente.</p>
                       <button
                         className="button button--quiet button--small"
                         onClick={() => setPendingTableRemovalId(null)}
@@ -1008,73 +1060,58 @@ export function App() {
                         }
                         type="button"
                       >
-                        {isActionRunning(`remove-table-${selectedTable.id}`) ? "Quitando..." : "Confirmar retirada"}
+                        {isActionRunning(`remove-table-${selectedTable.id}`) ? "Eliminando..." : "Confirmar eliminación"}
                       </button>
                     </div>
                   ) : (
                     <button
-                      className="button button--quiet button--small"
+                      className="button button--quiet button--small button--danger-soft"
                       onClick={() => setPendingTableRemovalId(selectedTable.id)}
                       type="button"
                     >
-                      Quitar mesa
+                      Eliminar mesa
                     </button>
                   )}
                 </div>
               ) : (
-                <div className="rail-table-settings">
-                  <p className="section-copy">Sin mesa seleccionada. Estos asientos se aplicarán a cada mesa nueva.</p>
-                  <button
-                    className="button button--ghost button--small"
-                    disabled={isActionRunning("create-table")}
-                    onClick={() =>
-                      void runWorkspaceAction(
-                        "create-table",
-                        "tables",
-                        () => createTable(token ?? ""),
-                        "Nuestra nueva mesa ya forma parte del salón.",
-                      )
-                    }
-                    type="button"
-                  >
-                    {isActionRunning("create-table") ? "Creando mesa..." : "Crear Nuestra Mesa"}
-                  </button>
-                  <div className="stepper" aria-label="Asientos generales">
+                <div className="rail-table-settings rail-table-settings--planner">
+                  <p className="section-copy">
+                    Prepara un lote inicial o añade varias mesas nuevas con el mismo aforo en una sola acción.
+                  </p>
+                  <form className="rail-batch-form" onSubmit={handleTableBatchCreate}>
+                    <label className="mini-field">
+                      <span>¿Cuántas mesas quieres añadir?</span>
+                      <input
+                        inputMode="numeric"
+                        min="1"
+                        onChange={(event) => setTableBatchCount(event.target.value)}
+                        type="number"
+                        value={tableBatchCount}
+                      />
+                    </label>
+                    <label className="mini-field">
+                      <span>¿Cuántos asientos por mesa?</span>
+                      <input
+                        inputMode="numeric"
+                        min="1"
+                        onChange={(event) => setTableBatchCapacity(event.target.value)}
+                        type="number"
+                        value={tableBatchCapacity}
+                      />
+                    </label>
                     <button
-                      className="stepper__button"
-                      disabled={isActionRunning("default-table-capacity") || (workspace?.default_table_capacity ?? 1) <= 1}
-                      onClick={() =>
-                        void runWorkspaceAction(
-                          "default-table-capacity",
-                          "tables",
-                          () => updateDefaultTableCapacity((workspace?.default_table_capacity ?? 1) - 1, token ?? ""),
-                          "Los asientos generales para nuevas mesas se han ajustado.",
-                        )
-                      }
-                      type="button"
+                      className="button button--primary button--small"
+                      disabled={isActionRunning(`create-table-batch-${Number(tableBatchCount)}-${Number(tableBatchCapacity)}`)}
+                      type="submit"
                     >
-                      -
+                      {isActionRunning(`create-table-batch-${Number(tableBatchCount)}-${Number(tableBatchCapacity)}`)
+                        ? "Generando..."
+                        : `Generar ${tableBatchCount || "0"} mesas`}
                     </button>
-                    <div className="stepper__value stepper__value--stacked">
-                      <span className="stepper__caption">Asientos generales</span>
-                      <strong>{workspace?.default_table_capacity ?? 0}</strong>
-                    </div>
-                    <button
-                      className="stepper__button"
-                      disabled={isActionRunning("default-table-capacity")}
-                      onClick={() =>
-                        void runWorkspaceAction(
-                          "default-table-capacity",
-                          "tables",
-                          () => updateDefaultTableCapacity((workspace?.default_table_capacity ?? 0) + 1, token ?? ""),
-                          "Los asientos generales para nuevas mesas se han ajustado.",
-                        )
-                      }
-                      type="button"
-                    >
-                      +
-                    </button>
-                  </div>
+                  </form>
+                  <p className="rail-table-settings__hint">
+                    Después podrás moverlas libremente en el plano y ajustar solo las excepciones mesa a mesa.
+                  </p>
                 </div>
               )}
             </div>

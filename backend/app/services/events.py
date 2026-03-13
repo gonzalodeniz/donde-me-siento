@@ -42,6 +42,16 @@ class EventService:
         event.add_table()
         return self.repository.save(event)
 
+    def add_tables(self, count: int, capacity: int) -> Event:
+        event = self.ensure_workspace()
+        event.add_tables(count, capacity)
+        return self.repository.save(event)
+
+    def duplicate_table(self, table_id: str) -> Event:
+        event = self.ensure_workspace()
+        event.duplicate_table(table_id)
+        return self.repository.save(event)
+
     def remove_table(self, table_id: str) -> Event:
         event = self.ensure_workspace()
         event.remove_table(table_id)

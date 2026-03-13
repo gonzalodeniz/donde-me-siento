@@ -209,6 +209,30 @@ async def test_create_table_and_update_default_capacity_flow(client: AsyncClient
 
 
 @pytest.mark.anyio
+async def test_batch_create_and_duplicate_table_flow(client: AsyncClient) -> None:
+    batch_response = await client.post(
+        "/api/tables/batch",
+        json={"count": 2, "capacity": 9},
+    )
+    assert batch_response.status_code == 201
+    batch_payload = batch_response.json()
+    assert batch_payload["default_table_capacity"] == 9
+    assert len(batch_payload["tables"]) == 10
+    assert batch_payload["tables"][-1]["id"] == "table-10"
+    assert batch_payload["tables"][-1]["capacity"] == 9
+
+    duplicate_response = await client.post("/api/tables/table-2/duplicate")
+    assert duplicate_response.status_code == 201
+    duplicate_payload = duplicate_response.json()
+    duplicated_table = next(table for table in duplicate_payload["tables"] if table["id"] == "table-11")
+    source_table = next(table for table in duplicate_payload["tables"] if table["id"] == "table-2")
+    assert duplicated_table["capacity"] == source_table["capacity"]
+    assert duplicated_table["number"] == 11
+    assert duplicated_table["position_x"] == source_table["position_x"] + 44.0
+    assert duplicated_table["position_y"] == source_table["position_y"] + 44.0
+
+
+@pytest.mark.anyio
 async def test_delete_table_rejects_occupied_and_reorders_empty_tables(client: AsyncClient) -> None:
     await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto"})
     await client.put("/api/guests/guest-1/assignment", json={"table_id": "table-1"})

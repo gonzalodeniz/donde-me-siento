@@ -82,6 +82,13 @@ class TablePositionUpdate(BaseModel):
     position_y: float
 
 
+class TableBatchCreateRequest(BaseModel):
+    """Payload para crear varias mesas de una vez."""
+
+    count: int = Field(gt=0, le=50)
+    capacity: int = Field(gt=0, le=24)
+
+
 class DefaultTableCapacityUpdate(BaseModel):
     """Payload para ajustar el aforo por defecto de mesas nuevas."""
 

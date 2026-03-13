@@ -441,6 +441,11 @@ select {
   background: linear-gradient(135deg, #9f4524, #7d2f1f);
 }
 
+.button--danger-soft {
+  color: #7d2f1f;
+  background: rgba(159, 69, 36, 0.1);
+}
+
 .button--small {
   width: auto;
   padding: 0.55rem 0.9rem;
@@ -558,6 +563,20 @@ select {
   gap: 0.9rem;
 }
 
+.rail-table-settings--selected {
+  min-height: 100%;
+  align-content: start;
+}
+
+.rail-table-settings--planner {
+  padding: 1rem;
+  border-radius: 1.15rem;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 249, 0.96), rgba(246, 238, 227, 0.9)),
+    var(--paper);
+  border: 1px solid rgba(119, 84, 64, 0.1);
+}
+
 .rail-table-settings__meta {
   display: flex;
   align-items: baseline;
@@ -577,6 +596,24 @@ select {
   display: flex;
   gap: 0.7rem;
   flex-wrap: wrap;
+}
+
+.rail-table-settings__confirm--danger {
+  margin-top: 0.4rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(119, 84, 64, 0.12);
+}
+
+.rail-table-settings__confirm--danger p,
+.rail-table-settings__hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.rail-batch-form {
+  display: grid;
+  gap: 0.8rem;
 }
 
 .banquet-summary {
