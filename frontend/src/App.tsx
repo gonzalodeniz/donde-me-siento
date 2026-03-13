@@ -1545,7 +1545,6 @@ export function App() {
                   <div>
                     <h3>Invitados sin sentar</h3>
                   </div>
-                  <span>{(workspace?.guests.unassigned.length ?? 0) + (workspace?.guests.assigned.length ?? 0)}</span>
                 </div>
                 <section className="guest-salon__section">
                   <div
