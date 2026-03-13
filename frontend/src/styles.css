@@ -1571,6 +1571,21 @@ select {
   font-size: 0.84rem;
 }
 
+.table-card__meter {
+  margin-top: 0.8rem;
+  height: 0.52rem;
+  border-radius: 999px;
+  background: rgba(36, 24, 20, 0.08);
+  overflow: hidden;
+}
+
+.table-card__meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #325851, #9a4f24);
+}
+
 .table-card__flags,
 .table-summary-row__flags {
   display: flex;
@@ -2437,21 +2452,6 @@ select {
 .table-summary-row--conflict {
   border-color: rgba(154, 79, 36, 0.2);
   background: rgba(255, 245, 239, 0.88);
-}
-
-.table-summary-row__meter {
-  margin-top: 0.55rem;
-  height: 0.45rem;
-  border-radius: 999px;
-  background: rgba(36, 24, 20, 0.08);
-  overflow: hidden;
-}
-
-.table-summary-row__meter i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #325851, #9a4f24);
 }
 
 .selected-table-panel {

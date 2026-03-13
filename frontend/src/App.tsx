@@ -1264,7 +1264,6 @@ export function App() {
               </div>
               <div className="table-summary-list">
                 {occupancyTables.map((table) => {
-                  const ratio = table.capacity === 0 ? 0 : Math.round((table.occupied / table.capacity) * 100);
                   return (
                     <button
                       key={table.id}
@@ -1281,9 +1280,6 @@ export function App() {
                           {conflictTableIds.has(table.id) ? <i className="status-flag status-flag--conflict">Conflicto</i> : null}
                           {table.available === 0 ? <i className="status-flag status-flag--full">Completa</i> : null}
                         </div>
-                      </div>
-                      <div className="table-summary-row__meter">
-                        <i style={{ width: `${ratio}%` }} />
                       </div>
                     </button>
                   );
@@ -1470,43 +1466,50 @@ export function App() {
                 workspace={workspaceForPlan ?? workspace}
               />
             ) : null}
-            {workspace?.tables.map((table) => (
-              <article
-                className={`table-card ${selectedTableId === table.id ? "table-card--selected" : ""} ${table.available === 0 ? "table-card--full" : ""} ${conflictTableIds.has(table.id) ? "table-card--conflict" : ""}`}
-                data-testid={`table-card-${table.id}`}
-                key={table.id}
-                onClick={() => selectTable(table.id)}
-              >
-                <div className="table-card__header">
-                  <div>
-                    <span className="table-card__label">Mesa {table.number}</span>
-                    <h3>{table.occupied}/{table.capacity} asientos</h3>
+            {workspace?.tables.map((table) => {
+              const ratio = table.capacity === 0 ? 0 : Math.round((table.occupied / table.capacity) * 100);
+
+              return (
+                <article
+                  className={`table-card ${selectedTableId === table.id ? "table-card--selected" : ""} ${table.available === 0 ? "table-card--full" : ""} ${conflictTableIds.has(table.id) ? "table-card--conflict" : ""}`}
+                  data-testid={`table-card-${table.id}`}
+                  key={table.id}
+                  onClick={() => selectTable(table.id)}
+                >
+                  <div className="table-card__header">
+                    <div>
+                      <span className="table-card__label">Mesa {table.number}</span>
+                      <h3>{table.occupied}/{table.capacity} asientos</h3>
+                    </div>
+                    <span className={`table-card__pill ${table.available === 0 ? "table-card__pill--full" : ""}`}>
+                      {table.available} libres
+                    </span>
                   </div>
-                  <span className={`table-card__pill ${table.available === 0 ? "table-card__pill--full" : ""}`}>
-                    {table.available} libres
-                  </span>
-                </div>
-                <div className="table-card__flags">
-                  {conflictTableIds.has(table.id) ? <span className="status-flag status-flag--conflict">Conflicto</span> : null}
-                  {table.available === 0 ? <span className="status-flag status-flag--full">Completa</span> : null}
-                  {table.available > 0 && table.available <= 2 ? <span className="status-flag status-flag--tight">Poco margen</span> : null}
-                </div>
-                <p className="table-card__summary">
-                  Usa el panel de mesa seleccionada para ajustar capacidad y mover invitados.
-                </p>
-                <div className="seat-ring">
-                  {table.guests.length === 0 ? (
-                    <p className="empty-state">Sin invitados asignados.</p>
-                  ) : (
-                    table.guests.map((guest) => (
-                      <div className={`guest-chip ${conflictGuestIds.has(guest.id) ? "guest-chip--conflict" : ""}`} key={guest.id}>
-                        <span>{guest.name}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </article>
-            )) ?? <p className="empty-state">Aun no hay workspace cargado.</p>}
+                  <div className="table-card__meter" aria-hidden="true">
+                    <i style={{ width: `${ratio}%` }} />
+                  </div>
+                  <div className="table-card__flags">
+                    {conflictTableIds.has(table.id) ? <span className="status-flag status-flag--conflict">Conflicto</span> : null}
+                    {table.available === 0 ? <span className="status-flag status-flag--full">Completa</span> : null}
+                    {table.available > 0 && table.available <= 2 ? <span className="status-flag status-flag--tight">Poco margen</span> : null}
+                  </div>
+                  <p className="table-card__summary">
+                    Usa el panel de mesa seleccionada para ajustar capacidad y mover invitados.
+                  </p>
+                  <div className="seat-ring">
+                    {table.guests.length === 0 ? (
+                      <p className="empty-state">Sin invitados asignados.</p>
+                    ) : (
+                      table.guests.map((guest) => (
+                        <div className={`guest-chip ${conflictGuestIds.has(guest.id) ? "guest-chip--conflict" : ""}`} key={guest.id}>
+                          <span>{guest.name}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </article>
+              );
+            }) ?? <p className="empty-state">Aun no hay workspace cargado.</p>}
           </div>
 
           <div
