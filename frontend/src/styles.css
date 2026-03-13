@@ -399,6 +399,22 @@ select {
   font-size: 0.88rem;
 }
 
+.button--icon {
+  width: 2.2rem;
+  min-width: 2.2rem;
+  padding-inline: 0;
+}
+
+.button__icon {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
 .events-panel__header,
 .list-card__header,
 .table-card__header {
@@ -1948,6 +1964,17 @@ select {
 
 .guest-table__actions--tight {
   justify-content: flex-start;
+}
+
+.guest-table__confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.guest-table__confirm span {
+  color: rgba(107, 87, 75, 0.88);
+  font-size: 0.76rem;
 }
 
 .guest-table__autosave {

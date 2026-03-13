@@ -132,6 +132,7 @@ export function App() {
   const [assignmentValues, setAssignmentValues] = useState<Record<string, string>>({});
   const [selectedTableId, setSelectedTableId] = useState<string | null | undefined>(undefined);
   const [pendingTableRemovalId, setPendingTableRemovalId] = useState<string | null>(null);
+  const [pendingGuestRemovalId, setPendingGuestRemovalId] = useState<string | null>(null);
   const [draggedGuestId, setDraggedGuestId] = useState<string | null>(null);
   const [activeDropSeat, setActiveDropSeat] = useState<SeatTarget | null>(null);
   const [isUnassignedDropActive, setIsUnassignedDropActive] = useState(false);
@@ -325,6 +326,7 @@ export function App() {
       setDraggedGuestId(null);
       setIsUnassignedDropActive(false);
       setOptimisticTablePositions({});
+      setPendingGuestRemovalId(null);
       return;
     }
 
@@ -338,7 +340,10 @@ export function App() {
     if (pendingTableRemovalId && !workspace.tables.some((table) => table.id === pendingTableRemovalId)) {
       setPendingTableRemovalId(null);
     }
-  }, [pendingTableRemovalId, selectedTableId, workspace]);
+    if (pendingGuestRemovalId && !workspace.guests.unassigned.some((guest) => guest.id === pendingGuestRemovalId)) {
+      setPendingGuestRemovalId(null);
+    }
+  }, [pendingGuestRemovalId, pendingTableRemovalId, selectedTableId, workspace]);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1283,21 +1288,53 @@ export function App() {
                                       <span className="guest-table__autosave">
                                         {isActionRunning(`update-${guest.id}`) ? "Guardando..." : "Enter o salir para guardar"}
                                       </span>
+                                    ) : pendingGuestRemovalId === guest.id ? (
+                                      <div className="guest-table__confirm">
+                                        <span>¿Quitar?</span>
+                                        <button className="button button--ghost button--small" onClick={() => setPendingGuestRemovalId(null)} type="button">
+                                          No
+                                        </button>
+                                        <button
+                                          aria-label={`Confirmar borrado de ${guest.name}`}
+                                          className="button button--danger button--small button--icon"
+                                          disabled={isActionRunning(`delete-${guest.id}`)}
+                                          onClick={() =>
+                                            void runWorkspaceAction(
+                                              `delete-${guest.id}`,
+                                              "guests",
+                                              async () => {
+                                                await deleteGuest(guest.id, token ?? "");
+                                                setPendingGuestRemovalId(null);
+                                              },
+                                              `${guest.name} eliminado.`,
+                                            )
+                                          }
+                                          type="button"
+                                        >
+                                          <svg aria-hidden="true" className="button__icon" viewBox="0 0 24 24">
+                                            <path d="M9 4.75h6" />
+                                            <path d="M5.75 7.25h12.5" />
+                                            <path d="M8.25 7.25v10.1A1.4 1.4 0 0 0 9.65 18.75h4.7a1.4 1.4 0 0 0 1.4-1.4V7.25" />
+                                            <path d="M10 10.25v5.5" />
+                                            <path d="M14 10.25v5.5" />
+                                          </svg>
+                                        </button>
+                                      </div>
                                     ) : (
                                       <button
-                                        className="button button--ghost button--small"
+                                        aria-label={`Eliminar a ${guest.name}`}
+                                        className="button button--ghost button--small button--icon"
                                         disabled={isActionRunning(`delete-${guest.id}`)}
-                                        onClick={() =>
-                                          void runWorkspaceAction(
-                                            `delete-${guest.id}`,
-                                            "guests",
-                                            () => deleteGuest(guest.id, token ?? ""),
-                                            `${guest.name} eliminado.`,
-                                          )
-                                        }
+                                        onClick={() => setPendingGuestRemovalId(guest.id)}
                                         type="button"
                                       >
-                                        Eliminar
+                                        <svg aria-hidden="true" className="button__icon" viewBox="0 0 24 24">
+                                          <path d="M9 4.75h6" />
+                                          <path d="M5.75 7.25h12.5" />
+                                          <path d="M8.25 7.25v10.1A1.4 1.4 0 0 0 9.65 18.75h4.7a1.4 1.4 0 0 0 1.4-1.4V7.25" />
+                                          <path d="M10 10.25v5.5" />
+                                          <path d="M14 10.25v5.5" />
+                                        </svg>
                                       </button>
                                     )}
                                   </div>
