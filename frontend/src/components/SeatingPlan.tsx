@@ -483,11 +483,6 @@ export function SeatingPlan({
             <strong>{draggedGuestName}</strong>
             <span>Busca una silla libre resaltada y suelta ahí para recolocar al invitado.</span>
           </div>
-        ) : isDraggingTable ? (
-          <div className="plan-stage__guide" aria-live="polite">
-            <strong>Reubicando mesa</strong>
-            <span>Suelta la mesa cuando coincida con la distribución real del salón.</span>
-          </div>
         ) : null}
         <div
           ref={scrollViewportRef}
