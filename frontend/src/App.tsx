@@ -1059,7 +1059,7 @@ export function App() {
               <div className="rail-section__header">
                 <div>
                   <p className="eyebrow eyebrow--compact">{selectedTable ? "Mesa seleccionada" : "Preparación"}</p>
-                  <h2>{selectedTable ? `Mesa ${selectedTable.number}` : "Configuración maestra"}</h2>
+                  <h2>{selectedTable ? `Mesa ${selectedTable.number}` : "Crea tu salón"}</h2>
                 </div>
               </div>
               {selectedTable ? (
