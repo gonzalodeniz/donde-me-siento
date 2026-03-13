@@ -1222,10 +1222,12 @@ select {
 .list-card {
   padding: 1.1rem;
   border-radius: 1.4rem;
+  min-width: 0;
 }
 
 .list-card--guests {
   padding: 1.35rem 1.2rem 1.2rem;
+  min-width: 0;
   background:
     linear-gradient(180deg, rgba(255, 253, 249, 0.98), rgba(247, 239, 230, 0.94)),
     var(--paper);
@@ -1610,6 +1612,7 @@ select {
 .lists-panel {
   display: grid;
   gap: 1rem;
+  min-width: 0;
 }
 
 .microcopy {
@@ -1704,6 +1707,7 @@ select {
   margin-top: 1.35rem;
   display: grid;
   gap: 0.85rem;
+  min-width: 0;
 }
 
 .guest-salon__section--compact {
@@ -1738,8 +1742,12 @@ select {
 
 .guest-collapse,
 .guest-composer {
+  display: block;
+  width: 100%;
+  max-width: 100%;
   margin-top: 1.15rem;
   border-top: 1px solid rgba(119, 84, 64, 0.1);
+  min-width: 0;
 }
 
 .guest-collapse[open],
@@ -1808,7 +1816,18 @@ select {
 }
 
 .guest-collapse__content {
+  display: block;
+  width: 100%;
   margin-top: 0.85rem;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.guest-collapse__content > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .guest-list--paper,
@@ -1825,14 +1844,42 @@ select {
 }
 
 .guest-table-shell {
-  overflow: auto;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: auto;
   border: 1px solid rgba(119, 84, 64, 0.1);
   border-radius: 1rem;
   background: rgba(255, 252, 247, 0.82);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(119, 84, 64, 0.42) rgba(255, 250, 245, 0.9);
+}
+
+.guest-table-shell::-webkit-scrollbar {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.guest-table-shell::-webkit-scrollbar-track {
+  background: rgba(255, 250, 245, 0.9);
+  border-radius: 999px;
+}
+
+.guest-table-shell::-webkit-scrollbar-thumb {
+  background: rgba(119, 84, 64, 0.42);
+  border-radius: 999px;
+  border: 2px solid rgba(255, 250, 245, 0.9);
 }
 
 .guest-table-shell--compact {
   margin-top: 0.2rem;
+  display: block;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: scroll;
 }
 
 .guest-table-shell--drop-active {
@@ -1842,7 +1889,7 @@ select {
 }
 
 .guest-table {
-  width: 100%;
+  width: max-content;
   min-width: 44rem;
   border-collapse: collapse;
 }
