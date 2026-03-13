@@ -914,6 +914,54 @@ select {
     linear-gradient(180deg, rgba(255, 252, 247, 0.92), rgba(247, 239, 229, 0.84));
   border: 1px solid rgba(119, 84, 64, 0.1);
   overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.plan-stage__zoom-controls {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid rgba(119, 84, 64, 0.14);
+  background: rgba(255, 251, 246, 0.92);
+  box-shadow: 0 12px 28px rgba(87, 49, 24, 0.1);
+}
+
+.plan-stage__zoom-button,
+.plan-stage__zoom-reset {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.15rem;
+  height: 2.15rem;
+  padding: 0 0.7rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(119, 84, 64, 0.08);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 700;
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+
+.plan-stage__zoom-button:hover,
+.plan-stage__zoom-button:focus-visible,
+.plan-stage__zoom-reset:hover,
+.plan-stage__zoom-reset:focus-visible {
+  background: rgba(154, 79, 36, 0.16);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.plan-stage__zoom-reset {
+  min-width: 3.8rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
 }
 
 .plan-stage--dragging {
@@ -964,6 +1012,13 @@ select {
   width: 100%;
   height: auto;
   display: block;
+}
+
+.plan-stage__viewport {
+  position: relative;
+  transform-origin: center center;
+  transition: transform 140ms ease;
+  will-change: transform;
 }
 
 .plan-stage__drops {

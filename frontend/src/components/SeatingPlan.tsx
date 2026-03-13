@@ -80,7 +80,9 @@ export function SeatingPlan({
   onSeatDragLeave,
   onSeatDrop,
 }: SeatingPlanProps) {
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
   const [draggedTable, setDraggedTable] = useState<{
     tableId: string;
     offsetX: number;
@@ -112,6 +114,26 @@ export function SeatingPlan({
   const height = maxY - minY;
   const isDraggingGuest = Boolean(draggedGuestName);
   const isDraggingTable = Boolean(draggedTable);
+  const zoomPercent = Math.round(zoomLevel * 100);
+
+  useEffect(() => {
+    const stageElement = stageRef.current;
+    if (!stageElement) {
+      return undefined;
+    }
+
+    const handleNativeWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const delta = event.deltaY < 0 ? 0.08 : -0.08;
+      setZoomLevel((current) => clampZoom(Number((current + delta).toFixed(2))));
+    };
+
+    stageElement.addEventListener("wheel", handleNativeWheel, { passive: false });
+
+    return () => {
+      stageElement.removeEventListener("wheel", handleNativeWheel);
+    };
+  }, []);
 
   useEffect(() => {
     if (!draggedTable) {
@@ -195,6 +217,22 @@ export function SeatingPlan({
     });
   }
 
+  function clampZoom(nextZoom: number) {
+    return Math.min(Math.max(nextZoom, 0.65), 1.9);
+  }
+
+  function zoomIn() {
+    setZoomLevel((current) => clampZoom(Number((current + 0.12).toFixed(2))));
+  }
+
+  function zoomOut() {
+    setZoomLevel((current) => clampZoom(Number((current - 0.12).toFixed(2))));
+  }
+
+  function resetZoom() {
+    setZoomLevel(1);
+  }
+
   return (
     <section className="plan-card">
       <div className="plan-card__header">
@@ -223,7 +261,21 @@ export function SeatingPlan({
         </div>
       </div>
 
-      <div className={`plan-stage ${isDraggingGuest ? "plan-stage--dragging" : ""}`}>
+      <div
+        ref={stageRef}
+        className={`plan-stage ${isDraggingGuest ? "plan-stage--dragging" : ""}`}
+      >
+        <div className="plan-stage__zoom-controls" aria-label="Controles de zoom del plano">
+          <button aria-label="Alejar plano" className="plan-stage__zoom-button" onClick={zoomOut} type="button">
+            −
+          </button>
+          <button aria-label="Acercar plano" className="plan-stage__zoom-button" onClick={zoomIn} type="button">
+            +
+          </button>
+          <button aria-label="Restablecer zoom" className="plan-stage__zoom-reset" onClick={resetZoom} type="button">
+            {zoomPercent}%
+          </button>
+        </div>
         {isDraggingGuest ? (
           <div className="plan-stage__guide" aria-live="polite">
             <strong>{draggedGuestName}</strong>
@@ -235,20 +287,21 @@ export function SeatingPlan({
             <span>Suelta la mesa cuando coincida con la distribución real del salón.</span>
           </div>
         ) : null}
-        <svg
-          aria-label="Plano del salón"
-          className="plan-stage__svg"
-          ref={svgRef}
-          viewBox={`${minX} ${minY} ${width} ${height}`}
-          role="img"
-        >
-          <defs>
-            <filter id="tableShadow" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="10" stdDeviation="12" floodColor="rgba(87, 49, 24, 0.18)" />
-            </filter>
-          </defs>
+        <div className="plan-stage__viewport" style={{ transform: `scale(${zoomLevel})` }}>
+          <svg
+            aria-label="Plano del salón"
+            className="plan-stage__svg"
+            ref={svgRef}
+            viewBox={`${minX} ${minY} ${width} ${height}`}
+            role="img"
+          >
+            <defs>
+              <filter id="tableShadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="10" stdDeviation="12" floodColor="rgba(87, 49, 24, 0.18)" />
+              </filter>
+            </defs>
 
-          {workspace.tables.map((table) => {
+            {workspace.tables.map((table) => {
             const position = renderedPositions.get(table.id) ?? {
               positionX: table.position_x,
               positionY: table.position_y,
@@ -269,21 +322,21 @@ export function SeatingPlan({
               return { seatIndex: index, seatX, seatY, guest, hasConflict };
             });
 
-            return (
-              <g
-                className={`plan-table ${isSelected ? "plan-table--selected" : ""} ${draggedTable?.tableId === table.id ? "plan-table--moving" : ""}`}
-                data-testid={`plan-table-${table.id}`}
-                key={table.id}
-                onClick={() => onSelectTable(table.id)}
-                onPointerDown={(event) => handleTablePointerDown(event, table.id, position.positionX, position.positionY)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    onSelectTable(table.id);
-                  }
-                }}
-              >
+              return (
+                <g
+                  className={`plan-table ${isSelected ? "plan-table--selected" : ""} ${draggedTable?.tableId === table.id ? "plan-table--moving" : ""}`}
+                  data-testid={`plan-table-${table.id}`}
+                  key={table.id}
+                  onClick={() => onSelectTable(table.id)}
+                  onPointerDown={(event) => handleTablePointerDown(event, table.id, position.positionX, position.positionY)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      onSelectTable(table.id);
+                    }
+                  }}
+                >
                 <circle
                   className={`plan-table__halo ${isFull ? "plan-table__halo--full" : ""}`}
                   cx={position.positionX}
@@ -342,13 +395,13 @@ export function SeatingPlan({
                     </g>
                   );
                 })}
-              </g>
-            );
-          })}
-        </svg>
+                </g>
+              );
+            })}
+          </svg>
 
-        <div className="plan-stage__drops">
-          {workspace.tables.flatMap((table) => {
+          <div className="plan-stage__drops">
+            {workspace.tables.flatMap((table) => {
             const position = renderedPositions.get(table.id) ?? {
               positionX: table.position_x,
               positionY: table.position_y,
@@ -357,7 +410,7 @@ export function SeatingPlan({
             const labelRadius = 98;
             const guestsBySeat = buildSeatGuests(table.guests, seatCount);
 
-            return Array.from({ length: seatCount }, (_, seatIndex) => {
+              return Array.from({ length: seatCount }, (_, seatIndex) => {
               const angle = (Math.PI * 2 * seatIndex) / seatCount - Math.PI / 2;
               const seatX = position.positionX + Math.cos(angle) * labelRadius;
               const seatY = position.positionY + Math.sin(angle) * labelRadius;
@@ -367,56 +420,57 @@ export function SeatingPlan({
               const isDropTarget =
                 activeDropSeat?.tableId === table.id && activeDropSeat.seatIndex === seatIndex;
 
-              if (guest) {
+                if (guest) {
+                  return (
+                    <button
+                      aria-label={`${guest.name} en mesa ${table.number}, silla ${seatIndex + 1}`}
+                      className="plan-seat-hit plan-seat-hit--occupied"
+                      draggable
+                      key={`seat-hit-${table.id}-${seatIndex}`}
+                      onClick={() => onSelectTable(table.id)}
+                      onDragEnd={onGuestDragEnd}
+                      onDragStart={(event) => onGuestDragStart(event, guest.id)}
+                      style={{ left: `${left}%`, top: `${top}%` }}
+                      type="button"
+                    />
+                  );
+                }
+
                 return (
                   <button
-                    aria-label={`${guest.name} en mesa ${table.number}, silla ${seatIndex + 1}`}
-                    className="plan-seat-hit plan-seat-hit--occupied"
-                    draggable
+                    aria-label={`Silla ${seatIndex + 1} libre en mesa ${table.number}`}
+                    className={`plan-seat-hit plan-seat-hit--empty ${isDraggingGuest ? "plan-seat-hit--visible" : ""} ${isDropTarget ? "plan-seat-hit--active" : ""}`}
                     key={`seat-hit-${table.id}-${seatIndex}`}
                     onClick={() => onSelectTable(table.id)}
-                    onDragEnd={onGuestDragEnd}
-                    onDragStart={(event) => onGuestDragStart(event, guest.id)}
+                    onDragEnter={(event) => {
+                      event.preventDefault();
+                      onSeatDragEnter(table.id, seatIndex);
+                    }}
+                    onDragLeave={(event) => {
+                      event.preventDefault();
+                      onSeatDragLeave(table.id, seatIndex);
+                    }}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      onSeatDragEnter(table.id, seatIndex);
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      onSeatDrop(table.id, seatIndex, event.dataTransfer.getData("text/plain") || null);
+                    }}
                     style={{ left: `${left}%`, top: `${top}%` }}
                     type="button"
-                  />
+                  >
+                    {isDraggingGuest ? (
+                      <span className="plan-seat-hit__label">
+                        {isDropTarget ? "Soltar aquí" : `Mesa ${table.number}`}
+                      </span>
+                    ) : null}
+                  </button>
                 );
-              }
-
-              return (
-                <button
-                  aria-label={`Silla ${seatIndex + 1} libre en mesa ${table.number}`}
-                  className={`plan-seat-hit plan-seat-hit--empty ${isDraggingGuest ? "plan-seat-hit--visible" : ""} ${isDropTarget ? "plan-seat-hit--active" : ""}`}
-                  key={`seat-hit-${table.id}-${seatIndex}`}
-                  onClick={() => onSelectTable(table.id)}
-                  onDragEnter={(event) => {
-                    event.preventDefault();
-                    onSeatDragEnter(table.id, seatIndex);
-                  }}
-                  onDragLeave={(event) => {
-                    event.preventDefault();
-                    onSeatDragLeave(table.id, seatIndex);
-                  }}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    onSeatDragEnter(table.id, seatIndex);
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    onSeatDrop(table.id, seatIndex, event.dataTransfer.getData("text/plain") || null);
-                  }}
-                  style={{ left: `${left}%`, top: `${top}%` }}
-                  type="button"
-                >
-                  {isDraggingGuest ? (
-                    <span className="plan-seat-hit__label">
-                      {isDropTarget ? "Soltar aquí" : `Mesa ${table.number}`}
-                    </span>
-                  ) : null}
-                </button>
-              );
-            });
-          })}
+              });
+            })}
+          </div>
         </div>
       </div>
     </section>
