@@ -1317,7 +1317,8 @@ select {
 .plan-table__halo {
   fill: rgba(154, 79, 36, 0.06);
   stroke: transparent;
-  transition: fill 160ms ease, stroke 160ms ease, opacity 160ms ease;
+  opacity: 0.72;
+  transition: fill 160ms ease, stroke 160ms ease, opacity 160ms ease, transform 160ms ease;
 }
 
 .plan-table__halo--full {
@@ -1328,7 +1329,7 @@ select {
   fill: rgba(255, 253, 249, 0.96);
   stroke: rgba(114, 79, 55, 0.22);
   stroke-width: 1.5;
-  transition: stroke 160ms ease, transform 160ms ease;
+  transition: fill 160ms ease, stroke 160ms ease, stroke-width 160ms ease, transform 160ms ease;
 }
 
 .plan-table__disc--full {
@@ -1336,9 +1337,27 @@ select {
 }
 
 .plan-table--selected .plan-table__halo {
-  fill: rgba(154, 79, 36, 0.08);
-  stroke: rgba(114, 79, 55, 0.28);
-  stroke-width: 2.2;
+  fill: rgba(210, 146, 69, 0.2);
+  stroke: rgba(154, 79, 36, 0.7);
+  stroke-width: 3.4;
+  opacity: 1;
+  transform: scale(1.04);
+}
+
+.plan-table--selected .plan-table__disc {
+  fill: rgba(255, 248, 237, 0.98);
+  stroke: rgba(154, 79, 36, 0.92);
+  stroke-width: 3;
+  transform: translateY(-1px);
+}
+
+.plan-table--selected .plan-table__number {
+  fill: #8a4317;
+}
+
+.plan-table--selected .plan-table__capacity {
+  fill: #7c4b2f;
+  font-weight: 700;
 }
 
 .plan-table--moving .plan-table__halo {
@@ -1443,8 +1462,14 @@ select {
 }
 
 .table-card--selected {
-  border-color: rgba(50, 88, 81, 0.28);
-  box-shadow: 0 20px 45px rgba(50, 88, 81, 0.15);
+  border-color: rgba(154, 79, 36, 0.5);
+  background:
+    linear-gradient(180deg, rgba(255, 250, 242, 0.98), rgba(249, 235, 220, 0.96)),
+    var(--paper);
+  box-shadow:
+    0 0 0 2px rgba(221, 169, 78, 0.42),
+    0 22px 48px rgba(154, 79, 36, 0.18);
+  transform: translateY(-1px);
 }
 
 .table-card {
@@ -2369,8 +2394,11 @@ select {
 }
 
 .table-summary-row--active {
-  border-color: rgba(50, 88, 81, 0.28);
-  background: rgba(50, 88, 81, 0.1);
+  border-color: rgba(154, 79, 36, 0.46);
+  background: linear-gradient(180deg, rgba(255, 248, 238, 0.98), rgba(247, 231, 213, 0.96));
+  box-shadow:
+    inset 0 0 0 1px rgba(221, 169, 78, 0.4),
+    0 12px 28px rgba(154, 79, 36, 0.12);
 }
 
 .table-summary-row--full {
