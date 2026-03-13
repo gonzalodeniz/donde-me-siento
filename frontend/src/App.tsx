@@ -1123,6 +1123,23 @@ export function App() {
           />
 
           <div className={`lists-panel ${guestSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={guestSectionBusy}>
+            <section className="list-card list-card--search">
+              <label className="guest-search guest-search--panel">
+                <span aria-hidden="true" className="guest-search__icon">
+                  <svg viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="6.5" />
+                    <path d="M16 16l4.5 4.5" />
+                  </svg>
+                </span>
+                <input
+                  onChange={(event) => setGuestSearchQuery(event.target.value)}
+                  placeholder="Encuentra a un ser querido..."
+                  type="search"
+                  value={guestSearchQuery}
+                />
+              </label>
+            </section>
+
             <section className="list-card list-card--guests">
               <div data-testid="unassigned-guests-panel">
                 {sectionNotices.guests ? (
@@ -1136,14 +1153,6 @@ export function App() {
                   </div>
                   <span>{(workspace?.guests.unassigned.length ?? 0) + (workspace?.guests.assigned.length ?? 0)}</span>
                 </div>
-                <label className="guest-search">
-                  <input
-                    onChange={(event) => setGuestSearchQuery(event.target.value)}
-                    placeholder="Encuentra a un ser querido..."
-                    type="search"
-                    value={guestSearchQuery}
-                  />
-                </label>
                 <section className="guest-salon__section">
                   <div className="guest-salon__section-header">
                     <div>

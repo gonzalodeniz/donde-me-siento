@@ -1231,6 +1231,13 @@ select {
     var(--paper);
 }
 
+.list-card--search {
+  padding: 0.95rem 1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 254, 251, 0.98), rgba(248, 241, 232, 0.94)),
+    var(--paper);
+}
+
 .control-card {
   padding: 1.1rem;
   border-radius: 1.4rem;
@@ -1617,6 +1624,36 @@ select {
   border-bottom: 1px solid rgba(119, 84, 64, 0.16);
 }
 
+.guest-search--panel {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0;
+  border-bottom: 0;
+}
+
+.guest-search__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 999px;
+  background: rgba(119, 84, 64, 0.08);
+  color: rgba(107, 87, 75, 0.86);
+  flex: 0 0 auto;
+}
+
+.guest-search__icon svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.9;
+}
+
 .guest-search input {
   width: 100%;
   padding: 0;
@@ -1624,6 +1661,10 @@ select {
   border-radius: 0;
   background: transparent;
   outline: none;
+}
+
+.guest-search--panel input {
+  padding: 0.35rem 0;
 }
 
 .guest-search input::placeholder {
