@@ -1058,8 +1058,8 @@ export function App() {
               <div className="rail-section">
               <div className="rail-section__header">
                 <div>
-                  <p className="eyebrow eyebrow--compact">{selectedTable ? "Mesa seleccionada" : "Preparación"}</p>
-                  <h2>{selectedTable ? `Mesa ${selectedTable.number}` : "Crea tu salón"}</h2>
+                  <p className="eyebrow eyebrow--compact">Preparación</p>
+                  <h2>Crea tu salón</h2>
                 </div>
               </div>
               {selectedTable ? (
@@ -1068,9 +1068,6 @@ export function App() {
                     <span>Mesa {selectedTable.number}</span>
                     <strong>{selectedTable.occupied} sentados</strong>
                   </div>
-                  <p className="section-copy">
-                    Ajusta esta excepción concreta sin tocar la configuración base del resto del salón.
-                  </p>
                   <button
                     className="button button--link button--small"
                     onClick={() => setSelectedTableId(null)}
@@ -1172,9 +1169,6 @@ export function App() {
                 </div>
               ) : (
                 <div className="rail-table-settings rail-table-settings--planner">
-                  <p className="section-copy">
-                    Prepara un lote inicial o añade varias mesas nuevas con el mismo aforo en una sola acción.
-                  </p>
                   <form className="rail-batch-form" onSubmit={handleTableBatchCreate}>
                     <label className="mini-field">
                       <span>¿Cuántas mesas quieres añadir?</span>
