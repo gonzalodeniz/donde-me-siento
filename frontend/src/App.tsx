@@ -890,9 +890,21 @@ export function App() {
     >
       <div className="shell__backdrop shell__backdrop--one" />
       <div className="shell__backdrop shell__backdrop--two" />
+      <header className="topbar">
+        <div className="topbar__brand">
+          <span className="topbar__title">dónde me siento</span>
+        </div>
+        <div className="topbar__center">
+          <span className="topbar__couple">Héctor & Raquel</span>
+        </div>
+        <div className="topbar__session">
+          <button className="button button--link button--small" onClick={handleLogout} type="button">
+            Salir
+          </button>
+        </div>
+      </header>
       <aside className={`rail ${isRailOpen ? "" : "rail--collapsed"}`}>
         <div className="rail__inner">
-          <p className="eyebrow">Donde me siento</p>
           <div className="rail__masthead">
             <button
               aria-expanded={isRailOpen}
@@ -1161,18 +1173,6 @@ export function App() {
       ) : null}
 
       <main className="workspace">
-        <header className="topbar">
-          <div className="topbar__brand" />
-          <div className="topbar__center">
-            <span className="topbar__couple">Héctor & Raquel</span>
-          </div>
-          <div className="topbar__session">
-            <button className="button button--link button--small" onClick={handleLogout} type="button">
-              Salir
-            </button>
-          </div>
-        </header>
-
         {errorMessage ? <div className="banner banner--error">{errorMessage}</div> : null}
         {loadingWorkspace ? <div className="banner">Actualizando workspace...</div> : null}
 
