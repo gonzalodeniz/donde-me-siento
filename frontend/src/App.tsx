@@ -1541,15 +1541,6 @@ export function App() {
                   <span>{(workspace?.guests.unassigned.length ?? 0) + (workspace?.guests.assigned.length ?? 0)}</span>
                 </div>
                 <section className="guest-salon__section">
-                  <div className="guest-salon__section-header">
-                    <div>
-                      <h4>Por asignar</h4>
-                      <p>Formato compacto para trabajar con listados largos.</p>
-                    </div>
-                    <span>
-                      {filteredUnassignedGuests.length}/{workspace?.guests.unassigned.length ?? 0}
-                    </span>
-                  </div>
                   <div
                     className={`guest-table-shell ${isUnassignedDropActive ? "guest-table-shell--drop-active" : ""}`}
                     onDragLeave={handleUnassignedDragLeave}
