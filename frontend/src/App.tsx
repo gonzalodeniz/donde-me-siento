@@ -1057,6 +1057,8 @@ export function App() {
               <SeatingPlan
                 activeDropSeat={activeDropSeat}
                 draggedGuestName={draggedGuest?.name ?? null}
+                highlightedGuestIds={filteredAssignedGuests.map((guest) => guest.id)}
+                isSearchActive={Boolean(deferredGuestSearchQuery)}
                 onGuestDragEnd={handleGuestDragEnd}
                 onGuestDragStart={handleGuestDragStart}
                 onMoveTable={handleTableMove}

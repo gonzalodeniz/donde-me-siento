@@ -13,6 +13,8 @@ type SeatingPlanProps = {
   selectedTableId: string | null;
   activeDropSeat: SeatTarget | null;
   draggedGuestName: string | null;
+  highlightedGuestIds: string[];
+  isSearchActive: boolean;
   onGuestDragEnd: () => void;
   onGuestDragStart: (event: DragEvent<Element>, guestId: string) => void;
   onMoveTable: (tableId: string, positionX: number, positionY: number) => Promise<void>;
@@ -84,6 +86,8 @@ export function SeatingPlan({
   selectedTableId,
   activeDropSeat,
   draggedGuestName,
+  highlightedGuestIds,
+  isSearchActive,
   onGuestDragEnd,
   onGuestDragStart,
   onMoveTable,
@@ -113,6 +117,7 @@ export function SeatingPlan({
   const conflictGuestIds = new Set(
     Object.values(workspace.validation.grouping_conflicts).flatMap((guestIds) => guestIds),
   );
+  const highlightedGuestIdSet = useMemo(() => new Set(highlightedGuestIds), [highlightedGuestIds]);
   const guestById = useMemo(
     () =>
       new Map(
@@ -250,6 +255,76 @@ export function SeatingPlan({
       window.removeEventListener("pointercancel", stopPanning);
     };
   }, [stagePanStart]);
+
+  useEffect(() => {
+    if (!isSearchActive || highlightedGuestIdSet.size === 0) {
+      return;
+    }
+
+    const viewport = scrollViewportRef.current;
+    if (!viewport) {
+      return;
+    }
+
+    const matchingSeats = workspace.tables.flatMap((table) => {
+      const position = renderedPositions.get(table.id) ?? {
+        positionX: table.position_x,
+        positionY: table.position_y,
+      };
+      const seatCount = Math.max(table.capacity, 1);
+      const labelRadius = 98;
+      const guestsBySeat = buildSeatGuests(table.guests, seatCount);
+
+      return Array.from({ length: seatCount }, (_, seatIndex) => {
+        const guest = guestsBySeat.get(seatIndex) ?? null;
+        if (!guest || !highlightedGuestIdSet.has(guest.id)) {
+          return null;
+        }
+
+        const angle = (Math.PI * 2 * seatIndex) / seatCount - Math.PI / 2;
+        const seatX = position.positionX + Math.cos(angle) * labelRadius;
+        const seatY = position.positionY + Math.sin(angle) * labelRadius;
+        const { seatRadius } = getSeatVisualMetrics(guest.name);
+
+        return {
+          minX: seatX - seatRadius - 22,
+          maxX: seatX + seatRadius + 22,
+          minY: seatY - seatRadius - 22,
+          maxY: seatY + seatRadius + 22,
+        };
+      }).filter((seat): seat is { minX: number; maxX: number; minY: number; maxY: number } => seat !== null);
+    });
+
+    if (matchingSeats.length === 0) {
+      return;
+    }
+
+    const bounds = matchingSeats.reduce(
+      (current, seat) => ({
+        minX: Math.min(current.minX, seat.minX),
+        maxX: Math.max(current.maxX, seat.maxX),
+        minY: Math.min(current.minY, seat.minY),
+        maxY: Math.max(current.maxY, seat.maxY),
+      }),
+      { minX: Number.POSITIVE_INFINITY, maxX: Number.NEGATIVE_INFINITY, minY: Number.POSITIVE_INFINITY, maxY: Number.NEGATIVE_INFINITY },
+    );
+
+    const targetWidth = Math.max(bounds.maxX - bounds.minX, 1);
+    const targetHeight = Math.max(bounds.maxY - bounds.minY, 1);
+    const availableWidth = Math.max(viewport.clientWidth - 48, 1);
+    const availableHeight = Math.max(viewport.clientHeight - 48, 1);
+    const targetZoom = clampZoom(Math.min(availableWidth / targetWidth, availableHeight / targetHeight));
+    const nextZoom = Number(targetZoom.toFixed(2));
+
+    setZoomLevel(nextZoom);
+
+    requestAnimationFrame(() => {
+      const centerX = (bounds.minX + bounds.maxX) / 2;
+      const centerY = (bounds.minY + bounds.maxY) / 2;
+      viewport.scrollLeft = Math.max(((centerX - minX) * nextZoom) - viewport.clientWidth / 2, 0);
+      viewport.scrollTop = Math.max(((centerY - minY) * nextZoom) - viewport.clientHeight / 2, 0);
+    });
+  }, [highlightedGuestIdSet, isSearchActive, minX, minY, renderedPositions, workspace.tables]);
 
   function getSvgCoordinates(clientX: number, clientY: number) {
     const svgElement = svgRef.current;
@@ -511,11 +586,12 @@ export function SeatingPlan({
                   const isDropTarget =
                     activeDropSeat?.tableId === table.id && activeDropSeat.seatIndex === seatIndex;
                   const conflictTooltip = guest ? conflictTooltipByGuestId.get(guest.id) : null;
+                  const isSearchMatch = guest ? highlightedGuestIdSet.has(guest.id) : false;
 
                   return (
                     <g key={`${table.id}-seat-${seatIndex}`}>
                       <circle
-                        className={`plan-seat ${guest ? "plan-seat--occupied" : ""} ${hasConflict ? "plan-seat--conflict" : ""} ${isDropTarget ? "plan-seat--drop" : ""} ${isDraggingGuest && !guest ? "plan-seat--available" : ""}`}
+                        className={`plan-seat ${guest ? "plan-seat--occupied" : ""} ${hasConflict ? "plan-seat--conflict" : ""} ${isSearchMatch ? "plan-seat--search-match" : ""} ${isDropTarget ? "plan-seat--drop" : ""} ${isDraggingGuest && !guest ? "plan-seat--available" : ""}`}
                         cx={seatX}
                         cy={seatY}
                         r={guest ? seatRadius : 18}

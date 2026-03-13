@@ -1185,6 +1185,12 @@ select {
   stroke: rgba(114, 79, 55, 0.18);
 }
 
+.plan-seat--search-match {
+  fill: rgba(217, 188, 76, 0.86);
+  stroke: rgba(146, 103, 16, 0.9);
+  stroke-width: 2.4;
+}
+
 .plan-seat--conflict {
   fill: rgba(190, 68, 36, 0.42);
   stroke: rgba(154, 49, 21, 0.72);
