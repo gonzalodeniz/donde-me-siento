@@ -198,6 +198,12 @@ class Event:
         table.capacity = capacity
         return table
 
+    def update_table_position(self, table_id: str, position_x: float, position_y: float) -> Table:
+        table = self._get_table(table_id)
+        table.position_x = position_x
+        table.position_y = position_y
+        return table
+
     def guests_with_table(self) -> list[Guest]:
         return sorted(
             (guest for guest in self.guests.values() if guest.table_id is not None),

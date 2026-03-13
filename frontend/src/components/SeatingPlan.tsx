@@ -1,4 +1,5 @@
-import type { DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { DragEvent, PointerEvent as ReactPointerEvent } from "react";
 
 import type { Guest, Workspace } from "../types";
 
@@ -14,6 +15,7 @@ type SeatingPlanProps = {
   draggedGuestName: string | null;
   onGuestDragEnd: () => void;
   onGuestDragStart: (event: DragEvent<Element>, guestId: string) => void;
+  onMoveTable: (tableId: string, positionX: number, positionY: number) => Promise<void>;
   onSelectTable: (tableId: string) => void;
   onSeatDragEnter: (tableId: string, seatIndex: number) => void;
   onSeatDragLeave: (tableId: string, seatIndex: number) => void;
@@ -72,22 +74,126 @@ export function SeatingPlan({
   draggedGuestName,
   onGuestDragEnd,
   onGuestDragStart,
+  onMoveTable,
   onSelectTable,
   onSeatDragEnter,
   onSeatDragLeave,
   onSeatDrop,
 }: SeatingPlanProps) {
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [draggedTable, setDraggedTable] = useState<{
+    tableId: string;
+    offsetX: number;
+    offsetY: number;
+    positionX: number;
+    positionY: number;
+  } | null>(null);
   const conflictGuestIds = new Set(
     Object.values(workspace.validation.grouping_conflicts).flatMap((guestIds) => guestIds),
   );
+  const renderedPositions = useMemo(
+    () =>
+      new Map(
+        workspace.tables.map((table) => [
+          table.id,
+          draggedTable?.tableId === table.id
+            ? { positionX: draggedTable.positionX, positionY: draggedTable.positionY }
+            : { positionX: table.position_x, positionY: table.position_y },
+        ]),
+      ),
+    [draggedTable, workspace.tables],
+  );
 
-  const minX = Math.min(...workspace.tables.map((table) => table.position_x)) - 160;
-  const minY = Math.min(...workspace.tables.map((table) => table.position_y)) - 160;
-  const maxX = Math.max(...workspace.tables.map((table) => table.position_x)) + 180;
-  const maxY = Math.max(...workspace.tables.map((table) => table.position_y)) + 180;
+  const minX = Math.min(...Array.from(renderedPositions.values(), (table) => table.positionX)) - 160;
+  const minY = Math.min(...Array.from(renderedPositions.values(), (table) => table.positionY)) - 160;
+  const maxX = Math.max(...Array.from(renderedPositions.values(), (table) => table.positionX)) + 180;
+  const maxY = Math.max(...Array.from(renderedPositions.values(), (table) => table.positionY)) + 180;
   const width = maxX - minX;
   const height = maxY - minY;
   const isDraggingGuest = Boolean(draggedGuestName);
+  const isDraggingTable = Boolean(draggedTable);
+
+  useEffect(() => {
+    if (!draggedTable) {
+      return undefined;
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const nextPosition = getSvgCoordinates(event.clientX, event.clientY);
+      if (!nextPosition) {
+        return;
+      }
+
+      setDraggedTable((current) =>
+        current
+          ? {
+              ...current,
+              positionX: nextPosition.x - current.offsetX,
+              positionY: nextPosition.y - current.offsetY,
+            }
+          : current,
+      );
+    };
+
+    const handlePointerUp = () => {
+      const activeDrag = draggedTable;
+      setDraggedTable(null);
+      void onMoveTable(activeDrag.tableId, activeDrag.positionX, activeDrag.positionY);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp, { once: true });
+    window.addEventListener("pointercancel", handlePointerUp, { once: true });
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+  }, [draggedTable, onMoveTable]);
+
+  function getSvgCoordinates(clientX: number, clientY: number) {
+    const svgElement = svgRef.current;
+    if (!svgElement) {
+      return null;
+    }
+
+    const rect = svgElement.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+      return null;
+    }
+
+    return {
+      x: minX + ((clientX - rect.left) / rect.width) * width,
+      y: minY + ((clientY - rect.top) / rect.height) * height,
+    };
+  }
+
+  function handleTablePointerDown(
+    event: ReactPointerEvent<SVGGElement>,
+    tableId: string,
+    positionX: number,
+    positionY: number,
+  ) {
+    if (isDraggingGuest || event.button !== 0) {
+      return;
+    }
+
+    const point = getSvgCoordinates(event.clientX, event.clientY);
+    if (!point) {
+      return;
+    }
+
+    event.preventDefault();
+    onSelectTable(tableId);
+    setDraggedTable({
+      tableId,
+      offsetX: point.x - positionX,
+      offsetY: point.y - positionY,
+      positionX,
+      positionY,
+    });
+  }
 
   return (
     <section className="plan-card">
@@ -98,7 +204,7 @@ export function SeatingPlan({
           <p className="plan-card__lead">
             {isDraggingGuest
               ? `Desliza a ${draggedGuestName} y suéltalo directamente sobre una silla libre.`
-              : "Cada invitado ubicado puede volver a moverse arrastrándolo a cualquier silla libre del salón."}
+              : "Puedes arrastrar cada mesa para colocarla como estará en el salón real. Las sillas se recolocan con ella automáticamente."}
           </p>
         </div>
         <div className="plan-legend">
@@ -123,10 +229,16 @@ export function SeatingPlan({
             <strong>{draggedGuestName}</strong>
             <span>Busca una silla libre resaltada y suelta ahí para recolocar al invitado.</span>
           </div>
+        ) : isDraggingTable ? (
+          <div className="plan-stage__guide" aria-live="polite">
+            <strong>Reubicando mesa</strong>
+            <span>Suelta la mesa cuando coincida con la distribución real del salón.</span>
+          </div>
         ) : null}
         <svg
           aria-label="Plano del salón"
           className="plan-stage__svg"
+          ref={svgRef}
           viewBox={`${minX} ${minY} ${width} ${height}`}
           role="img"
         >
@@ -137,6 +249,10 @@ export function SeatingPlan({
           </defs>
 
           {workspace.tables.map((table) => {
+            const position = renderedPositions.get(table.id) ?? {
+              positionX: table.position_x,
+              positionY: table.position_y,
+            };
             const seatCount = Math.max(table.capacity, 1);
             const isSelected = table.id === selectedTableId;
             const isFull = table.available === 0;
@@ -145,8 +261,8 @@ export function SeatingPlan({
             const guestsBySeat = buildSeatGuests(table.guests, seatCount);
             const seats: SeatDescriptor[] = Array.from({ length: seatCount }, (_, index) => {
               const angle = (Math.PI * 2 * index) / seatCount - Math.PI / 2;
-              const seatX = table.position_x + Math.cos(angle) * labelRadius;
-              const seatY = table.position_y + Math.sin(angle) * labelRadius;
+              const seatX = position.positionX + Math.cos(angle) * labelRadius;
+              const seatY = position.positionY + Math.sin(angle) * labelRadius;
               const guest = guestsBySeat.get(index) ?? null;
               const hasConflict = guest ? conflictGuestIds.has(guest.id) : false;
 
@@ -155,10 +271,11 @@ export function SeatingPlan({
 
             return (
               <g
-                className={`plan-table ${isSelected ? "plan-table--selected" : ""}`}
+                className={`plan-table ${isSelected ? "plan-table--selected" : ""} ${draggedTable?.tableId === table.id ? "plan-table--moving" : ""}`}
                 data-testid={`plan-table-${table.id}`}
                 key={table.id}
                 onClick={() => onSelectTable(table.id)}
+                onPointerDown={(event) => handleTablePointerDown(event, table.id, position.positionX, position.positionY)}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(event) => {
@@ -169,30 +286,30 @@ export function SeatingPlan({
               >
                 <circle
                   className={`plan-table__halo ${isFull ? "plan-table__halo--full" : ""}`}
-                  cx={table.position_x}
-                  cy={table.position_y}
+                  cx={position.positionX}
+                  cy={position.positionY}
                   r={74}
                 />
                 <circle
                   className={`plan-table__disc ${isFull ? "plan-table__disc--full" : ""}`}
-                  cx={table.position_x}
-                  cy={table.position_y}
+                  cx={position.positionX}
+                  cy={position.positionY}
                   filter="url(#tableShadow)"
                   r={radius}
                 />
                 <text
                   className="plan-table__number"
                   textAnchor="middle"
-                  x={table.position_x}
-                  y={table.position_y - 6}
+                  x={position.positionX}
+                  y={position.positionY - 6}
                 >
                   {table.number}
                 </text>
                 <text
                   className="plan-table__capacity"
                   textAnchor="middle"
-                  x={table.position_x}
-                  y={table.position_y + 16}
+                  x={position.positionX}
+                  y={position.positionY + 16}
                 >
                   {table.occupied}/{table.capacity}
                 </text>
@@ -232,14 +349,18 @@ export function SeatingPlan({
 
         <div className="plan-stage__drops">
           {workspace.tables.flatMap((table) => {
+            const position = renderedPositions.get(table.id) ?? {
+              positionX: table.position_x,
+              positionY: table.position_y,
+            };
             const seatCount = Math.max(table.capacity, 1);
             const labelRadius = 98;
             const guestsBySeat = buildSeatGuests(table.guests, seatCount);
 
             return Array.from({ length: seatCount }, (_, seatIndex) => {
               const angle = (Math.PI * 2 * seatIndex) / seatCount - Math.PI / 2;
-              const seatX = table.position_x + Math.cos(angle) * labelRadius;
-              const seatY = table.position_y + Math.sin(angle) * labelRadius;
+              const seatX = position.positionX + Math.cos(angle) * labelRadius;
+              const seatY = position.positionY + Math.sin(angle) * labelRadius;
               const left = ((seatX - minX) / width) * 100;
               const top = ((seatY - minY) / height) * 100;
               const guest = guestsBySeat.get(seatIndex) ?? null;

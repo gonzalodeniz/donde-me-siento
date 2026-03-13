@@ -13,6 +13,7 @@ from backend.app.schemas.events import (
     GuestCreate,
     GuestUpdate,
     TableCapacityUpdate,
+    TablePositionUpdate,
     TableSummaryResponse,
     ValidationResponse,
     WorkspaceResponse,
@@ -161,6 +162,22 @@ async def update_table_capacity(
 
     try:
         event = service.update_table_capacity(table_id, payload.capacity)
+    except DomainError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return build_event_response(event)
+
+
+@router.put("/tables/{table_id}/position", response_model=EventResponse)
+async def update_table_position(
+    table_id: str,
+    payload: TablePositionUpdate,
+    service: EventService = Depends(get_event_service),
+) -> EventResponse:
+    """Reubica manualmente una mesa dentro del plano interactivo."""
+
+    try:
+        event = service.update_table_position(table_id, payload.position_x, payload.position_y)
     except DomainError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 

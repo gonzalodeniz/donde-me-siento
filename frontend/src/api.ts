@@ -112,6 +112,22 @@ export async function updateTableCapacity(
   });
 }
 
+export async function updateTablePosition(
+  tableId: string,
+  positionX: number,
+  positionY: number,
+  token: string,
+): Promise<void> {
+  await request(`/api/tables/${tableId}/position`, {
+    method: "PUT",
+    headers: {
+      ...API_HEADERS,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ position_x: positionX, position_y: positionY }),
+  });
+}
+
 export async function createTable(token: string): Promise<void> {
   await request("/api/tables", {
     method: "POST",

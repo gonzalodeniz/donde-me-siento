@@ -78,6 +78,11 @@ class EventService:
         event.update_table_capacity(table_id, capacity)
         return self.repository.save(event)
 
+    def update_table_position(self, table_id: str, position_x: float, position_y: float) -> Event:
+        event = self.ensure_workspace()
+        event.update_table_position(table_id, position_x, position_y)
+        return self.repository.save(event)
+
     def update_default_table_capacity(self, capacity: int) -> Event:
         event = self.ensure_workspace()
         event.update_default_table_capacity(capacity)

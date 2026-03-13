@@ -969,6 +969,7 @@ select {
 .plan-stage__drops {
   position: absolute;
   inset: 1rem;
+  pointer-events: none;
 }
 
 .plan-seat-hit {
@@ -984,6 +985,7 @@ select {
   place-items: center;
   color: transparent;
   padding: 0;
+  pointer-events: auto;
 }
 
 .plan-seat-hit--occupied {
@@ -1021,6 +1023,10 @@ select {
   outline: none;
 }
 
+.plan-table--moving {
+  cursor: grabbing;
+}
+
 .plan-table__halo {
   fill: rgba(154, 79, 36, 0.06);
   stroke: transparent;
@@ -1035,6 +1041,7 @@ select {
   fill: rgba(255, 253, 249, 0.96);
   stroke: rgba(114, 79, 55, 0.22);
   stroke-width: 1.5;
+  transition: stroke 160ms ease, transform 160ms ease;
 }
 
 .plan-table__disc--full {
@@ -1045,6 +1052,16 @@ select {
   fill: rgba(154, 79, 36, 0.08);
   stroke: rgba(114, 79, 55, 0.28);
   stroke-width: 2.2;
+}
+
+.plan-table--moving .plan-table__halo {
+  fill: rgba(154, 79, 36, 0.12);
+  stroke: rgba(154, 79, 36, 0.28);
+  stroke-width: 2.4;
+}
+
+.plan-table--moving .plan-table__disc {
+  stroke: rgba(154, 79, 36, 0.34);
 }
 
 .plan-table__number,

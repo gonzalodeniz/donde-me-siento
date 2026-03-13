@@ -11,6 +11,7 @@ import {
   updateDefaultTableCapacity,
   updateGuest,
   updateTableCapacity,
+  updateTablePosition,
 } from "./api";
 import { SeatingPlan } from "./components/SeatingPlan";
 import type { Guest, Workspace } from "./types";
@@ -395,6 +396,19 @@ export function App() {
 
   function clearSectionNotice(section: SectionKey) {
     setSectionNotices((current) => ({ ...current, [section]: null }));
+  }
+
+  async function handleTableMove(tableId: string, positionX: number, positionY: number) {
+    if (!token) {
+      return;
+    }
+
+    await runWorkspaceAction(
+      `position-${tableId}`,
+      "tables",
+      () => updateTablePosition(tableId, positionX, positionY, token),
+      "La mesa se ha recolocado en el plano.",
+    );
   }
 
   async function refreshWorkspaceState(activeToken: string) {
@@ -872,6 +886,7 @@ export function App() {
                 draggedGuestName={draggedGuest?.name ?? null}
                 onGuestDragEnd={handleGuestDragEnd}
                 onGuestDragStart={handleGuestDragStart}
+                onMoveTable={handleTableMove}
                 onSelectTable={selectOrClearTable}
                 onSeatDragEnter={handleSeatDragEnter}
                 onSeatDragLeave={handleSeatDragLeave}

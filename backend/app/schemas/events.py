@@ -75,6 +75,13 @@ class TableCapacityUpdate(BaseModel):
     capacity: int = Field(gt=0)
 
 
+class TablePositionUpdate(BaseModel):
+    """Payload para recolocar una mesa dentro del plano."""
+
+    position_x: float
+    position_y: float
+
+
 class DefaultTableCapacityUpdate(BaseModel):
     """Payload para ajustar el aforo por defecto de mesas nuevas."""
 
