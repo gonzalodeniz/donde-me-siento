@@ -36,6 +36,7 @@ type TablePosition = {
   position_x: number;
   position_y: number;
 };
+type GuestEditableField = "name" | "type" | "group";
 
 function normalizeText(value: string) {
   return value.trim();
@@ -122,6 +123,7 @@ export function App() {
   const [guestSearchQuery, setGuestSearchQuery] = useState("");
   const [guestFormError, setGuestFormError] = useState<string | null>(null);
   const [editingGuestId, setEditingGuestId] = useState<string | null>(null);
+  const [editingGuestField, setEditingGuestField] = useState<GuestEditableField>("name");
   const [editingGuestName, setEditingGuestName] = useState("");
   const [editingGuestType, setEditingGuestType] = useState("adulto");
   const [editingGuestGroupId, setEditingGuestGroupId] = useState("");
@@ -398,8 +400,9 @@ export function App() {
     setListsPanelWidth((current) => clampListsPanelWidth(current + direction * step));
   }
 
-  function beginGuestEdit(guest: Guest) {
+  function beginGuestEdit(guest: Guest, field: GuestEditableField = "name") {
     setEditingGuestId(guest.id);
+    setEditingGuestField(field);
     setEditingGuestName(guest.name);
     setEditingGuestType(guest.guest_type);
     setEditingGuestGroupId(guest.group_id ?? "");
@@ -413,60 +416,79 @@ export function App() {
     setEditingGuestError(null);
   }
 
-  function renderInlineGuestEditor(guest: Guest, tableLabel?: string | null) {
-    const isSaving = isActionRunning(`update-${guest.id}`);
-
-    return (
-      <form
-        className={`guest-inline-editor ${tableLabel ? "guest-inline-editor--placed" : ""}`}
-        onSubmit={handleGuestUpdate}
-      >
-        <div className="guest-inline-editor__header">
-          <strong>{tableLabel ? `Editar a ${guest.name}` : `Editar ${guest.name}`}</strong>
-          {tableLabel ? <span className="guest-row__table">{tableLabel}</span> : null}
-        </div>
-        <label className="mini-field">
-          <span>Nombre</span>
-          <input
-            aria-invalid={Boolean(editingGuestError)}
-            autoFocus
-            onChange={(event) => setEditingGuestName(event.target.value)}
-            value={editingGuestName}
-          />
-        </label>
-        <div className="mini-grid">
-          <label className="mini-field">
-            <span>Tipo</span>
-            <select value={editingGuestType} onChange={(event) => setEditingGuestType(event.target.value)}>
-              <option value="adulto">adulto</option>
-              <option value="adolescente">adolescente</option>
-              <option value="nino">nino</option>
-            </select>
-          </label>
-          <label className="mini-field">
-            <span>Agrupacion</span>
-            <input onChange={(event) => setEditingGuestGroupId(event.target.value)} value={editingGuestGroupId} />
-          </label>
-        </div>
-        {editingGuestError ? <p className="inline-feedback inline-feedback--error">{editingGuestError}</p> : null}
-        <div className="guest-inline-editor__actions">
-          <button className="button button--ghost button--small" onClick={cancelGuestEdit} type="button">
-            Cancelar
-          </button>
-          <button className="button button--primary button--small" disabled={isSaving} type="submit">
-            {isSaving ? "Guardando..." : "Guardar cambios"}
-          </button>
-        </div>
-      </form>
-    );
-  }
-
   function setSectionNotice(section: SectionKey, tone: SectionTone, message: string) {
     setSectionNotices((current) => ({ ...current, [section]: { tone, message } }));
   }
 
   function clearSectionNotice(section: SectionKey) {
     setSectionNotices((current) => ({ ...current, [section]: null }));
+  }
+
+  async function commitGuestEdit() {
+    if (!token || !editingGuestId || isActionRunning(`update-${editingGuestId}`)) {
+      return;
+    }
+
+    const currentGuest =
+      workspace?.guests.unassigned.find((guest) => guest.id === editingGuestId) ??
+      workspace?.guests.assigned.find((guest) => guest.id === editingGuestId);
+
+    if (!currentGuest) {
+      cancelGuestEdit();
+      return;
+    }
+
+    const normalizedGuestName = normalizeText(editingGuestName);
+    if (!normalizedGuestName) {
+      setEditingGuestError("El invitado necesita un nombre para guardar cambios.");
+      return;
+    }
+
+    const normalizedGroupId = normalizeText(editingGuestGroupId) || null;
+    const hasChanges =
+      normalizedGuestName !== currentGuest.name ||
+      editingGuestType !== currentGuest.guest_type ||
+      normalizedGroupId !== currentGuest.group_id;
+
+    if (!hasChanges) {
+      cancelGuestEdit();
+      return;
+    }
+
+    setEditingGuestError(null);
+
+    const updated = await runWorkspaceAction(
+      `update-${editingGuestId}`,
+      "guests",
+      () =>
+        updateGuest(editingGuestId, token, {
+          name: normalizedGuestName,
+          guest_type: editingGuestType,
+          group_id: normalizedGroupId,
+        }),
+      "Invitado actualizado.",
+    );
+
+    if (updated) {
+      cancelGuestEdit();
+    }
+  }
+
+  function handleGuestEditBlur() {
+    void commitGuestEdit();
+  }
+
+  function handleGuestEditKeyDown(event: ReactKeyboardEvent<HTMLInputElement | HTMLSelectElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      void commitGuestEdit();
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      cancelGuestEdit();
+    }
   }
 
   async function handleTableMove(tableId: string, positionX: number, positionY: number) {
@@ -574,35 +596,6 @@ export function App() {
       setGuestName("");
       setGuestType("adulto");
       setGuestGroupId("");
-    }
-  }
-
-  async function handleGuestUpdate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!token || !editingGuestId) {
-      return;
-    }
-
-    const normalizedGuestName = normalizeText(editingGuestName);
-    if (!normalizedGuestName) {
-      setEditingGuestError("El invitado necesita un nombre para guardar cambios.");
-      return;
-    }
-    setEditingGuestError(null);
-
-    const updated = await runWorkspaceAction(
-      `update-${editingGuestId}`,
-      "guests",
-      () =>
-        updateGuest(editingGuestId, token, {
-          name: normalizedGuestName,
-          guest_type: editingGuestType,
-          group_id: normalizeText(editingGuestGroupId) || null,
-        }),
-      "Invitado actualizado.",
-    );
-    if (updated) {
-      cancelGuestEdit();
     }
   }
 
@@ -1152,20 +1145,70 @@ export function App() {
                                 onDragStart={(event) => handleGuestDragStart(event, guest.id)}
                               >
                                 <td>
-                                  <button className="guest-name-button" onClick={() => beginGuestEdit(guest)} type="button">
-                                    <span className="guest-card__nameplate">
-                                      <strong>{guest.name}</strong>
-                                      <GuestSignal guest={guest} />
-                                    </span>
-                                  </button>
+                                  {editingGuestId === guest.id && editingGuestField === "name" ? (
+                                    <input
+                                      aria-invalid={Boolean(editingGuestError)}
+                                      autoFocus
+                                      className="guest-table__input"
+                                      onBlur={handleGuestEditBlur}
+                                      onChange={(event) => setEditingGuestName(event.target.value)}
+                                      onKeyDown={handleGuestEditKeyDown}
+                                      value={editingGuestName}
+                                    />
+                                  ) : (
+                                    <button className="guest-name-button" onClick={() => beginGuestEdit(guest, "name")} type="button">
+                                      <span className="guest-card__nameplate">
+                                        <strong>{guest.name}</strong>
+                                        <GuestSignal guest={guest} />
+                                      </span>
+                                    </button>
+                                  )}
                                 </td>
-                                <td>{formatGuestTypeLabel(guest.guest_type)}</td>
-                                <td>{guest.group_id ? `Agrupación ${guest.group_id}` : "Sin agrupación"}</td>
+                                <td>
+                                  {editingGuestId === guest.id && editingGuestField === "type" ? (
+                                    <select
+                                      className="guest-table__select"
+                                      onBlur={handleGuestEditBlur}
+                                      onChange={(event) => setEditingGuestType(event.target.value)}
+                                      onKeyDown={handleGuestEditKeyDown}
+                                      value={editingGuestType}
+                                    >
+                                      <option value="adulto">adulto</option>
+                                      <option value="adolescente">adolescente</option>
+                                      <option value="nino">nino</option>
+                                    </select>
+                                  ) : (
+                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "type")} type="button">
+                                      {formatGuestTypeLabel(guest.guest_type)}
+                                    </button>
+                                  )}
+                                </td>
+                                <td>
+                                  {editingGuestId === guest.id && editingGuestField === "group" ? (
+                                    <input
+                                      className="guest-table__input"
+                                      onBlur={handleGuestEditBlur}
+                                      onChange={(event) => setEditingGuestGroupId(event.target.value)}
+                                      onKeyDown={handleGuestEditKeyDown}
+                                      value={editingGuestGroupId}
+                                    />
+                                  ) : (
+                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
+                                      {guest.group_id ? `Agrupación ${guest.group_id}` : "Sin agrupación"}
+                                    </button>
+                                  )}
+                                </td>
                                 <td>
                                   <span className="guest-row__table guest-row__table--muted">Pendiente</span>
                                 </td>
                                 <td>
                                   <div className="guest-table__actions">
+                                    {editingGuestId === guest.id ? (
+                                      <span className="guest-table__autosave">
+                                        {isActionRunning(`update-${guest.id}`) ? "Guardando..." : "Enter o salir para guardar"}
+                                      </span>
+                                    ) : (
+                                      <>
                                     <select
                                       aria-label={`Elegir mesa para ${guest.name}`}
                                       value={assignmentValues[guest.id] ?? ""}
@@ -1210,14 +1253,14 @@ export function App() {
                                     >
                                       Eliminar
                                     </button>
+                                      </>
+                                    )}
                                   </div>
+                                  {editingGuestId === guest.id && editingGuestError ? (
+                                    <p className="inline-feedback inline-feedback--error">{editingGuestError}</p>
+                                  ) : null}
                                 </td>
                               </tr>
-                              {editingGuestId === guest.id ? (
-                                <tr className="guest-table__editor-row">
-                                  <td colSpan={5}>{renderInlineGuestEditor(guest)}</td>
-                                </tr>
-                              ) : null}
                             </Fragment>
                           ))}
                         </tbody>
@@ -1263,43 +1306,91 @@ export function App() {
                                     className={`guest-table__row guest-table__row--placed ${conflictGuestIds.has(guest.id) ? "guest-table__row--conflict" : ""}`}
                                   >
                                     <td>
-                                      <button className="guest-name-button" onClick={() => beginGuestEdit(guest)} type="button">
-                                        <span className="guest-card__nameplate">
-                                          <strong>{guest.name}</strong>
-                                          <GuestSignal guest={guest} />
-                                        </span>
-                                      </button>
+                                      {editingGuestId === guest.id && editingGuestField === "name" ? (
+                                        <input
+                                          aria-invalid={Boolean(editingGuestError)}
+                                          autoFocus
+                                          className="guest-table__input"
+                                          onBlur={handleGuestEditBlur}
+                                          onChange={(event) => setEditingGuestName(event.target.value)}
+                                          onKeyDown={handleGuestEditKeyDown}
+                                          value={editingGuestName}
+                                        />
+                                      ) : (
+                                        <button className="guest-name-button" onClick={() => beginGuestEdit(guest, "name")} type="button">
+                                          <span className="guest-card__nameplate">
+                                            <strong>{guest.name}</strong>
+                                            <GuestSignal guest={guest} />
+                                          </span>
+                                        </button>
+                                      )}
                                     </td>
-                                    <td>{formatGuestTypeLabel(guest.guest_type)}</td>
-                                    <td>{guest.group_id ? `Agrupación ${guest.group_id}` : "Sin agrupación"}</td>
+                                    <td>
+                                      {editingGuestId === guest.id && editingGuestField === "type" ? (
+                                        <select
+                                          className="guest-table__select"
+                                          onBlur={handleGuestEditBlur}
+                                          onChange={(event) => setEditingGuestType(event.target.value)}
+                                          onKeyDown={handleGuestEditKeyDown}
+                                          value={editingGuestType}
+                                        >
+                                          <option value="adulto">adulto</option>
+                                          <option value="adolescente">adolescente</option>
+                                          <option value="nino">nino</option>
+                                        </select>
+                                      ) : (
+                                        <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "type")} type="button">
+                                          {formatGuestTypeLabel(guest.guest_type)}
+                                        </button>
+                                      )}
+                                    </td>
+                                    <td>
+                                      {editingGuestId === guest.id && editingGuestField === "group" ? (
+                                        <input
+                                          className="guest-table__input"
+                                          onBlur={handleGuestEditBlur}
+                                          onChange={(event) => setEditingGuestGroupId(event.target.value)}
+                                          onKeyDown={handleGuestEditKeyDown}
+                                          value={editingGuestGroupId}
+                                        />
+                                      ) : (
+                                        <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
+                                          {guest.group_id ? `Agrupación ${guest.group_id}` : "Sin agrupación"}
+                                        </button>
+                                      )}
+                                    </td>
                                     <td>
                                       <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
                                     </td>
                                     <td>
                                       <div className="guest-table__actions guest-table__actions--tight">
-                                        <button
-                                          className="button button--ghost button--small"
-                                          disabled={isActionRunning(`unassign-${guest.id}`)}
-                                          onClick={() =>
-                                            void runWorkspaceAction(
-                                              `unassign-${guest.id}`,
-                                              "guests",
-                                              () => unassignGuest(guest.id, token ?? ""),
-                                              `${guest.name} vuelve a estar pendiente de ubicación.`,
-                                            )
-                                          }
-                                          type="button"
-                                        >
-                                          Quitar ubicación
-                                        </button>
+                                        {editingGuestId === guest.id ? (
+                                          <span className="guest-table__autosave">
+                                            {isActionRunning(`update-${guest.id}`) ? "Guardando..." : "Enter o salir para guardar"}
+                                          </span>
+                                        ) : (
+                                          <button
+                                            className="button button--ghost button--small"
+                                            disabled={isActionRunning(`unassign-${guest.id}`)}
+                                            onClick={() =>
+                                              void runWorkspaceAction(
+                                                `unassign-${guest.id}`,
+                                                "guests",
+                                                () => unassignGuest(guest.id, token ?? ""),
+                                                `${guest.name} vuelve a estar pendiente de ubicación.`,
+                                              )
+                                            }
+                                            type="button"
+                                          >
+                                            Quitar ubicación
+                                          </button>
+                                        )}
                                       </div>
+                                      {editingGuestId === guest.id && editingGuestError ? (
+                                        <p className="inline-feedback inline-feedback--error">{editingGuestError}</p>
+                                      ) : null}
                                     </td>
                                   </tr>
-                                  {editingGuestId === guest.id ? (
-                                    <tr className="guest-table__editor-row">
-                                      <td colSpan={5}>{renderInlineGuestEditor(guest, tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada")}</td>
-                                    </tr>
-                                  ) : null}
                                 </Fragment>
                               );
                             })}

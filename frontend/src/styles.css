@@ -1473,6 +1473,24 @@ select {
   outline: none;
 }
 
+.guest-cell-button {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.guest-cell-button:hover,
+.guest-cell-button:focus-visible {
+  color: #7d2f1f;
+  outline: none;
+}
+
 .guest-card__nameplate strong,
 .guest-row__identity strong {
   font-size: 1rem;
@@ -1810,9 +1828,21 @@ select {
   justify-content: flex-start;
 }
 
-.guest-table__editor-row td {
-  padding: 0.65rem;
-  background: rgba(255, 250, 245, 0.92);
+.guest-table__autosave {
+  color: rgba(107, 87, 75, 0.82);
+  font-size: 0.76rem;
+  font-style: italic;
+}
+
+.guest-table__input,
+.guest-table__select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(36, 24, 20, 0.14);
+  background: rgba(255, 255, 255, 0.92);
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.7rem;
+  font: inherit;
 }
 
 .guest-card__actions--paper {
