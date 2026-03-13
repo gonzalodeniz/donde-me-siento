@@ -1536,7 +1536,7 @@ export function App() {
               <div data-testid="unassigned-guests-panel">
                 <div className="list-card__header list-card__header--guests">
                   <div>
-                    <h3>Nuestros Invitados</h3>
+                    <h3>Invitados sin sentar</h3>
                   </div>
                   <span>{(workspace?.guests.unassigned.length ?? 0) + (workspace?.guests.assigned.length ?? 0)}</span>
                 </div>
