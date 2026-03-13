@@ -62,6 +62,12 @@ class Event:
     tables: dict[str, Table] = field(default_factory=dict)
     guests: dict[str, Guest] = field(default_factory=dict)
 
+    GRID_ORIGIN_X = 180.0
+    GRID_ORIGIN_Y = 180.0
+    GRID_SPACING_X = 280.0
+    GRID_SPACING_Y = 280.0
+    DUPLICATE_OFFSET = 120.0
+
     def __post_init__(self) -> None:
         normalized_name = self.name.strip()
         if not normalized_name:
@@ -76,17 +82,14 @@ class Event:
 
         self.tables.clear()
         created_tables: list[Table] = []
-        columns = min(count, 4)
 
         for index in range(count):
-            row = index // columns
-            column = index % columns
             table = Table(
                 id=f"table-{index + 1}",
                 number=index + 1,
                 capacity=self.default_table_capacity,
-                position_x=150.0 + (column * 160.0),
-                position_y=150.0 + (row * 160.0),
+                position_x=self._table_position_x(index, count),
+                position_y=self._table_position_y(index, count),
             )
             self.tables[table.id] = table
             created_tables.append(table)
@@ -136,8 +139,8 @@ class Event:
     def duplicate_table(self, table_id: str) -> Table:
         source_table = self._get_table(table_id)
         duplicated = self.add_tables(1, source_table.capacity)[0]
-        duplicated.position_x = source_table.position_x + 44.0
-        duplicated.position_y = source_table.position_y + 44.0
+        duplicated.position_x = source_table.position_x + self.DUPLICATE_OFFSET
+        duplicated.position_y = source_table.position_y + self.DUPLICATE_OFFSET
         return duplicated
 
     def remove_table(self, table_id: str) -> None:
@@ -336,10 +339,10 @@ class Event:
     def _table_position_x(index: int, count: int) -> float:
         columns = min(count, 4)
         column = index % columns
-        return 150.0 + (column * 160.0)
+        return Event.GRID_ORIGIN_X + (column * Event.GRID_SPACING_X)
 
     @staticmethod
     def _table_position_y(index: int, count: int) -> float:
         columns = min(count, 4)
         row = index // columns
-        return 150.0 + (row * 160.0)
+        return Event.GRID_ORIGIN_Y + (row * Event.GRID_SPACING_Y)

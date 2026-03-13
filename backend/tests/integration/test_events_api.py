@@ -228,8 +228,8 @@ async def test_batch_create_and_duplicate_table_flow(client: AsyncClient) -> Non
     source_table = next(table for table in duplicate_payload["tables"] if table["id"] == "table-2")
     assert duplicated_table["capacity"] == source_table["capacity"]
     assert duplicated_table["number"] == 11
-    assert duplicated_table["position_x"] == source_table["position_x"] + 44.0
-    assert duplicated_table["position_y"] == source_table["position_y"] + 44.0
+    assert duplicated_table["position_x"] == source_table["position_x"] + 120.0
+    assert duplicated_table["position_y"] == source_table["position_y"] + 120.0
 
 
 @pytest.mark.anyio
