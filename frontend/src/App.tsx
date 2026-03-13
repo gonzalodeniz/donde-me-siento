@@ -829,9 +829,9 @@ export function App() {
     setSelectedTableId(tableId);
   }
 
-  function selectOrClearTable(tableId: string) {
+  function selectTable(tableId: string) {
     setPendingTableRemovalId(null);
-    setSelectedTableId((currentSelected) => (currentSelected === tableId ? null : tableId));
+    setSelectedTableId(tableId);
   }
 
   function handleSeatDragLeave(tableId: string, seatIndex: number) {
@@ -1227,7 +1227,7 @@ export function App() {
                     <button
                       key={table.id}
                       className={`table-summary-row ${selectedTableId === table.id ? "table-summary-row--active" : ""} ${table.available === 0 ? "table-summary-row--full" : ""} ${conflictTableIds.has(table.id) ? "table-summary-row--conflict" : ""}`}
-                      onClick={() => selectOrClearTable(table.id)}
+                      onClick={() => selectTable(table.id)}
                       type="button"
                     >
                       <div>
@@ -1420,7 +1420,7 @@ export function App() {
                 onGuestDragEnd={handleGuestDragEnd}
                 onGuestDragStart={handleGuestDragStart}
                 onMoveTable={handleTableMove}
-                onSelectTable={selectOrClearTable}
+                onSelectTable={selectTable}
                 onSeatDragEnter={handleSeatDragEnter}
                 onSeatDragLeave={handleSeatDragLeave}
                 onSeatDrop={handleSeatDrop}
@@ -1433,7 +1433,7 @@ export function App() {
                 className={`table-card ${selectedTableId === table.id ? "table-card--selected" : ""} ${table.available === 0 ? "table-card--full" : ""} ${conflictTableIds.has(table.id) ? "table-card--conflict" : ""}`}
                 data-testid={`table-card-${table.id}`}
                 key={table.id}
-                onClick={() => selectOrClearTable(table.id)}
+                onClick={() => selectTable(table.id)}
               >
                 <div className="table-card__header">
                   <div>
