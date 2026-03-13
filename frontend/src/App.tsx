@@ -1547,137 +1547,155 @@ export function App() {
                   </div>
                 </div>
                 <section className="guest-salon__section">
-                  <div
-                    className={`guest-table-shell ${isUnassignedDropActive ? "guest-table-shell--drop-active" : ""}`}
-                    onDragLeave={handleUnassignedDragLeave}
-                    onDragOver={handleUnassignedDragOver}
-                    onDrop={handleUnassignedDrop}
-                  >
-                    {filteredUnassignedGuests.length > 0 ? (
-                      <table className="guest-table">
-                        <thead>
-                          <tr>
-                            <th>Invitado</th>
-                            <th>Tipo</th>
-                            <th>Familia</th>
-                            <th>Mesa</th>
-                            <th aria-label="Eliminar invitado" className="guest-table__action-column" />
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredUnassignedGuests.map((guest) => (
-                            <Fragment key={guest.id}>
-                              <tr
-                                className={`guest-table__row ${conflictGuestIds.has(guest.id) ? "guest-table__row--conflict" : ""} ${draggedGuestId === guest.id ? "guest-table__row--dragging" : ""}`}
-                                data-testid={`unassigned-guest-${guest.id}`}
-                                draggable
-                                onDragEnd={handleGuestDragEnd}
-                                onDragStart={(event) => handleGuestDragStart(event, guest.id)}
-                              >
-                                <td>
-                                  {editingGuestId === guest.id && editingGuestField === "name" ? (
-                                    <input
-                                      aria-invalid={Boolean(editingGuestError)}
-                                      autoFocus
-                                      className="guest-table__input"
-                                      onBlur={handleGuestEditBlur}
-                                      onChange={(event) => setEditingGuestName(event.target.value)}
-                                      onKeyDown={handleGuestEditKeyDown}
-                                      value={editingGuestName}
-                                    />
-                                  ) : (
-                                    <button className="guest-name-button" onClick={() => beginGuestEdit(guest, "name")} type="button">
-                                      <span className="guest-card__nameplate">
-                                        <strong>{guest.name}</strong>
-                                        <GuestSignal guest={guest} />
-                                      </span>
-                                    </button>
-                                  )}
-                                </td>
-                                <td>
-                                  {editingGuestId === guest.id && editingGuestField === "type" ? (
-                                    <select
-                                      className="guest-table__select"
-                                      onBlur={handleGuestEditBlur}
-                                      onChange={(event) => setEditingGuestType(event.target.value)}
-                                      onKeyDown={handleGuestEditKeyDown}
-                                      value={editingGuestType}
-                                    >
-                                      <option value="adulto">adulto</option>
-                                      <option value="adolescente">adolescente</option>
-                                      <option value="nino">nino</option>
-                                    </select>
-                                  ) : (
-                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "type")} type="button">
-                                      {formatGuestTypeLabel(guest.guest_type)}
-                                    </button>
-                                  )}
-                                </td>
-                                <td>
-                                  {editingGuestId === guest.id && editingGuestField === "group" ? (
-                                    <input
-                                      className="guest-table__input"
-                                      onBlur={handleGuestEditBlur}
-                                      onChange={(event) => setEditingGuestGroupId(event.target.value)}
-                                      onKeyDown={handleGuestEditKeyDown}
-                                      value={editingGuestGroupId}
-                                    />
-                                  ) : (
-                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
-                                      {guest.group_id ? guest.group_id : "Sin familia"}
-                                    </button>
-                                  )}
-                                </td>
-                                <td>
-                                  {editingGuestId === guest.id && editingGuestField === "table" ? (
-                                    <select
-                                      autoFocus
-                                      className="guest-table__select"
-                                      onBlur={handleGuestEditBlur}
-                                      onChange={(event) => handleGuestAssignmentSelection(guest, event.target.value)}
-                                      onKeyDown={handleGuestEditKeyDown}
-                                      value={assignmentValues[guest.id] ?? ""}
-                                    >
-                                      <option value="">Sin mesa</option>
-                                      {workspace?.tables.map((table) => (
-                                        <option key={table.id} value={table.id}>
-                                          Mesa {table.number}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  ) : (
-                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "table")} type="button">
-                                      <span className="guest-row__table guest-row__table--muted">Sin mesa</span>
-                                    </button>
-                                  )}
-                                </td>
-                                <td className="guest-table__action-column">
-                                  <div className="guest-table__actions guest-table__actions--icon-only">
-                                    {editingGuestId === guest.id ? (
-                                      <span className="guest-table__autosave">
-                                        {isActionRunning(`update-${guest.id}`) ? "Guardando..." : "Enter o salir para guardar"}
-                                      </span>
-                                    ) : pendingGuestRemovalId === guest.id ? (
-                                      <div className="guest-table__confirm">
-                                        <span>¿Quitar?</span>
-                                        <button className="button button--ghost button--small" onClick={() => setPendingGuestRemovalId(null)} type="button">
-                                          No
-                                        </button>
+                  {(workspace?.guests.unassigned.length ?? 0) > 0 ? (
+                    <div
+                      className={`guest-table-shell ${isUnassignedDropActive ? "guest-table-shell--drop-active" : ""}`}
+                      onDragLeave={handleUnassignedDragLeave}
+                      onDragOver={handleUnassignedDragOver}
+                      onDrop={handleUnassignedDrop}
+                    >
+                      {filteredUnassignedGuests.length > 0 ? (
+                        <table className="guest-table">
+                          <thead>
+                            <tr>
+                              <th>Invitado</th>
+                              <th>Tipo</th>
+                              <th>Familia</th>
+                              <th>Mesa</th>
+                              <th aria-label="Eliminar invitado" className="guest-table__action-column" />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredUnassignedGuests.map((guest) => (
+                              <Fragment key={guest.id}>
+                                <tr
+                                  className={`guest-table__row ${conflictGuestIds.has(guest.id) ? "guest-table__row--conflict" : ""} ${draggedGuestId === guest.id ? "guest-table__row--dragging" : ""}`}
+                                  data-testid={`unassigned-guest-${guest.id}`}
+                                  draggable
+                                  onDragEnd={handleGuestDragEnd}
+                                  onDragStart={(event) => handleGuestDragStart(event, guest.id)}
+                                >
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "name" ? (
+                                      <input
+                                        aria-invalid={Boolean(editingGuestError)}
+                                        autoFocus
+                                        className="guest-table__input"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => setEditingGuestName(event.target.value)}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={editingGuestName}
+                                      />
+                                    ) : (
+                                      <button className="guest-name-button" onClick={() => beginGuestEdit(guest, "name")} type="button">
+                                        <span className="guest-card__nameplate">
+                                          <strong>{guest.name}</strong>
+                                          <GuestSignal guest={guest} />
+                                        </span>
+                                      </button>
+                                    )}
+                                  </td>
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "type" ? (
+                                      <select
+                                        className="guest-table__select"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => setEditingGuestType(event.target.value)}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={editingGuestType}
+                                      >
+                                        <option value="adulto">adulto</option>
+                                        <option value="adolescente">adolescente</option>
+                                        <option value="nino">nino</option>
+                                      </select>
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "type")} type="button">
+                                        {formatGuestTypeLabel(guest.guest_type)}
+                                      </button>
+                                    )}
+                                  </td>
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "group" ? (
+                                      <input
+                                        className="guest-table__input"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => setEditingGuestGroupId(event.target.value)}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={editingGuestGroupId}
+                                      />
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
+                                        {guest.group_id ? guest.group_id : "Sin familia"}
+                                      </button>
+                                    )}
+                                  </td>
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "table" ? (
+                                      <select
+                                        autoFocus
+                                        className="guest-table__select"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => handleGuestAssignmentSelection(guest, event.target.value)}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={assignmentValues[guest.id] ?? ""}
+                                      >
+                                        <option value="">Sin mesa</option>
+                                        {workspace?.tables.map((table) => (
+                                          <option key={table.id} value={table.id}>
+                                            Mesa {table.number}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "table")} type="button">
+                                        <span className="guest-row__table guest-row__table--muted">Sin mesa</span>
+                                      </button>
+                                    )}
+                                  </td>
+                                  <td className="guest-table__action-column">
+                                    <div className="guest-table__actions guest-table__actions--icon-only">
+                                      {editingGuestId === guest.id ? (
+                                        <span className="guest-table__autosave">
+                                          {isActionRunning(`update-${guest.id}`) ? "Guardando..." : "Enter o salir para guardar"}
+                                        </span>
+                                      ) : pendingGuestRemovalId === guest.id ? (
+                                        <div className="guest-table__confirm">
+                                          <span>¿Quitar?</span>
+                                          <button className="button button--ghost button--small" onClick={() => setPendingGuestRemovalId(null)} type="button">
+                                            No
+                                          </button>
+                                          <button
+                                            aria-label={`Confirmar borrado de ${guest.name}`}
+                                            className="button button--danger button--small button--icon"
+                                            disabled={isActionRunning(`delete-${guest.id}`)}
+                                            onClick={() =>
+                                              void runWorkspaceAction(
+                                                `delete-${guest.id}`,
+                                                "guests",
+                                                async () => {
+                                                  await deleteGuest(guest.id, token ?? "");
+                                                  setPendingGuestRemovalId(null);
+                                                },
+                                                `${guest.name} eliminado.`,
+                                              )
+                                            }
+                                            type="button"
+                                          >
+                                            <svg aria-hidden="true" className="button__icon" viewBox="0 0 24 24">
+                                              <path d="M9 4.75h6" />
+                                              <path d="M5.75 7.25h12.5" />
+                                              <path d="M8.25 7.25v10.1A1.4 1.4 0 0 0 9.65 18.75h4.7a1.4 1.4 0 0 0 1.4-1.4V7.25" />
+                                              <path d="M10 10.25v5.5" />
+                                              <path d="M14 10.25v5.5" />
+                                            </svg>
+                                          </button>
+                                        </div>
+                                      ) : (
                                         <button
-                                          aria-label={`Confirmar borrado de ${guest.name}`}
-                                          className="button button--danger button--small button--icon"
+                                          aria-label={`Eliminar a ${guest.name}`}
+                                          className="button button--ghost button--small button--icon"
                                           disabled={isActionRunning(`delete-${guest.id}`)}
-                                          onClick={() =>
-                                            void runWorkspaceAction(
-                                              `delete-${guest.id}`,
-                                              "guests",
-                                              async () => {
-                                                await deleteGuest(guest.id, token ?? "");
-                                                setPendingGuestRemovalId(null);
-                                              },
-                                              `${guest.name} eliminado.`,
-                                            )
-                                          }
+                                          onClick={() => setPendingGuestRemovalId(guest.id)}
                                           type="button"
                                         >
                                           <svg aria-hidden="true" className="button__icon" viewBox="0 0 24 24">
@@ -1688,40 +1706,22 @@ export function App() {
                                             <path d="M14 10.25v5.5" />
                                           </svg>
                                         </button>
-                                      </div>
-                                    ) : (
-                                      <button
-                                        aria-label={`Eliminar a ${guest.name}`}
-                                        className="button button--ghost button--small button--icon"
-                                        disabled={isActionRunning(`delete-${guest.id}`)}
-                                        onClick={() => setPendingGuestRemovalId(guest.id)}
-                                        type="button"
-                                      >
-                                        <svg aria-hidden="true" className="button__icon" viewBox="0 0 24 24">
-                                          <path d="M9 4.75h6" />
-                                          <path d="M5.75 7.25h12.5" />
-                                          <path d="M8.25 7.25v10.1A1.4 1.4 0 0 0 9.65 18.75h4.7a1.4 1.4 0 0 0 1.4-1.4V7.25" />
-                                          <path d="M10 10.25v5.5" />
-                                          <path d="M14 10.25v5.5" />
-                                        </svg>
-                                      </button>
-                                    )}
-                                  </div>
-                                  {editingGuestId === guest.id && editingGuestError ? (
-                                    <p className="inline-feedback inline-feedback--error">{editingGuestError}</p>
-                                  ) : null}
-                                </td>
-                              </tr>
-                            </Fragment>
-                          ))}
-                        </tbody>
-                      </table>
-                  ) : (
-                    <p className="empty-state empty-state--paper">
-                      {guestSearchQuery ? "No encontramos a nadie con esa búsqueda." : "Todo el mundo tiene ya su lugar reservado."}
-                    </p>
-                  )}
-                  </div>
+                                      )}
+                                    </div>
+                                    {editingGuestId === guest.id && editingGuestError ? (
+                                      <p className="inline-feedback inline-feedback--error">{editingGuestError}</p>
+                                    ) : null}
+                                  </td>
+                                </tr>
+                              </Fragment>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <p className="empty-state empty-state--paper">No encontramos a nadie con esa búsqueda.</p>
+                      )}
+                    </div>
+                  ) : null}
                 </section>
                 <details className="guest-composer">
                   <summary className="guest-collapse__summary guest-collapse__summary--muted">
