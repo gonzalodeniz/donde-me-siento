@@ -222,15 +222,6 @@ export function App() {
       null,
     [draggedGuestId, workspace],
   );
-  const occupancyTables = useMemo(
-    () =>
-      [...(workspace?.tables ?? [])].sort((left, right) => {
-        const leftRatio = left.capacity === 0 ? 0 : left.occupied / left.capacity;
-        const rightRatio = right.capacity === 0 ? 0 : right.occupied / right.capacity;
-        return rightRatio - leftRatio;
-      }),
-    [workspace],
-  );
   const fullTablesCount = useMemo(
     () => workspace?.tables.filter((table) => table.available === 0).length ?? 0,
     [workspace],
@@ -1245,29 +1236,6 @@ export function App() {
                       : "0%"}
                   </strong>
                 </article>
-              </div>
-              <div className="table-summary-list">
-                {occupancyTables.map((table) => {
-                  return (
-                    <button
-                      key={table.id}
-                      className={`table-summary-row ${selectedTableId === table.id ? "table-summary-row--active" : ""} ${table.available === 0 ? "table-summary-row--full" : ""} ${conflictTableIds.has(table.id) ? "table-summary-row--conflict" : ""}`}
-                      onClick={() => selectTable(table.id)}
-                      type="button"
-                    >
-                      <div>
-                        <strong>Mesa {table.number}</strong>
-                        <span>
-                          {table.occupied}/{table.capacity} ocupados
-                        </span>
-                        <div className="table-summary-row__flags">
-                          {conflictTableIds.has(table.id) ? <i className="status-flag status-flag--conflict">Conflicto</i> : null}
-                          {table.available === 0 ? <i className="status-flag status-flag--full">Completa</i> : null}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
               </div>
             </section>
 
