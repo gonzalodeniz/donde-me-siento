@@ -1068,13 +1068,6 @@ export function App() {
                     <span>Mesa {selectedTable.number}</span>
                     <strong>{selectedTable.occupied} sentados</strong>
                   </div>
-                  <button
-                    className="button button--link button--small"
-                    onClick={() => setSelectedTableId(null)}
-                    type="button"
-                  >
-                    Volver a configuración maestra
-                  </button>
                   <div className="stepper" aria-label="Asientos">
                     <button
                       className="stepper__button"
