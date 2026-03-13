@@ -197,6 +197,10 @@ export function App() {
     guests: null,
     tables: null,
   });
+  const [visibleToasts, setVisibleToasts] = useState<Record<SectionKey, boolean>>({
+    guests: false,
+    tables: false,
+  });
   const deferredGuestSearchQuery = useDeferredValue(guestSearchQuery);
 
   const groupedConflictCount = useMemo(
@@ -297,6 +301,34 @@ export function App() {
   useEffect(() => {
     localStorage.setItem(LISTS_PANEL_WIDTH_STORAGE_KEY, String(listsPanelWidth));
   }, [listsPanelWidth]);
+
+  useEffect(() => {
+    const timers: number[] = [];
+
+    (Object.keys(sectionNotices) as SectionKey[]).forEach((section) => {
+      if (!sectionNotices[section]) {
+        setVisibleToasts((current) => ({ ...current, [section]: false }));
+        return;
+      }
+
+      setVisibleToasts((current) => ({ ...current, [section]: true }));
+
+      timers.push(
+        window.setTimeout(() => {
+          setVisibleToasts((current) => ({ ...current, [section]: false }));
+        }, 4500),
+      );
+      timers.push(
+        window.setTimeout(() => {
+          clearSectionNotice(section);
+        }, 5000),
+      );
+    });
+
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, [sectionNotices]);
 
   useEffect(() => {
     if (!isResizingRailPanel || !isRailOpen) {
@@ -994,6 +1026,19 @@ export function App() {
           </button>
         </div>
       </header>
+      <div className="toast-stack" aria-live="polite" aria-atomic="true">
+        {(Object.entries(sectionNotices) as [SectionKey, SectionNotice | null][]).map(([section, notice]) =>
+          notice ? (
+            <div
+              className={`toast toast--${notice.tone} ${visibleToasts[section] ? "toast--visible" : ""}`}
+              key={section}
+              role="status"
+            >
+              {notice.message}
+            </div>
+          ) : null,
+        )}
+      </div>
       <aside className={`rail ${isRailOpen ? "" : "rail--collapsed"}`}>
         <div className="rail__inner">
           <div className="rail__masthead">
@@ -1011,11 +1056,6 @@ export function App() {
           </div>
 
           <section className="events-panel">
-            {sectionNotices.tables ? (
-              <div className={`inline-notice inline-notice--${sectionNotices.tables.tone}`}>
-                {sectionNotices.tables.message}
-              </div>
-            ) : null}
             <div className="rail-section">
               <div className="rail-section__header">
                 <div>
@@ -1545,11 +1585,6 @@ export function App() {
               <>
             <section className="list-card list-card--guests">
               <div data-testid="unassigned-guests-panel">
-                {sectionNotices.guests ? (
-                  <div className={`inline-notice inline-notice--${sectionNotices.guests.tone}`}>
-                    {sectionNotices.guests.message}
-                  </div>
-                ) : null}
                 <div className="list-card__header list-card__header--guests">
                   <div>
                     <h3>Nuestros Invitados</h3>
