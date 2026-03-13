@@ -1441,6 +1441,30 @@ select {
   min-width: 0;
 }
 
+.guest-name-button {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.guest-name-button:hover strong,
+.guest-name-button:focus-visible strong {
+  text-decoration: underline;
+  text-decoration-color: rgba(154, 79, 36, 0.45);
+  text-underline-offset: 0.14em;
+}
+
+.guest-name-button:focus-visible {
+  outline: none;
+}
+
 .guest-card__nameplate strong,
 .guest-row__identity strong {
   font-size: 1rem;
@@ -1705,6 +1729,37 @@ select {
   flex: 0 0 auto;
   border: 1px solid rgba(119, 84, 64, 0.1);
   background: rgba(255, 251, 247, 0.84);
+}
+
+.guest-inline-editor {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.95rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(119, 84, 64, 0.14);
+  background: rgba(255, 251, 246, 0.92);
+}
+
+.guest-inline-editor--placed {
+  flex: 1 1 auto;
+}
+
+.guest-inline-editor__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.guest-inline-editor__header strong {
+  font-size: 0.96rem;
+}
+
+.guest-inline-editor__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
 }
 
 .guest-row--placed {

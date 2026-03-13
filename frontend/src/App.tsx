@@ -410,6 +410,54 @@ export function App() {
     setEditingGuestError(null);
   }
 
+  function renderInlineGuestEditor(guest: Guest, tableLabel?: string | null) {
+    const isSaving = isActionRunning(`update-${guest.id}`);
+
+    return (
+      <form
+        className={`guest-inline-editor ${tableLabel ? "guest-inline-editor--placed" : ""}`}
+        onSubmit={handleGuestUpdate}
+      >
+        <div className="guest-inline-editor__header">
+          <strong>{tableLabel ? `Editar a ${guest.name}` : `Editar ${guest.name}`}</strong>
+          {tableLabel ? <span className="guest-row__table">{tableLabel}</span> : null}
+        </div>
+        <label className="mini-field">
+          <span>Nombre</span>
+          <input
+            aria-invalid={Boolean(editingGuestError)}
+            autoFocus
+            onChange={(event) => setEditingGuestName(event.target.value)}
+            value={editingGuestName}
+          />
+        </label>
+        <div className="mini-grid">
+          <label className="mini-field">
+            <span>Tipo</span>
+            <select value={editingGuestType} onChange={(event) => setEditingGuestType(event.target.value)}>
+              <option value="adulto">adulto</option>
+              <option value="adolescente">adolescente</option>
+              <option value="nino">nino</option>
+            </select>
+          </label>
+          <label className="mini-field">
+            <span>Agrupacion</span>
+            <input onChange={(event) => setEditingGuestGroupId(event.target.value)} value={editingGuestGroupId} />
+          </label>
+        </div>
+        {editingGuestError ? <p className="inline-feedback inline-feedback--error">{editingGuestError}</p> : null}
+        <div className="guest-inline-editor__actions">
+          <button className="button button--ghost button--small" onClick={cancelGuestEdit} type="button">
+            Cancelar
+          </button>
+          <button className="button button--primary button--small" disabled={isSaving} type="submit">
+            {isSaving ? "Guardando..." : "Guardar cambios"}
+          </button>
+        </div>
+      </form>
+    );
+  }
+
   function setSectionNotice(section: SectionKey, tone: SectionTone, message: string) {
     setSectionNotices((current) => ({ ...current, [section]: { tone, message } }));
   }
@@ -471,7 +519,7 @@ export function App() {
     message: string,
   ) {
     if (!token) {
-      return;
+      return false;
     }
 
     setSubmittingAction(actionKey);
@@ -482,12 +530,14 @@ export function App() {
       await action();
       await refreshWorkspaceState(token);
       setSectionNotice(section, "success", message);
+      return true;
     } catch (error) {
       setSectionNotice(
         section,
         "error",
         error instanceof Error ? error.message : "No se pudo completar la accion.",
       );
+      return false;
     } finally {
       setSubmittingAction(null);
     }
@@ -506,7 +556,7 @@ export function App() {
     }
     setGuestFormError(null);
 
-    await runWorkspaceAction(
+    const created = await runWorkspaceAction(
       "create-guest",
       "guests",
       () =>
@@ -517,9 +567,11 @@ export function App() {
         }),
       "Invitado anadido al workspace.",
     );
-    setGuestName("");
-    setGuestType("adulto");
-    setGuestGroupId("");
+    if (created) {
+      setGuestName("");
+      setGuestType("adulto");
+      setGuestGroupId("");
+    }
   }
 
   async function handleGuestUpdate(event: FormEvent<HTMLFormElement>) {
@@ -535,7 +587,7 @@ export function App() {
     }
     setEditingGuestError(null);
 
-    await runWorkspaceAction(
+    const updated = await runWorkspaceAction(
       `update-${editingGuestId}`,
       "guests",
       () =>
@@ -546,7 +598,9 @@ export function App() {
         }),
       "Invitado actualizado.",
     );
-    cancelGuestEdit();
+    if (updated) {
+      cancelGuestEdit();
+    }
   }
 
   function isActionRunning(actionKey: string) {
@@ -1033,70 +1087,75 @@ export function App() {
                         onDragEnd={handleGuestDragEnd}
                         onDragStart={(event) => handleGuestDragStart(event, guest.id)}
                       >
-                        <div className="guest-card__header guest-card__header--paper">
-                          <div className="guest-card__identity">
-                            <div className="guest-card__nameplate">
-                              <strong>{guest.name}</strong>
-                              <GuestSignal guest={guest} />
-                            </div>
-                            <span>{guest.group_id ? `Agrupación ${guest.group_id}` : "Sin agrupación"}</span>
-                          </div>
-                          <span className="guest-card__type">{formatGuestTypeLabel(guest.guest_type)}</span>
-                        </div>
-                        {draggedGuestId === guest.id ? (
-                          <div className="guest-card__drag-hint">En movimiento: suelta esta tarjeta sobre una mesa.</div>
+                        {editingGuestId === guest.id ? (
+                          renderInlineGuestEditor(guest)
                         ) : (
-                          <p className="guest-card__dragline">Lista para llevar al salón.</p>
+                          <>
+                            <div className="guest-card__header guest-card__header--paper">
+                              <div className="guest-card__identity">
+                                <button className="guest-name-button" onClick={() => beginGuestEdit(guest)} type="button">
+                                  <span className="guest-card__nameplate">
+                                    <strong>{guest.name}</strong>
+                                    <GuestSignal guest={guest} />
+                                  </span>
+                                </button>
+                                <span>{guest.group_id ? `Agrupación ${guest.group_id}` : "Sin agrupación"}</span>
+                              </div>
+                              <span className="guest-card__type">{formatGuestTypeLabel(guest.guest_type)}</span>
+                            </div>
+                            {draggedGuestId === guest.id ? (
+                              <div className="guest-card__drag-hint">En movimiento: suelta esta tarjeta sobre una mesa.</div>
+                            ) : (
+                              <p className="guest-card__dragline">Lista para llevar al salón.</p>
+                            )}
+                            <div className="guest-card__actions guest-card__actions--paper">
+                              <select
+                                aria-label={`Elegir mesa para ${guest.name}`}
+                                value={assignmentValues[guest.id] ?? ""}
+                                onChange={(event) =>
+                                  setAssignmentValues((current) => ({ ...current, [guest.id]: event.target.value }))
+                                }
+                              >
+                                <option value="">Elegir mesa</option>
+                                {workspace?.tables.map((table) => (
+                                  <option key={table.id} value={table.id}>
+                                    Mesa {table.number}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                className="button button--ghost button--small"
+                                disabled={!assignmentValues[guest.id] || isActionRunning(`assign-${guest.id}`)}
+                                onClick={() =>
+                                  void runWorkspaceAction(
+                                    `assign-${guest.id}`,
+                                    "guests",
+                                    () => assignGuest(guest.id, assignmentValues[guest.id], null, token ?? ""),
+                                    `${guest.name} asignado correctamente.`,
+                                  )
+                                }
+                                type="button"
+                              >
+                                Ubicar
+                              </button>
+                              <button
+                                className="button button--ghost button--small"
+                                disabled={isActionRunning(`delete-${guest.id}`)}
+                                onClick={() =>
+                                  void runWorkspaceAction(
+                                    `delete-${guest.id}`,
+                                    "guests",
+                                    () => deleteGuest(guest.id, token ?? ""),
+                                    `${guest.name} eliminado.`,
+                                  )
+                                }
+                                type="button"
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          </>
                         )}
-                        <div className="guest-card__actions guest-card__actions--paper">
-                          <select
-                            aria-label={`Elegir mesa para ${guest.name}`}
-                            value={assignmentValues[guest.id] ?? ""}
-                            onChange={(event) =>
-                              setAssignmentValues((current) => ({ ...current, [guest.id]: event.target.value }))
-                            }
-                          >
-                            <option value="">Elegir mesa</option>
-                            {workspace?.tables.map((table) => (
-                              <option key={table.id} value={table.id}>
-                                Mesa {table.number}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            className="button button--ghost button--small"
-                            disabled={!assignmentValues[guest.id] || isActionRunning(`assign-${guest.id}`)}
-                            onClick={() =>
-                              void runWorkspaceAction(
-                                `assign-${guest.id}`,
-                                "guests",
-                                () => assignGuest(guest.id, assignmentValues[guest.id], null, token ?? ""),
-                                `${guest.name} asignado correctamente.`,
-                              )
-                            }
-                            type="button"
-                          >
-                            Ubicar
-                          </button>
-                          <button className="button button--ghost button--small" onClick={() => beginGuestEdit(guest)} type="button">
-                            Editar
-                          </button>
-                          <button
-                            className="button button--ghost button--small"
-                            disabled={isActionRunning(`delete-${guest.id}`)}
-                            onClick={() =>
-                              void runWorkspaceAction(
-                                `delete-${guest.id}`,
-                                "guests",
-                                () => deleteGuest(guest.id, token ?? ""),
-                                `${guest.name} eliminado.`,
-                              )
-                            }
-                            type="button"
-                          >
-                            Eliminar
-                          </button>
-                        </div>
                       </article>
                     ))
                   ) : (
@@ -1128,14 +1187,22 @@ export function App() {
                               className={`guest-row guest-row--placed ${conflictGuestIds.has(guest.id) ? "guest-row--conflict" : ""}`}
                               key={guest.id}
                             >
-                              <div className="guest-row__identity">
-                                <div className="guest-card__nameplate">
-                                  <strong>{guest.name}</strong>
-                                  <GuestSignal guest={guest} />
-                                </div>
-                                <span>{guest.group_id ? `Agrupación ${guest.group_id}` : formatGuestTypeLabel(guest.guest_type)}</span>
-                              </div>
-                              <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
+                              {editingGuestId === guest.id ? (
+                                renderInlineGuestEditor(guest, tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada")
+                              ) : (
+                                <>
+                                  <div className="guest-row__identity">
+                                    <button className="guest-name-button" onClick={() => beginGuestEdit(guest)} type="button">
+                                      <span className="guest-card__nameplate">
+                                        <strong>{guest.name}</strong>
+                                        <GuestSignal guest={guest} />
+                                      </span>
+                                    </button>
+                                    <span>{guest.group_id ? `Agrupación ${guest.group_id}` : formatGuestTypeLabel(guest.guest_type)}</span>
+                                  </div>
+                                  <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
+                                </>
+                              )}
                             </article>
                           );
                         })
@@ -1209,40 +1276,6 @@ export function App() {
           </div>
         </section>
 
-        {editingGuestId ? (
-          <section className="editor-card">
-            <div className="list-card__header">
-              <h3>Editar invitado</h3>
-              <button className="button button--ghost button--small" onClick={cancelGuestEdit} type="button">
-                Cancelar
-              </button>
-            </div>
-            <form className="stack-form" onSubmit={handleGuestUpdate}>
-              <label className="mini-field">
-                <span>Nombre</span>
-                <input value={editingGuestName} aria-invalid={Boolean(editingGuestError)} onChange={(event) => setEditingGuestName(event.target.value)} />
-              </label>
-              <div className="mini-grid">
-                <label className="mini-field">
-                  <span>Tipo</span>
-                  <select value={editingGuestType} onChange={(event) => setEditingGuestType(event.target.value)}>
-                    <option value="adulto">adulto</option>
-                    <option value="adolescente">adolescente</option>
-                    <option value="nino">nino</option>
-                  </select>
-                </label>
-                <label className="mini-field">
-                  <span>Agrupacion</span>
-                  <input value={editingGuestGroupId} onChange={(event) => setEditingGuestGroupId(event.target.value)} />
-                </label>
-              </div>
-              {editingGuestError ? <p className="inline-feedback inline-feedback--error">{editingGuestError}</p> : null}
-              <button className="button button--primary button--small" disabled={isActionRunning(`update-${editingGuestId}`)} type="submit">
-                {isActionRunning(`update-${editingGuestId}`) ? "Guardando..." : "Guardar cambios"}
-              </button>
-            </form>
-          </section>
-        ) : null}
       </main>
     </div>
   );
