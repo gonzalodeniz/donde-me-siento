@@ -680,7 +680,7 @@ export function SeatingPlan({
 
                 if (guest) {
                   const { seatRadius } = getSeatVisualMetrics(guest.name);
-                  const hitSize = seatRadius * 2 + 10;
+                  const hitSize = Math.max(seatRadius * 2 + 16, 84);
                   return (
                     <button
                       aria-label={`${guest.name} en mesa ${table.number}, silla ${seatIndex + 1}`}

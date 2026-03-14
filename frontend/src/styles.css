@@ -1308,6 +1308,7 @@ select {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  z-index: 6;
 }
 
 .plan-seat-hit {
@@ -1328,6 +1329,7 @@ select {
 
 .plan-seat-hit--occupied {
   cursor: grab;
+  z-index: 2;
 }
 
 .plan-seat-hit--empty {
