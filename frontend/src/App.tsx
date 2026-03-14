@@ -33,11 +33,9 @@ const LISTS_PANEL_OPEN_STORAGE_KEY = "dms.ui.listsPanelOpen";
 const CENTER_PANEL_OPEN_STORAGE_KEY = "dms.ui.centerPanelOpen";
 const LOGIN_NAMES = ["raquel", "héctor"] as const;
 const LISTS_PANEL_MIN_WIDTH = 280;
-const LISTS_PANEL_MAX_WIDTH = 760;
 const CANVAS_MIN_MAIN_WIDTH = 260;
 const RAIL_PANEL_MIN_WIDTH = 360;
-const RAIL_PANEL_MAX_WIDTH = 760;
-const SHELL_MIN_MAIN_WIDTH = 720;
+const SHELL_MIN_MAIN_WIDTH = 0;
 const GUEST_TABLE_PAGE_SIZE = 20;
 type SectionTone = "success" | "error" | "info";
 type SectionKey = "guests" | "tables";
@@ -124,6 +122,14 @@ function paginateGuestTableRows<T>(items: T[], page: number) {
     endItem: Math.min(startIndex + GUEST_TABLE_PAGE_SIZE, totalItems),
     totalItems,
   };
+}
+
+function getRailPanelMaxWidth(shellWidth: number) {
+  return Math.max(RAIL_PANEL_MIN_WIDTH, shellWidth - 24 - SHELL_MIN_MAIN_WIDTH);
+}
+
+function getListsPanelMaxWidth(canvasWidth: number) {
+  return Math.max(LISTS_PANEL_MIN_WIDTH, canvasWidth - CANVAS_MIN_MAIN_WIDTH);
 }
 
 function compareValues(left: string | number | boolean, right: string | number | boolean) {
@@ -395,7 +401,7 @@ export function App() {
   const [railPanelWidth, setRailPanelWidth] = useState<number>(() => {
     const storedWidth = Number(localStorage.getItem(RAIL_PANEL_WIDTH_STORAGE_KEY));
 
-    if (Number.isFinite(storedWidth) && storedWidth >= RAIL_PANEL_MIN_WIDTH && storedWidth <= RAIL_PANEL_MAX_WIDTH) {
+    if (Number.isFinite(storedWidth) && storedWidth >= RAIL_PANEL_MIN_WIDTH) {
       return storedWidth;
     }
 
@@ -406,7 +412,7 @@ export function App() {
   const [listsPanelWidth, setListsPanelWidth] = useState<number>(() => {
     const storedWidth = Number(localStorage.getItem(LISTS_PANEL_WIDTH_STORAGE_KEY));
 
-    if (Number.isFinite(storedWidth) && storedWidth >= LISTS_PANEL_MIN_WIDTH && storedWidth <= LISTS_PANEL_MAX_WIDTH) {
+    if (Number.isFinite(storedWidth) && storedWidth >= LISTS_PANEL_MIN_WIDTH) {
       return storedWidth;
     }
 
@@ -823,7 +829,7 @@ export function App() {
         return;
       }
 
-      const maxWidth = Math.min(RAIL_PANEL_MAX_WIDTH, Math.max(RAIL_PANEL_MIN_WIDTH, shellRect.width - SHELL_MIN_MAIN_WIDTH));
+      const maxWidth = getRailPanelMaxWidth(shellRect.width);
       const nextWidth = event.clientX - shellRect.left;
       const clampedWidth = Math.min(Math.max(nextWidth, RAIL_PANEL_MIN_WIDTH), maxWidth);
       setRailPanelWidth(clampedWidth);
@@ -853,7 +859,7 @@ export function App() {
         return;
       }
 
-      const maxWidth = Math.min(LISTS_PANEL_MAX_WIDTH, Math.max(LISTS_PANEL_MIN_WIDTH, canvasRect.width - CANVAS_MIN_MAIN_WIDTH));
+      const maxWidth = getListsPanelMaxWidth(canvasRect.width);
       const nextWidth = canvasRect.right - event.clientX;
       const clampedWidth = Math.min(Math.max(nextWidth, LISTS_PANEL_MIN_WIDTH), maxWidth);
       setListsPanelWidth(clampedWidth);
@@ -985,18 +991,14 @@ export function App() {
 
   function clampListsPanelWidth(nextWidth: number) {
     const canvasRect = canvasRef.current?.getBoundingClientRect();
-    const maxWidth = canvasRect
-      ? Math.min(LISTS_PANEL_MAX_WIDTH, Math.max(LISTS_PANEL_MIN_WIDTH, canvasRect.width - CANVAS_MIN_MAIN_WIDTH))
-      : LISTS_PANEL_MAX_WIDTH;
+    const maxWidth = canvasRect ? getListsPanelMaxWidth(canvasRect.width) : nextWidth;
 
     return Math.min(Math.max(nextWidth, LISTS_PANEL_MIN_WIDTH), maxWidth);
   }
 
   function clampRailPanelWidth(nextWidth: number) {
     const shellRect = shellRef.current?.getBoundingClientRect();
-    const maxWidth = shellRect
-      ? Math.min(RAIL_PANEL_MAX_WIDTH, Math.max(RAIL_PANEL_MIN_WIDTH, shellRect.width - SHELL_MIN_MAIN_WIDTH))
-      : RAIL_PANEL_MAX_WIDTH;
+    const maxWidth = shellRect ? getRailPanelMaxWidth(shellRect.width) : nextWidth;
 
     return Math.min(Math.max(nextWidth, RAIL_PANEL_MIN_WIDTH), maxWidth);
   }
@@ -1022,7 +1024,8 @@ export function App() {
     }
 
     if (event.key === "End") {
-      setRailPanelWidth(clampRailPanelWidth(RAIL_PANEL_MAX_WIDTH));
+      const shellRect = shellRef.current?.getBoundingClientRect();
+      setRailPanelWidth(clampRailPanelWidth(shellRect ? getRailPanelMaxWidth(shellRect.width) : railPanelWidth));
       return;
     }
 
@@ -1051,7 +1054,8 @@ export function App() {
     }
 
     if (event.key === "End") {
-      setListsPanelWidth(clampListsPanelWidth(LISTS_PANEL_MAX_WIDTH));
+      const canvasRect = canvasRef.current?.getBoundingClientRect();
+      setListsPanelWidth(clampListsPanelWidth(canvasRect ? getListsPanelMaxWidth(canvasRect.width) : listsPanelWidth));
       return;
     }
 
@@ -2302,7 +2306,7 @@ export function App() {
         <div
           aria-label="Ajustar ancho de la columna izquierda"
           aria-orientation="vertical"
-          aria-valuemax={RAIL_PANEL_MAX_WIDTH}
+          aria-valuemax={Math.round(getRailPanelMaxWidth(shellRef.current?.getBoundingClientRect().width ?? railPanelWidth))}
           aria-valuemin={RAIL_PANEL_MIN_WIDTH}
           aria-valuenow={Math.round(railPanelWidth)}
           className="shell__resizer"
@@ -2448,7 +2452,7 @@ export function App() {
             aria-hidden={!isListsPanelOpen || !isCenterPanelOpen}
             aria-label="Ajustar ancho de la columna derecha"
             aria-orientation="vertical"
-            aria-valuemax={LISTS_PANEL_MAX_WIDTH}
+            aria-valuemax={Math.round(getListsPanelMaxWidth(canvasRef.current?.getBoundingClientRect().width ?? listsPanelWidth))}
             aria-valuemin={LISTS_PANEL_MIN_WIDTH}
             aria-valuenow={Math.round(listsPanelWidth)}
             className={`canvas__resizer ${isListsPanelOpen && isCenterPanelOpen ? "" : "canvas__resizer--inactive"}`}
