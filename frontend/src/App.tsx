@@ -122,27 +122,8 @@ function matchesGuestSearch(guest: Guest, rawQuery: string) {
   return searchableFields.some((field) => normalizeSearchText(field).includes(query));
 }
 
-function BabyBottleIcon() {
-  return (
-    <svg aria-hidden="true" className="guest-signal__icon" viewBox="0 0 24 24">
-      <path d="M9 2.75h6v2.1l-1.2.95v1.3l2.8 2.8V20a1.25 1.25 0 0 1-1.25 1.25h-6.7A1.25 1.25 0 0 1 7.4 20V9.9l2.8-2.8V5.8L9 4.85Z" />
-      <path d="M10 5.75h4" />
-      <path d="M9.8 12.1h4.4" />
-      <path d="M9.8 15.4h4.4" />
-    </svg>
-  );
-}
-
-function GuestSignal({ guest }: { guest: Guest }) {
-  if (guest.guest_type !== "nino") {
-    return null;
-  }
-
-  return (
-    <span aria-label="Invitado infantil" className="guest-signal" title="Invitado infantil">
-      <BabyBottleIcon />
-    </span>
-  );
+function GuestSignal(_: { guest: Guest }) {
+  return null;
 }
 
 export function App() {
