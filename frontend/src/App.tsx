@@ -1446,7 +1446,7 @@ export function App() {
                   <strong>{fullTablesCount}</strong>
                 </article>
                 <article className="control-metric control-metric--alert">
-                  <span>Mesas con conflicto</span>
+                  <span>Ubicaciones por revisar</span>
                   <strong>{conflictTableIds.size}</strong>
                 </article>
                 <article className="control-metric">
@@ -1705,7 +1705,7 @@ export function App() {
                     <i style={{ width: `${ratio}%` }} />
                   </div>
                   <div className="table-card__flags">
-                    {conflictTableIds.has(table.id) ? <span className="status-flag status-flag--conflict">Conflicto</span> : null}
+                    {conflictTableIds.has(table.id) ? <span className="status-flag status-flag--conflict">Por revisar</span> : null}
                     {table.available === 0 ? <span className="status-flag status-flag--full">Completa</span> : null}
                     {table.available > 0 && table.available <= 2 ? <span className="status-flag status-flag--tight">Poco margen</span> : null}
                   </div>
@@ -2302,7 +2302,7 @@ export function App() {
             <section className="list-card">
               <div className="list-card__header">
                 <button className="panel-toggle panel-toggle--compact" onClick={() => togglePanel("conflicts")} type="button">
-                  <h3>Conflictos activos</h3>
+                  <h3>Ubicaciones por revisar</h3>
                   <span aria-hidden="true" className={`panel-toggle__chevron ${collapsedPanels.conflicts ? "panel-toggle__chevron--collapsed" : ""}`}>▾</span>
                 </button>
               </div>
@@ -2331,7 +2331,7 @@ export function App() {
                     </article>
                   ))
                 ) : (
-                  <p className="empty-state">Sin conflictos de familia.</p>
+                  <p className="empty-state">No hay ubicaciones por revisar.</p>
                 )}
               </div>
               ) : null}

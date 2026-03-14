@@ -498,7 +498,7 @@ export function SeatingPlan({
           </span>
           <span className="plan-legend__item">
             <i className="plan-legend__dot plan-legend__dot--conflict" />
-            conflicto
+            por revisar
           </span>
         </div>
       </div>

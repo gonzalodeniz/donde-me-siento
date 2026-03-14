@@ -12,6 +12,7 @@ from backend.app.domains.seating import Event, Guest, GuestType, Table
 PAGE_WIDTH = 595.0
 PAGE_HEIGHT = 842.0
 PAGE_MARGIN = 48.0
+TOP_CONTENT_MARGIN = 78.0
 BOTTOM_MARGIN = 48.0
 LINE_COLOR = (0.45, 0.31, 0.22)
 TEXT_COLOR = (0.16, 0.12, 0.1)
@@ -97,7 +98,7 @@ class PdfDocument:
             )
         )
 
-    def render(self) -> bytes:
+    def render(self, *, repeating_header: str | None = None) -> bytes:
         if self._current:
             self._pages.append("\n".join(self._current))
             self._current = []
@@ -113,8 +114,23 @@ class PdfDocument:
         font_bold_id = add_object(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>")
 
         page_object_ids: list[int] = []
-        for content in self._pages:
-            content_bytes = content.encode("latin-1", errors="replace")
+        total_pages = len(self._pages)
+        for page_number, content in enumerate(self._pages, start=1):
+            decorations: list[str] = []
+            if repeating_header and page_number > 1:
+                header_baseline = PAGE_HEIGHT - 30
+                decorations.append(
+                    f"BT /F2 10.50 Tf {MUTED_COLOR[0]:.3f} {MUTED_COLOR[1]:.3f} {MUTED_COLOR[2]:.3f} rg 1 0 0 1 {PAGE_MARGIN:.2f} {header_baseline:.2f} Tm ({_escape_pdf_text(repeating_header)}) Tj ET"
+                )
+                decorations.append(
+                    f"{ACCENT_COLOR[0]:.3f} {ACCENT_COLOR[1]:.3f} {ACCENT_COLOR[2]:.3f} RG 0.9 w {PAGE_MARGIN:.2f} {header_baseline - 10:.2f} m {PAGE_WIDTH - PAGE_MARGIN:.2f} {header_baseline - 10:.2f} l S"
+                )
+            page_number_text = str(page_number)
+            decorations.append(
+                f"BT /F1 9.00 Tf {MUTED_COLOR[0]:.3f} {MUTED_COLOR[1]:.3f} {MUTED_COLOR[2]:.3f} rg 1 0 0 1 {PAGE_WIDTH - PAGE_MARGIN - _estimated_text_width(page_number_text, 9):.2f} 24.00 Tm ({page_number_text}) Tj ET"
+            )
+            full_content = "\n".join([*decorations, content])
+            content_bytes = full_content.encode("latin-1", errors="replace")
             content_id = add_object(
                 f"<< /Length {len(content_bytes)} >>\nstream\n".encode("latin-1") + content_bytes + b"\nendstream"
             )
@@ -162,13 +178,13 @@ class PdfDocument:
 @dataclass
 class ReportLayout:
     pdf: PdfDocument
-    cursor_top: float = PAGE_MARGIN
+    cursor_top: float = TOP_CONTENT_MARGIN
 
     def ensure_space(self, required_height: float) -> None:
         if self.cursor_top + required_height <= PAGE_HEIGHT - BOTTOM_MARGIN:
             return
         self.pdf.new_page()
-        self.cursor_top = PAGE_MARGIN
+        self.cursor_top = TOP_CONTENT_MARGIN
 
     def text_block(self, value: str, size: float = 11, bold: bool = False, color: tuple[float, float, float] = TEXT_COLOR, indent: float = 0, gap_after: float = 6) -> None:
         max_width = PAGE_WIDTH - (PAGE_MARGIN * 2) - indent
@@ -365,22 +381,23 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
     if total_capacity > 0:
         occupancy_average = round((len(assigned_guests) / total_capacity) * 100)
 
+    couple_label = random.choice(["Héctor y Raquel", "Raquel y Héctor"])
+    repeating_header = f"Gran boda de {couple_label}"
     pdf = PdfDocument()
     layout = ReportLayout(pdf)
-    couple_label = random.choice(["Héctor y Raquel", "Raquel y Héctor"])
     extracted_at = datetime.now().strftime("%d/%m/%Y %H:%M")
     title_text = "dónde me siento"
     wedding_text = f"Boda de {couple_label}"
     title_size = 24.0
     wedding_size = 15.0
-    header_top = PAGE_MARGIN
+    header_top = TOP_CONTENT_MARGIN
     header_baseline = PAGE_HEIGHT - header_top
     right_x = PAGE_WIDTH - PAGE_MARGIN - _estimated_text_width(wedding_text, wedding_size)
     pdf.text(PAGE_MARGIN, header_baseline, title_text, size=title_size, bold=True, color=ACCENT_COLOR)
     pdf.text(right_x, header_baseline + 2, wedding_text, size=wedding_size, color=MUTED_COLOR)
     pdf.text(PAGE_MARGIN, header_baseline - 24, f"Fecha y hora del informe: {extracted_at}", size=9.5, color=MUTED_COLOR)
     pdf.line(PAGE_MARGIN, header_baseline - 34, PAGE_WIDTH - PAGE_MARGIN, header_baseline - 34, width=1.1, color=ACCENT_COLOR)
-    layout.cursor_top = PAGE_MARGIN + 52
+    layout.cursor_top = TOP_CONTENT_MARGIN + 52
 
     layout.section_title("Resumen del banquete", underline=False)
     summary_cards = [
@@ -389,7 +406,7 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
         ("Invitados sin sentar", str(validation["unassigned_guests"]), (0.994, 0.973, 0.952)),
         ("Total mesas", str(len(tables)), (0.984, 0.979, 0.996)),
         ("Mesas completas", str(full_tables), (0.976, 0.956, 0.935)),
-        ("Mesas con conflicto", str(len(conflict_groups)), (0.998, 0.947, 0.937)),
+        ("Ubicaciones por revisar", str(len(conflict_groups)), (0.998, 0.947, 0.937)),
         ("Ocupación media", f"{occupancy_average}%", (0.949, 0.971, 0.991)),
     ]
     layout.ensure_space(180)
@@ -400,6 +417,8 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
     layout.ensure_space(255)
     layout.cursor_top = _draw_table_diagram(pdf, layout.cursor_top, 240, tables, event)
     layout.cursor_top += 18
+    layout.pdf.new_page()
+    layout.cursor_top = TOP_CONTENT_MARGIN
 
     layout.section_title("Invitados ubicados", underline=False)
     layout.text_block("Ordenado por familia y por nombre.", size=10, color=MUTED_COLOR, gap_after=6)
@@ -421,7 +440,7 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
         "No hay invitados ubicados.",
     )
 
-    layout.cursor_top += 8
+    layout.cursor_top += 14
     layout.section_title("Invitados sin sentar", underline=False)
     unassigned_rows = [
         [
@@ -440,8 +459,8 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
         "No hay invitados sin sentar.",
     )
 
-    layout.cursor_top += 8
-    layout.section_title("Conflictos activos", underline=False)
+    layout.cursor_top += 14
+    layout.section_title("Ubicaciones por revisar", underline=False)
     conflict_rows: list[list[str]] = []
     if conflict_groups:
         guest_by_id = event.guests
@@ -455,7 +474,7 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
         ["Invitado", "Familia", "Mesa"],
         conflict_rows,
         [0.46, 0.34, 0.20],
-        "No hay conflictos activos.",
+        "No hay ubicaciones por revisar.",
     )
 
-    return pdf.render()
+    return pdf.render(repeating_header=repeating_header)
