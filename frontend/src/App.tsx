@@ -1709,14 +1709,14 @@ export function App() {
                 {!collapsedPanels.unassigned ? (
                 <>
                 <section className="guest-salon__section">
-                  {(workspace?.guests.unassigned.length ?? 0) > 0 ? (
-                    <div
-                      className={`guest-table-shell ${isUnassignedDropActive ? "guest-table-shell--drop-active" : ""}`}
-                      onDragLeave={handleUnassignedDragLeave}
-                      onDragOver={handleUnassignedDragOver}
-                      onDrop={handleUnassignedDrop}
-                    >
-                      {filteredUnassignedGuests.length > 0 ? (
+                  <div
+                    className={`guest-table-shell ${isUnassignedDropActive ? "guest-table-shell--drop-active" : ""}`}
+                    onDragLeave={handleUnassignedDragLeave}
+                    onDragOver={handleUnassignedDragOver}
+                    onDrop={handleUnassignedDrop}
+                  >
+                    {(workspace?.guests.unassigned.length ?? 0) > 0 ? (
+                      filteredUnassignedGuests.length > 0 ? (
                         <table className="guest-table">
                           <thead>
                             <tr>
@@ -1881,9 +1881,13 @@ export function App() {
                         </table>
                       ) : (
                         <p className="empty-state empty-state--paper">No encontramos a nadie con esa búsqueda.</p>
-                      )}
-                    </div>
-                  ) : null}
+                      )
+                    ) : (
+                      <p className="empty-state empty-state--paper">
+                        {isUnassignedDropActive ? "Suelta aquí para dejar al invitado sin mesa." : "No hay invitados sin sentar."}
+                      </p>
+                    )}
+                  </div>
                 </section>
                 <details className="guest-composer">
                   <summary className="guest-collapse__summary guest-collapse__summary--muted">
