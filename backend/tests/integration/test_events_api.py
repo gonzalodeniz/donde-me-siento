@@ -309,6 +309,19 @@ async def test_reset_workspace_clears_tables_and_guests(client: AsyncClient) -> 
 
 
 @pytest.mark.anyio
+async def test_workspace_report_pdf_download(client: AsyncClient) -> None:
+    await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto", "group_id": "Familia 1"})
+    await client.put("/api/guests/guest-1/assignment", json={"table_id": "table-1", "seat_index": 0})
+
+    response = await client.get("/api/workspace/report.pdf")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.headers["content-disposition"] == 'attachment; filename="donde-me-siento-informe.pdf"'
+    assert response.content.startswith(b"%PDF-1.4")
+
+
+@pytest.mark.anyio
 async def test_delete_table_rejects_occupied_and_reorders_empty_tables(client: AsyncClient) -> None:
     await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto"})
     await client.put("/api/guests/guest-1/assignment", json={"table_id": "table-1"})

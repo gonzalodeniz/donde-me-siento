@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from backend.app.api.dependencies import get_current_user, get_event_service
 from backend.app.domains.seating import DomainError
@@ -36,6 +36,18 @@ async def get_workspace(service: EventService = Depends(get_event_service)) -> W
     """Devuelve el estado agregado del workspace listo para UI."""
 
     return build_workspace_response(service.get_workspace())
+
+
+@router.get("/workspace/report.pdf")
+async def download_workspace_report(service: EventService = Depends(get_event_service)) -> Response:
+    """Genera un PDF imprimible del estado actual del workspace."""
+
+    pdf_bytes = service.generate_workspace_report_pdf()
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="donde-me-siento-informe.pdf"'},
+    )
 
 
 @router.post("/guests", response_model=EventResponse, status_code=status.HTTP_201_CREATED)

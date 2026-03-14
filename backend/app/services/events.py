@@ -7,6 +7,7 @@ from uuid import uuid4
 from backend.app.core.config import settings
 from backend.app.domains.seating import DomainError, Event, Guest, GuestType
 from backend.app.repositories.events import EventRepository
+from backend.app.services.report_pdf import generate_workspace_report_pdf
 from backend.app.schemas.events import GuestCreate, GuestUpdate
 
 
@@ -31,6 +32,10 @@ class EventService:
 
     def get_workspace(self) -> Event:
         return self.ensure_workspace()
+
+    def generate_workspace_report_pdf(self) -> bytes:
+        event = self.ensure_workspace()
+        return generate_workspace_report_pdf(event)
 
     def add_guest(self, payload: GuestCreate) -> Event:
         event = self.ensure_workspace()

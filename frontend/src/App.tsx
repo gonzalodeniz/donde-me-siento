@@ -7,6 +7,7 @@ import {
   deleteSession,
   deleteGuest,
   deleteTable,
+  downloadWorkspaceReport,
   duplicateTable,
   exportSession,
   fetchSessions,
@@ -867,6 +868,32 @@ export function App() {
     }
   }
 
+  async function handleDownloadReport() {
+    if (!token) {
+      return;
+    }
+
+    setSubmittingAction("download-report");
+    clearSectionNotice("tables");
+
+    try {
+      const blob = await downloadWorkspaceReport(token);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "donde-me-siento-informe.pdf";
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setSectionNotice("tables", "success", "Informe PDF preparado para imprimir.");
+    } catch (error) {
+      setSectionNotice("tables", "error", error instanceof Error ? error.message : "No se pudo generar el PDF.");
+    } finally {
+      setSubmittingAction(null);
+    }
+  }
+
   async function handleSessionExport(session: SavedSession) {
     if (!token) {
       return;
@@ -1195,6 +1222,20 @@ export function App() {
           <span className="topbar__couple">Héctor & Raquel</span>
         </div>
         <div className="topbar__session">
+          <button
+            aria-label="Descargar informe en PDF"
+            className="button button--ghost button--small button--icon topbar__icon-button"
+            disabled={isActionRunning("download-report")}
+            onClick={() => void handleDownloadReport()}
+            type="button"
+          >
+            <svg aria-hidden="true" className="button__icon" viewBox="0 0 24 24">
+              <path d="M7.75 8.25V5.9a1.65 1.65 0 0 1 1.65-1.65h5.2a1.65 1.65 0 0 1 1.65 1.65v2.35" />
+              <path d="M6.25 9.25h11.5A1.75 1.75 0 0 1 19.5 11v4a1.75 1.75 0 0 1-1.75 1.75H6.25A1.75 1.75 0 0 1 4.5 15v-4a1.75 1.75 0 0 1 1.75-1.75Z" />
+              <path d="M8.5 14.75h7" />
+              <path d="M8.25 16.75v2h7.5v-2" />
+            </svg>
+          </button>
           <button className="button button--link button--small" onClick={handleLogout} type="button">
             Salir
           </button>

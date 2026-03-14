@@ -34,6 +34,22 @@ export async function fetchWorkspace(token: string): Promise<Workspace> {
     },
   });
 }
+
+export async function downloadWorkspaceReport(token: string): Promise<Blob> {
+  const response = await fetch("/api/workspace/report.pdf", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(payload?.detail ?? "No se pudo completar la operacion.");
+  }
+
+  return response.blob();
+}
+
 export async function createGuest(
   token: string,
   payload: { name: string; guest_type: string; confirmed: boolean; group_id: string | null },

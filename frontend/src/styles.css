@@ -888,7 +888,15 @@ select {
 
 .topbar__session {
   justify-content: flex-end;
+  gap: 0.45rem;
   color: var(--muted);
+}
+
+.topbar__icon-button {
+  width: 2rem;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0;
 }
 
 .topbar__couple {
