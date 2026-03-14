@@ -293,6 +293,32 @@ export function App() {
     () => (workspace?.guests.assigned ?? []).filter((guest) => matchesGuestSearch(guest, deferredGuestSearchQuery)),
     [deferredGuestSearchQuery, workspace],
   );
+  const conflictReviewRows = useMemo(
+    () =>
+      Object.entries(workspace?.validation.grouping_conflicts ?? {})
+        .flatMap(([groupId, guestIds]) =>
+          guestIds.map((guestId) => {
+            const guest = guestById.get(guestId);
+            const tableNumber = guest?.table_id ? tableNumberById.get(guest.table_id) : null;
+
+            return {
+              rowId: `${groupId}-${guestId}`,
+              groupId,
+              guestName: guest?.name ?? guestId,
+              tableLabel: tableNumber ? `Mesa ${tableNumber}` : "Sin mesa",
+            };
+          }),
+        )
+        .sort((left, right) => {
+          const groupComparison = left.groupId.localeCompare(right.groupId, "es");
+          if (groupComparison !== 0) {
+            return groupComparison;
+          }
+
+          return left.guestName.localeCompare(right.guestName, "es");
+        }),
+    [guestById, tableNumberById, workspace],
+  );
   const guestSectionBusy =
     loadingWorkspace ||
     submittingAction === "create-guest" ||
@@ -2307,33 +2333,39 @@ export function App() {
                 </button>
               </div>
               {!collapsedPanels.conflicts ? (
-              <div className="guest-list">
-                {workspace && groupedConflictCount > 0 ? (
-                  Object.entries(workspace.validation.grouping_conflicts).map(([groupId, guestIds]) => (
-                    <article className="conflict-row" key={groupId}>
-                      <strong>Familia {groupId}</strong>
-                      <span className="conflict-row__guests">
-                        {guestIds
-                          .map((guestId) => {
-                            const guest = guestById.get(guestId);
-                            if (!guest) {
-                              return guestId;
-                            }
-
-                            const tableNumber = guest.table_id ? tableNumberById.get(guest.table_id) : null;
-                            return tableNumber ? `${guest.name} - mesa ${tableNumber}` : guest.name;
-                          })
-                          .sort((left, right) => left.localeCompare(right, "es"))
-                          .map((guestLabel) => (
-                            <span key={guestLabel}>{guestLabel}</span>
-                          ))}
-                      </span>
-                    </article>
-                  ))
-                ) : (
-                  <p className="empty-state">No hay ubicaciones por revisar.</p>
-                )}
-              </div>
+              <section className="guest-salon__section guest-salon__section--standalone">
+                <div className="guest-salon__section-header">
+                  <div>
+                    <p>Invitados con asientos que deben ser revisados</p>
+                  </div>
+                </div>
+                <div className="guest-table-shell guest-table-shell--compact">
+                  {workspace && groupedConflictCount > 0 ? (
+                    <table className="guest-table guest-table--placed">
+                      <thead>
+                        <tr>
+                          <th>Invitado</th>
+                          <th>Familia</th>
+                          <th>Mesa</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {conflictReviewRows.map((row) => (
+                          <tr className="guest-table__row guest-table__row--conflict" key={row.rowId}>
+                            <td>
+                              <strong>{row.guestName}</strong>
+                            </td>
+                            <td>{row.groupId}</td>
+                            <td>{row.tableLabel}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <p className="empty-state empty-state--paper">No hay ubicaciones por revisar.</p>
+                  )}
+                </div>
+              </section>
               ) : null}
             </section>
 

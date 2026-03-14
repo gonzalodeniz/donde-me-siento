@@ -1688,8 +1688,7 @@ select {
 }
 
 .guest-chip,
-.guest-row,
-.conflict-row {
+.guest-row {
   border-radius: 999px;
   padding: 0.48rem 0.78rem;
   background: rgba(50, 88, 81, 0.08);
@@ -1808,21 +1807,11 @@ select {
   background: rgba(255, 239, 218, 0.92);
 }
 
-.guest-row,
-.conflict-row {
+.guest-row {
   border-radius: 1rem;
   display: flex;
   justify-content: space-between;
   gap: 0.8rem;
-}
-
-.conflict-row {
-  background: rgba(154, 79, 36, 0.12);
-}
-
-.conflict-row__guests {
-  display: grid;
-  gap: 0.18rem;
 }
 
 .guest-row {
