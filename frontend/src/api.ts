@@ -1,4 +1,4 @@
-import type { LoginResponse, SavedSession, Workspace } from "./types";
+import type { LoginResponse, SavedSession, SessionBackup, Workspace } from "./types";
 
 const API_HEADERS = {
   "Content-Type": "application/json",
@@ -211,6 +211,25 @@ export async function deleteSession(sessionId: string, token: string): Promise<v
     headers: {
       Authorization: `Bearer ${token}`,
     },
+  });
+}
+
+export async function exportSession(sessionId: string, token: string): Promise<SessionBackup> {
+  return request<SessionBackup>(`/api/sessions/${sessionId}/export`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function importSession(backup: SessionBackup, token: string): Promise<void> {
+  await request("/api/sessions/import", {
+    method: "POST",
+    headers: {
+      ...API_HEADERS,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(backup),
   });
 }
 

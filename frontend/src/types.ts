@@ -33,6 +33,12 @@ export type SavedSession = {
   created_at: string;
 };
 
+export type SessionBackup = {
+  version: string;
+  session: SavedSession;
+  snapshot: Record<string, unknown>;
+};
+
 export type Workspace = {
   event_id: string;
   name: string;

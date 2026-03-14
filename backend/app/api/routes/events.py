@@ -12,6 +12,7 @@ from backend.app.schemas.events import (
     GuestAssignmentRequest,
     GuestCreate,
     GuestUpdate,
+    SessionBackupPayload,
     SessionCreateRequest,
     SessionResponse,
     TableBatchCreateRequest,
@@ -273,6 +274,34 @@ async def load_session(
 
     try:
         event = service.load_session(session_id)
+    except (DomainError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return build_event_response(event)
+
+
+@router.get("/sessions/{session_id}/export", response_model=SessionBackupPayload)
+async def export_session(
+    session_id: str,
+    service: EventService = Depends(get_event_service),
+) -> SessionBackupPayload:
+    """Exporta una sesión guardada a un fichero descargable."""
+
+    try:
+        return SessionBackupPayload(**service.export_session(session_id))
+    except (DomainError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/sessions/import", response_model=EventResponse)
+async def import_session(
+    payload: SessionBackupPayload,
+    service: EventService = Depends(get_event_service),
+) -> EventResponse:
+    """Importa una sesión desde fichero y la carga en el workspace actual."""
+
+    try:
+        event = service.import_session(payload.model_dump())
     except (DomainError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 

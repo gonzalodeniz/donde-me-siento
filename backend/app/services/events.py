@@ -116,6 +116,14 @@ class EventService:
         event = self.ensure_workspace()
         return self.repository.delete_session(event.id, session_id)
 
+    def export_session(self, session_id: str) -> dict[str, object]:
+        event = self.ensure_workspace()
+        return self.repository.export_session(event.id, session_id)
+
+    def import_session(self, backup: dict[str, object]) -> Event:
+        event = self.ensure_workspace()
+        return self.repository.import_session(event.id, backup)
+
     def reset_workspace(self) -> Event:
         event = self.ensure_workspace()
         event.tables.clear()

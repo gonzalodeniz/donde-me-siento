@@ -255,6 +255,14 @@ async def test_save_load_and_delete_sessions_flow(client: AsyncClient) -> None:
     assert list_response.json()[0]["name"] == "base familiar"
     assert list_response.json()[0]["created_at"]
 
+    export_response = await client.get(f"/api/sessions/{session_id}/export")
+    assert export_response.status_code == 200
+    backup_payload = export_response.json()
+    assert backup_payload["version"] == "1"
+    assert backup_payload["session"]["name"] == "base familiar"
+    assert backup_payload["snapshot"]["guests"][0]["seat_index"] == 1
+    assert backup_payload["snapshot"]["guests"][0]["confirmed"] is True
+
     await client.put("/api/guests/guest-1/assignment", json={"table_id": "table-1", "seat_index": 0})
     await client.put("/api/tables/table-2/position", json={"position_x": 150, "position_y": 150})
 
@@ -267,6 +275,13 @@ async def test_save_load_and_delete_sessions_flow(client: AsyncClient) -> None:
     assert loaded_guest["confirmed"] is True
     assert loaded_table["position_x"] == 420
     assert loaded_table["position_y"] == 360
+
+    await client.post("/api/workspace/reset")
+    import_response = await client.post("/api/sessions/import", json=backup_payload)
+    assert import_response.status_code == 200
+    imported_guest = next(guest for guest in import_response.json()["guests"] if guest["id"] == "guest-1")
+    assert imported_guest["table_id"] == "table-2"
+    assert imported_guest["seat_index"] == 1
 
     delete_response = await client.delete(f"/api/sessions/{session_id}")
     assert delete_response.status_code == 204

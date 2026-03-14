@@ -662,6 +662,18 @@ select {
   align-items: end;
 }
 
+.session-library__toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.session-library__file-input {
+  display: none;
+}
+
 .session-library__field {
   width: 100%;
   max-width: none;
@@ -709,7 +721,7 @@ select {
 }
 
 .session-library__new {
-  margin-top: 0.65rem;
+  margin-top: 0;
 }
 
 .rail-card {

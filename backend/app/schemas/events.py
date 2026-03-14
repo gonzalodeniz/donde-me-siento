@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.app.domains.seating import Event
@@ -110,6 +112,14 @@ class SessionResponse(BaseModel):
     id: str
     name: str
     created_at: str
+
+
+class SessionBackupPayload(BaseModel):
+    """Payload serializado para exportar o importar sesiones."""
+
+    version: str = Field(min_length=1, max_length=16)
+    session: SessionResponse
+    snapshot: dict[str, Any]
 
 
 class TableSummaryResponse(BaseModel):

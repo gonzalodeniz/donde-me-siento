@@ -1,4 +1,4 @@
-import { DragEvent, FormEvent, Fragment, KeyboardEvent as ReactKeyboardEvent, startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, DragEvent, FormEvent, Fragment, KeyboardEvent as ReactKeyboardEvent, startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   assignGuest,
@@ -8,8 +8,10 @@ import {
   deleteGuest,
   deleteTable,
   duplicateTable,
+  exportSession,
   fetchSessions,
   fetchWorkspace,
+  importSession,
   loadSession,
   login,
   resetWorkspace,
@@ -20,7 +22,7 @@ import {
   updateTablePosition,
 } from "./api";
 import { SeatingPlan } from "./components/SeatingPlan";
-import type { Guest, SavedSession, Workspace } from "./types";
+import type { Guest, SavedSession, SessionBackup, Workspace } from "./types";
 
 const TOKEN_STORAGE_KEY = "dms.auth.token";
 const LISTS_PANEL_WIDTH_STORAGE_KEY = "dms.ui.listsPanelWidth";
@@ -135,6 +137,7 @@ function GuestSignal({ guest }: { guest: Guest }) {
 export function App() {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLElement | null>(null);
+  const sessionImportInputRef = useRef<HTMLInputElement | null>(null);
   const [username, setUsername] = useState<string>(() => randomLoginName());
   const [password, setPassword] = useState("");
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_STORAGE_KEY));
@@ -864,6 +867,57 @@ export function App() {
     }
   }
 
+  async function handleSessionExport(session: SavedSession) {
+    if (!token) {
+      return;
+    }
+
+    setSubmittingAction(`export-session-${session.id}`);
+    clearSectionNotice("tables");
+
+    try {
+      const backup = await exportSession(session.id, token);
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const safeName =
+        session.name.replace(/[^\p{L}\p{N}\-_]+/gu, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "sesion";
+      link.href = url;
+      link.download = `${safeName}.json`;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setSectionNotice("tables", "success", `Sesión "${session.name}" descargada.`);
+    } catch (error) {
+      setSectionNotice("tables", "error", error instanceof Error ? error.message : "No se pudo completar la accion.");
+    } finally {
+      setSubmittingAction(null);
+    }
+  }
+
+  async function handleSessionFileImport(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file || !token) {
+      return;
+    }
+
+    setSubmittingAction("import-session-file");
+    clearSectionNotice("tables");
+
+    try {
+      const backup = JSON.parse(await file.text()) as SessionBackup;
+      await importSession(backup, token);
+      await refreshWorkspaceState(token);
+      setSectionNotice("tables", "success", `Sesión "${backup.session.name}" cargada desde fichero.`);
+    } catch (error) {
+      setSectionNotice("tables", "error", error instanceof Error ? error.message : "No se pudo importar la sesión.");
+    } finally {
+      event.target.value = "";
+      setSubmittingAction(null);
+    }
+  }
+
   function isActionRunning(actionKey: string) {
     return submittingAction === actionKey;
   }
@@ -1397,6 +1451,13 @@ export function App() {
                   {isActionRunning(`save-session-${normalizeText(sessionName)}`) ? "Guardando..." : "Guardar sesión"}
                 </button>
               </form>
+              <input
+                accept="application/json,.json"
+                className="session-library__file-input"
+                onChange={handleSessionFileImport}
+                ref={sessionImportInputRef}
+                type="file"
+              />
               {savedSessions.length > 0 ? (
                 <div className="guest-table-shell guest-table-shell--compact session-library__list">
                   <table className="guest-table session-table">
@@ -1404,6 +1465,7 @@ export function App() {
                       <tr>
                         <th>Sesión</th>
                         <th>Creada</th>
+                        <th aria-label="Descargar sesión" className="guest-table__action-column" />
                         <th aria-label="Cargar sesión" className="guest-table__action-column" />
                         <th aria-label="Eliminar sesión" className="guest-table__action-column" />
                       </tr>
@@ -1415,6 +1477,16 @@ export function App() {
                             <strong>{session.name}</strong>
                           </td>
                           <td>{formatSessionDate(session.created_at)}</td>
+                          <td className="guest-table__action-column">
+                            <button
+                              className="button button--ghost button--small"
+                              disabled={isActionRunning(`export-session-${session.id}`)}
+                              onClick={() => void handleSessionExport(session)}
+                              type="button"
+                            >
+                              Descargar
+                            </button>
+                          </td>
                           <td className="guest-table__action-column">
                             <button
                               className="button button--ghost button--small"
@@ -1499,9 +1571,19 @@ export function App() {
                   </button>
                 </div>
               ) : (
-                <button className="button button--primary button--small session-library__new" onClick={() => setIsResetSessionPending(true)} type="button">
-                  Nueva sesión
-                </button>
+                <div className="session-library__toolbar">
+                  <button
+                    className="button button--ghost button--small"
+                    disabled={isActionRunning("import-session-file")}
+                    onClick={() => sessionImportInputRef.current?.click()}
+                    type="button"
+                  >
+                    {isActionRunning("import-session-file") ? "Cargando..." : "Cargar desde fichero"}
+                  </button>
+                  <button className="button button--primary button--small session-library__new" onClick={() => setIsResetSessionPending(true)} type="button">
+                    Nueva sesión
+                  </button>
+                </div>
               )}
               </>
               ) : null}

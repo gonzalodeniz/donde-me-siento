@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from datetime import datetime, UTC
 
@@ -162,6 +163,68 @@ class EventRepository:
         self.session.delete(model)
         self.session.commit()
         return True
+
+    def export_session(self, event_id: str, session_id: str) -> dict[str, object]:
+        model = self.session.scalar(
+            select(SavedSessionModel).where(
+                SavedSessionModel.event_id == event_id,
+                SavedSessionModel.id == session_id,
+            )
+        )
+        if model is None:
+            raise ValueError(f"No existe la sesión '{session_id}'.")
+
+        return {
+            "version": "1",
+            "session": {
+                "id": model.id,
+                "name": model.name,
+                "created_at": model.created_at,
+            },
+            "snapshot": json.loads(model.snapshot_json),
+        }
+
+    def import_session(self, event_id: str, backup: dict[str, object]) -> Event:
+        session_data = backup.get("session")
+        snapshot_data = backup.get("snapshot")
+        if not isinstance(session_data, dict) or not isinstance(snapshot_data, dict):
+            raise ValueError("El fichero de sesión no tiene un formato válido.")
+
+        normalized_name = str(session_data.get("name", "")).strip()
+        if not normalized_name:
+            raise ValueError("El fichero de sesión no incluye un nombre válido.")
+
+        normalized_created_at = str(session_data.get("created_at", "")).strip() or datetime.now(UTC).replace(
+            microsecond=0
+        ).isoformat().replace("+00:00", "Z")
+
+        normalized_snapshot = copy.deepcopy(snapshot_data)
+        normalized_snapshot["id"] = event_id
+        imported_event = self._snapshot_to_event(normalized_snapshot)
+        saved_event = self.save(imported_event)
+
+        statement = select(SavedSessionModel).where(
+            SavedSessionModel.event_id == event_id,
+            SavedSessionModel.name == normalized_name,
+        )
+        existing_model = self.session.scalar(statement)
+        snapshot_json = json.dumps(self._event_to_snapshot(saved_event), ensure_ascii=True)
+
+        if existing_model is None:
+            existing_model = SavedSessionModel(
+                id=f"session-{uuid4().hex[:12]}",
+                event_id=event_id,
+                name=normalized_name,
+                created_at=normalized_created_at,
+                snapshot_json=snapshot_json,
+            )
+            self.session.add(existing_model)
+        else:
+            existing_model.created_at = normalized_created_at
+            existing_model.snapshot_json = snapshot_json
+
+        self.session.commit()
+        return saved_event
 
     @staticmethod
     def _to_model(event: Event) -> EventModel:
