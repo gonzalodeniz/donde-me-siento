@@ -102,8 +102,10 @@ docker-build:
 
 docker-run:
 	mkdir -p $(DOCKER_DATA_DIR)
-	docker run --rm \
+	-docker rm -f $(DOCKER_CONTAINER)
+	docker run -d \
 		--name $(DOCKER_CONTAINER) \
+		--restart unless-stopped \
 		-p $(DOCKER_PORT):80 \
 		-v $(DOCKER_DATA_DIR):/app/data \
 		$(DOCKER_IMAGE)
