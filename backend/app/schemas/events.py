@@ -16,6 +16,8 @@ class GuestCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     guest_type: str = Field(min_length=1, max_length=32)
     confirmed: bool = False
+    intolerance: str = Field(default="", max_length=255)
+    menu: str = Field(default="desconocido", min_length=1, max_length=32)
     group_id: str | None = Field(default=None, max_length=64)
     table_id: str | None = Field(default=None, max_length=64)
     seat_index: int | None = Field(default=None, ge=0)
@@ -48,6 +50,8 @@ class GuestResponse(BaseModel):
     name: str
     guest_type: str
     confirmed: bool
+    intolerance: str
+    menu: str
     group_id: str | None
     table_id: str | None
     seat_index: int | None
@@ -71,6 +75,8 @@ class GuestUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     guest_type: str | None = Field(default=None, min_length=1, max_length=32)
     confirmed: bool | None = None
+    intolerance: str | None = Field(default=None, max_length=255)
+    menu: str | None = Field(default=None, min_length=1, max_length=32)
     group_id: str | None = Field(default=None, max_length=64)
 
 
@@ -204,6 +210,8 @@ def build_event_response(event: Event) -> EventResponse:
                 name=guest.name,
                 guest_type=guest.guest_type.value,
                 confirmed=guest.confirmed,
+                intolerance=guest.intolerance,
+                menu=guest.menu.value,
                 group_id=guest.group_id,
                 table_id=guest.table_id,
                 seat_index=guest.seat_index,
@@ -241,6 +249,8 @@ def build_workspace_response(event: Event) -> WorkspaceResponse:
             name=guest.name,
             guest_type=guest.guest_type.value,
             confirmed=guest.confirmed,
+            intolerance=guest.intolerance,
+            menu=guest.menu.value,
             group_id=guest.group_id,
             table_id=guest.table_id,
             seat_index=guest.seat_index,
@@ -253,6 +263,8 @@ def build_workspace_response(event: Event) -> WorkspaceResponse:
             name=guest.name,
             guest_type=guest.guest_type.value,
             confirmed=guest.confirmed,
+            intolerance=guest.intolerance,
+            menu=guest.menu.value,
             group_id=guest.group_id,
             table_id=guest.table_id,
             seat_index=guest.seat_index,
@@ -270,6 +282,8 @@ def build_workspace_response(event: Event) -> WorkspaceResponse:
                 name=guest.name,
                 guest_type=guest.guest_type.value,
                 confirmed=guest.confirmed,
+                intolerance=guest.intolerance,
+                menu=guest.menu.value,
                 group_id=guest.group_id,
                 table_id=guest.table_id,
                 seat_index=guest.seat_index,

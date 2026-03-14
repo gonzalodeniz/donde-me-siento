@@ -5,7 +5,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 from backend.app.core.config import settings
-from backend.app.domains.seating import DomainError, Event, Guest, GuestType
+from backend.app.domains.seating import DomainError, Event, Guest, GuestMenu, GuestType
 from backend.app.repositories.events import EventRepository
 from backend.app.services.report_pdf import generate_workspace_report_pdf
 from backend.app.schemas.events import GuestCreate, GuestUpdate
@@ -71,11 +71,14 @@ class EventService:
     def update_guest(self, guest_id: str, payload: GuestUpdate) -> Event:
         event = self.ensure_workspace()
         guest_type = self._parse_guest_type(payload.guest_type) if payload.guest_type is not None else None
+        menu = self._parse_guest_menu(payload.menu) if payload.menu is not None else None
         event.update_guest(
             guest_id,
             name=payload.name,
             guest_type=guest_type,
             confirmed=payload.confirmed,
+            intolerance=payload.intolerance,
+            menu=menu,
             group_id=payload.group_id,
         )
         return self.repository.save(event)
@@ -148,12 +151,21 @@ class EventService:
         except ValueError as exc:
             raise DomainError(f"Tipo de invitado no soportado: {raw_guest_type}") from exc
 
+    @staticmethod
+    def _parse_guest_menu(raw_guest_menu: str) -> GuestMenu:
+        try:
+            return GuestMenu(raw_guest_menu)
+        except ValueError as exc:
+            raise DomainError(f"Menú no soportado: {raw_guest_menu}") from exc
+
     def _build_guest(self, payload: GuestCreate) -> Guest:
         return Guest(
             id=payload.id or f"guest-{uuid4().hex[:12]}",
             name=payload.name,
             guest_type=self._parse_guest_type(payload.guest_type),
             confirmed=payload.confirmed,
+            intolerance=payload.intolerance,
+            menu=self._parse_guest_menu(payload.menu),
             group_id=payload.group_id,
             table_id=payload.table_id,
             seat_index=payload.seat_index,

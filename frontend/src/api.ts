@@ -52,7 +52,14 @@ export async function downloadWorkspaceReport(token: string): Promise<Blob> {
 
 export async function createGuest(
   token: string,
-  payload: { name: string; guest_type: string; confirmed: boolean; group_id: string | null },
+  payload: {
+    name: string;
+    guest_type: string;
+    confirmed: boolean;
+    intolerance: string;
+    menu: string;
+    group_id: string | null;
+  },
 ): Promise<void> {
   await request("/api/guests", {
     method: "POST",
@@ -66,7 +73,14 @@ export async function createGuest(
 
 export async function importGuests(
   token: string,
-  payload: Array<{ name: string; guest_type: string; confirmed: boolean; group_id: string | null }>,
+  payload: Array<{
+    name: string;
+    guest_type: string;
+    confirmed: boolean;
+    intolerance: string;
+    menu: string;
+    group_id: string | null;
+  }>,
 ): Promise<void> {
   await request("/api/guests/import", {
     method: "POST",
@@ -81,7 +95,14 @@ export async function importGuests(
 export async function updateGuest(
   guestId: string,
   token: string,
-  payload: { name?: string; guest_type?: string; confirmed?: boolean; group_id?: string | null },
+  payload: {
+    name?: string;
+    guest_type?: string;
+    confirmed?: boolean;
+    intolerance?: string;
+    menu?: string;
+    group_id?: string | null;
+  },
 ): Promise<void> {
   await request(`/api/guests/${guestId}`, {
     method: "PUT",

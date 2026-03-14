@@ -53,18 +53,22 @@ type TablePosition = {
   position_x: number;
   position_y: number;
 };
-type GuestEditableField = "name" | "confirmed" | "type" | "group" | "table";
+type GuestEditableField = "name" | "confirmed" | "type" | "intolerance" | "menu" | "group" | "table";
 type PanelKey = "salon" | "summary" | "sessions" | "unassigned" | "assigned" | "conflicts" | "guestImport";
 type GuestTablePageKey = "unassigned" | "assigned" | "conflicts";
 type GuestDraft = {
   name: string;
   guest_type: string;
   confirmed: boolean;
+  intolerance: string;
+  menu: string;
 };
 type ImportedGuestDraft = {
   name: string;
   guest_type: string;
   confirmed: boolean;
+  intolerance: string;
+  menu: string;
   group_id: string | null;
 };
 type GuestImportPreview = {
@@ -79,6 +83,8 @@ function createEmptyGuestDraft(): GuestDraft {
     name: "",
     guest_type: "adulto",
     confirmed: true,
+    intolerance: "",
+    menu: "desconocido",
   };
 }
 
@@ -171,6 +177,24 @@ function parseGuestCsvType(rawValue: string, lineNumber: number) {
   throw new Error(`Línea ${lineNumber}: tipo de invitado no válido: "${rawValue || "vacío"}".`);
 }
 
+function parseGuestCsvMenu(rawValue: string, lineNumber: number) {
+  const normalizedValue = normalizeSearchText(rawValue);
+  if (!normalizedValue) {
+    return "desconocido";
+  }
+
+  if (
+    normalizedValue === "desconocido" ||
+    normalizedValue === "carne" ||
+    normalizedValue === "pescado" ||
+    normalizedValue === "vegano"
+  ) {
+    return normalizedValue;
+  }
+
+  throw new Error(`Línea ${lineNumber}: valor de menú no válido: "${rawValue}".`);
+}
+
 function parseGuestImportCsv(fileName: string, content: string): GuestImportPreview {
   const rows = content
     .replace(/^\uFEFF/, "")
@@ -191,6 +215,8 @@ function parseGuestImportCsv(fileName: string, content: string): GuestImportPrev
   const headerIndexes = Object.fromEntries(
     REQUIRED_GUEST_CSV_COLUMNS.map((column) => [column, headerCells.indexOf(column)]),
   ) as Record<(typeof REQUIRED_GUEST_CSV_COLUMNS)[number], number>;
+  const intoleranceColumnIndex = headerCells.indexOf("intolerancia");
+  const menuColumnIndex = headerCells.indexOf("menu");
 
   const guests = rows.slice(1).map(({ line, lineNumber }) => {
     const cells = parseCsvLine(line);
@@ -205,6 +231,8 @@ function parseGuestImportCsv(fileName: string, content: string): GuestImportPrev
       name,
       confirmed: parseGuestCsvAttendance(cells[headerIndexes.asistencia] ?? "", lineNumber),
       guest_type: parseGuestCsvType(cells[headerIndexes.tipo] ?? "", lineNumber),
+      intolerance: normalizeText(intoleranceColumnIndex >= 0 ? (cells[intoleranceColumnIndex] ?? "") : ""),
+      menu: parseGuestCsvMenu(menuColumnIndex >= 0 ? (cells[menuColumnIndex] ?? "") : "", lineNumber),
       group_id: groupId,
     };
   });
@@ -255,6 +283,20 @@ function formatConfirmedLabel(confirmed: boolean) {
   return confirmed ? "Confirmado" : "Pendiente";
 }
 
+function formatMenuLabel(menu: string) {
+  switch (menu) {
+    case "carne":
+      return "Carne";
+    case "pescado":
+      return "Pescado";
+    case "vegano":
+      return "Vegano";
+    case "desconocido":
+    default:
+      return "Desconocido";
+  }
+}
+
 function matchesGuestSearch(guest: Guest, rawQuery: string) {
   const query = normalizeSearchText(rawQuery);
   if (!query) {
@@ -265,8 +307,11 @@ function matchesGuestSearch(guest: Guest, rawQuery: string) {
     guest.name,
     guest.group_id ?? "",
     guest.guest_type,
+    guest.intolerance,
+    guest.menu,
     guest.table_id ?? "",
     formatGuestTypeLabel(guest.guest_type),
+    formatMenuLabel(guest.menu),
   ];
 
   return searchableFields.some((field) => normalizeSearchText(field).includes(query));
@@ -305,6 +350,8 @@ export function App() {
   const [editingGuestName, setEditingGuestName] = useState("");
   const [editingGuestType, setEditingGuestType] = useState("adulto");
   const [editingGuestConfirmed, setEditingGuestConfirmed] = useState(false);
+  const [editingGuestIntolerance, setEditingGuestIntolerance] = useState("");
+  const [editingGuestMenu, setEditingGuestMenu] = useState("desconocido");
   const [editingGuestGroupId, setEditingGuestGroupId] = useState("");
   const [editingGuestError, setEditingGuestError] = useState<string | null>(null);
   const [assignmentValues, setAssignmentValues] = useState<Record<string, string>>({});
@@ -481,7 +528,9 @@ export function App() {
 
             return {
               rowId: `${groupId}-${guestId}`,
+              guestId,
               groupId,
+              guest: guest ?? null,
               guestName: guest?.name ?? guestId,
               tableLabel: tableNumber ? `Mesa ${tableNumber}` : "Sin mesa",
             };
@@ -860,6 +909,8 @@ export function App() {
     setEditingGuestName(guest.name);
     setEditingGuestType(guest.guest_type);
     setEditingGuestConfirmed(guest.confirmed);
+    setEditingGuestIntolerance(guest.intolerance);
+    setEditingGuestMenu(guest.menu);
     setEditingGuestGroupId(guest.group_id ?? "");
   }
 
@@ -868,6 +919,8 @@ export function App() {
     setEditingGuestName("");
     setEditingGuestType("adulto");
     setEditingGuestConfirmed(false);
+    setEditingGuestIntolerance("");
+    setEditingGuestMenu("desconocido");
     setEditingGuestGroupId("");
     setEditingGuestError(null);
   }
@@ -901,10 +954,13 @@ export function App() {
     }
 
     const normalizedGroupId = normalizeText(editingGuestGroupId) || null;
+    const normalizedIntolerance = normalizeText(editingGuestIntolerance);
     const hasChanges =
       normalizedGuestName !== currentGuest.name ||
       editingGuestType !== currentGuest.guest_type ||
       editingGuestConfirmed !== currentGuest.confirmed ||
+      normalizedIntolerance !== currentGuest.intolerance ||
+      editingGuestMenu !== currentGuest.menu ||
       normalizedGroupId !== currentGuest.group_id;
 
     if (!hasChanges) {
@@ -922,6 +978,8 @@ export function App() {
           name: normalizedGuestName,
           guest_type: editingGuestType,
           confirmed: editingGuestConfirmed,
+          intolerance: normalizedIntolerance,
+          menu: editingGuestMenu,
           group_id: normalizedGroupId,
         }),
       "Invitado actualizado.",
@@ -1044,6 +1102,8 @@ export function App() {
         name: normalizeText(draft.name),
         guest_type: draft.guest_type,
         confirmed: draft.confirmed,
+        intolerance: normalizeText(draft.intolerance),
+        menu: draft.menu,
       }))
       .filter((draft) => draft.name);
 
@@ -1062,6 +1122,8 @@ export function App() {
             name: guest.name,
             guest_type: guest.guest_type,
             confirmed: guest.confirmed,
+            intolerance: guest.intolerance,
+            menu: guest.menu,
             group_id: normalizeText(guestGroupId) || null,
           });
         }
@@ -2222,6 +2284,8 @@ export function App() {
                               <th>Invitado</th>
                               <th>Asistencia</th>
                               <th>Tipo</th>
+                              <th>Intolerancia</th>
+                              <th>Menú</th>
                               <th>Familia</th>
                               <th>Mesa</th>
                               <th aria-label="Eliminar invitado" className="guest-table__action-column" />
@@ -2292,6 +2356,43 @@ export function App() {
                                     ) : (
                                       <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "type")} type="button">
                                         {formatGuestTypeLabel(guest.guest_type)}
+                                      </button>
+                                    )}
+                                  </td>
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "intolerance" ? (
+                                      <input
+                                        autoFocus
+                                        className="guest-table__input"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => setEditingGuestIntolerance(event.target.value)}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={editingGuestIntolerance}
+                                      />
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "intolerance")} type="button">
+                                        {guest.intolerance || "Sin intolerancia"}
+                                      </button>
+                                    )}
+                                  </td>
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "menu" ? (
+                                      <select
+                                        autoFocus
+                                        className="guest-table__select"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => setEditingGuestMenu(event.target.value)}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={editingGuestMenu}
+                                      >
+                                        <option value="desconocido">Desconocido</option>
+                                        <option value="carne">Carne</option>
+                                        <option value="pescado">Pescado</option>
+                                        <option value="vegano">Vegano</option>
+                                      </select>
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "menu")} type="button">
+                                        {formatMenuLabel(guest.menu)}
                                       </button>
                                     )}
                                   </td>
@@ -2483,6 +2584,36 @@ export function App() {
                               <option value="nino">nino</option>
                             </select>
                           </label>
+                          <label className="mini-field">
+                            <span>Intolerancia</span>
+                            <input
+                              placeholder="opcional"
+                              value={draft.intolerance}
+                              onChange={(event) =>
+                                updateGuestDraft(index, {
+                                  ...draft,
+                                  intolerance: event.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                          <label className="mini-field">
+                            <span>Menú</span>
+                            <select
+                              value={draft.menu}
+                              onChange={(event) =>
+                                updateGuestDraft(index, {
+                                  ...draft,
+                                  menu: event.target.value,
+                                })
+                              }
+                            >
+                              <option value="desconocido">desconocido</option>
+                              <option value="carne">carne</option>
+                              <option value="pescado">pescado</option>
+                              <option value="vegano">vegano</option>
+                            </select>
+                          </label>
                           <label className="mini-field mini-field--checkbox">
                             <span>Confirmado</span>
                             <input
@@ -2534,6 +2665,8 @@ export function App() {
                           <th>Invitado</th>
                           <th>Asistencia</th>
                           <th>Tipo</th>
+                          <th>Intolerancia</th>
+                          <th>Menú</th>
                           <th>Familia</th>
                           <th>Mesa</th>
                         </tr>
@@ -2602,6 +2735,43 @@ export function App() {
                                   ) : (
                                     <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "type")} type="button">
                                       {formatGuestTypeLabel(guest.guest_type)}
+                                    </button>
+                                  )}
+                                </td>
+                                <td>
+                                  {editingGuestId === guest.id && editingGuestField === "intolerance" ? (
+                                    <input
+                                      autoFocus
+                                      className="guest-table__input"
+                                      onBlur={handleGuestEditBlur}
+                                      onChange={(event) => setEditingGuestIntolerance(event.target.value)}
+                                      onKeyDown={handleGuestEditKeyDown}
+                                      value={editingGuestIntolerance}
+                                    />
+                                  ) : (
+                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "intolerance")} type="button">
+                                      {guest.intolerance || "Sin intolerancia"}
+                                    </button>
+                                  )}
+                                </td>
+                                <td>
+                                  {editingGuestId === guest.id && editingGuestField === "menu" ? (
+                                    <select
+                                      autoFocus
+                                      className="guest-table__select"
+                                      onBlur={handleGuestEditBlur}
+                                      onChange={(event) => setEditingGuestMenu(event.target.value)}
+                                      onKeyDown={handleGuestEditKeyDown}
+                                      value={editingGuestMenu}
+                                    >
+                                      <option value="desconocido">Desconocido</option>
+                                      <option value="carne">Carne</option>
+                                      <option value="pescado">Pescado</option>
+                                      <option value="vegano">Vegano</option>
+                                    </select>
+                                  ) : (
+                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "menu")} type="button">
+                                      {formatMenuLabel(guest.menu)}
                                     </button>
                                   )}
                                 </td>
@@ -2758,6 +2928,8 @@ export function App() {
                       <thead>
                         <tr>
                           <th>Invitado</th>
+                          <th>Intolerancia</th>
+                          <th>Menú</th>
                           <th>Familia</th>
                           <th>Mesa</th>
                         </tr>
@@ -2766,7 +2938,58 @@ export function App() {
                         {paginatedConflictRows.rows.map((row) => (
                           <tr className="guest-table__row guest-table__row--conflict" key={row.rowId}>
                             <td>
-                              <strong>{row.guestName}</strong>
+                              {row.guest ? (
+                                <button className="guest-name-button" onClick={() => beginGuestEdit(row.guest!, "name")} type="button">
+                                  <strong>{row.guestName}</strong>
+                                </button>
+                              ) : (
+                                <strong>{row.guestName}</strong>
+                              )}
+                            </td>
+                            <td>
+                              {row.guest ? (
+                                editingGuestId === row.guest.id && editingGuestField === "intolerance" ? (
+                                  <input
+                                    autoFocus
+                                    className="guest-table__input"
+                                    onBlur={handleGuestEditBlur}
+                                    onChange={(event) => setEditingGuestIntolerance(event.target.value)}
+                                    onKeyDown={handleGuestEditKeyDown}
+                                    value={editingGuestIntolerance}
+                                  />
+                                ) : (
+                                  <button className="guest-cell-button" onClick={() => beginGuestEdit(row.guest!, "intolerance")} type="button">
+                                    {row.guest.intolerance || "Sin intolerancia"}
+                                  </button>
+                                )
+                              ) : (
+                                "Sin intolerancia"
+                              )}
+                            </td>
+                            <td>
+                              {row.guest ? (
+                                editingGuestId === row.guest.id && editingGuestField === "menu" ? (
+                                  <select
+                                    autoFocus
+                                    className="guest-table__select"
+                                    onBlur={handleGuestEditBlur}
+                                    onChange={(event) => setEditingGuestMenu(event.target.value)}
+                                    onKeyDown={handleGuestEditKeyDown}
+                                    value={editingGuestMenu}
+                                  >
+                                    <option value="desconocido">Desconocido</option>
+                                    <option value="carne">Carne</option>
+                                    <option value="pescado">Pescado</option>
+                                    <option value="vegano">Vegano</option>
+                                  </select>
+                                ) : (
+                                  <button className="guest-cell-button" onClick={() => beginGuestEdit(row.guest!, "menu")} type="button">
+                                    {formatMenuLabel(row.guest.menu)}
+                                  </button>
+                                )
+                              ) : (
+                                "Desconocido"
+                              )}
                             </td>
                             <td>{row.groupId}</td>
                             <td>{row.tableLabel}</td>
@@ -2828,7 +3051,7 @@ export function App() {
                   type="file"
                 />
                 <p className="guest-import-panel__lead">
-                  Importa un CSV con las columnas <code>nombre</code>, <code>asistencia</code>, <code>tipo</code> y <code>familia</code>.
+                  Importa un CSV con las columnas <code>nombre</code>, <code>asistencia</code>, <code>tipo</code> y <code>familia</code>. Las columnas <code>intolerancia</code> y <code>menu</code> son opcionales.
                 </p>
                 <div className="guest-import-panel__actions">
                   <button className="button button--ghost button--small" onClick={() => guestImportInputRef.current?.click()} type="button">
@@ -2882,6 +3105,8 @@ export function App() {
                             <th>Invitado</th>
                             <th>Asistencia</th>
                             <th>Tipo</th>
+                            <th>Intolerancia</th>
+                            <th>Menú</th>
                             <th>Familia</th>
                           </tr>
                         </thead>
@@ -2893,6 +3118,8 @@ export function App() {
                               </td>
                               <td>{formatConfirmedLabel(guest.confirmed)}</td>
                               <td>{formatGuestTypeLabel(guest.guest_type)}</td>
+                              <td>{guest.intolerance || "Sin intolerancia"}</td>
+                              <td>{formatMenuLabel(guest.menu)}</td>
                               <td>{guest.group_id ?? "Sin familia"}</td>
                             </tr>
                           ))}

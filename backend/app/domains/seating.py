@@ -18,6 +18,15 @@ class GuestType(StrEnum):
     CHILD = "nino"
 
 
+class GuestMenu(StrEnum):
+    """Opciones de menú soportadas para cada invitado."""
+
+    UNKNOWN = "desconocido"
+    MEAT = "carne"
+    FISH = "pescado"
+    VEGAN = "vegano"
+
+
 @dataclass(slots=True)
 class Table:
     """Mesa del evento."""
@@ -41,6 +50,8 @@ class Guest:
     name: str
     guest_type: GuestType
     confirmed: bool = False
+    intolerance: str = ""
+    menu: GuestMenu = GuestMenu.UNKNOWN
     group_id: str | None = None
     table_id: str | None = None
     seat_index: int | None = None
@@ -50,6 +61,7 @@ class Guest:
         if not normalized_name:
             raise DomainError("El nombre del invitado es obligatorio.")
         self.name = normalized_name
+        self.intolerance = self.intolerance.strip()
 
 
 @dataclass(slots=True)
@@ -195,6 +207,8 @@ class Event:
         name: str | None = None,
         guest_type: GuestType | None = None,
         confirmed: bool | None = None,
+        intolerance: str | None = None,
+        menu: GuestMenu | None = None,
         group_id: str | None = None,
     ) -> Guest:
         guest = self._get_guest(guest_id)
@@ -207,6 +221,10 @@ class Event:
             guest.guest_type = guest_type
         if confirmed is not None:
             guest.confirmed = confirmed
+        if intolerance is not None:
+            guest.intolerance = intolerance.strip()
+        if menu is not None:
+            guest.menu = menu
         guest.group_id = group_id
         return guest
 

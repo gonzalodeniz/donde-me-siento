@@ -7,7 +7,7 @@ from datetime import datetime
 import math
 import random
 
-from backend.app.domains.seating import Event, Guest, GuestType, Table
+from backend.app.domains.seating import Event, Guest, GuestMenu, GuestType, Table
 
 PAGE_WIDTH = 595.0
 PAGE_HEIGHT = 842.0
@@ -214,6 +214,16 @@ def _format_guest_type(guest_type: GuestType) -> str:
     if guest_type is GuestType.TEEN:
         return "Adolescente"
     return "Niño"
+
+
+def _format_guest_menu(menu: GuestMenu) -> str:
+    if menu is GuestMenu.MEAT:
+        return "Carne"
+    if menu is GuestMenu.FISH:
+        return "Pescado"
+    if menu is GuestMenu.VEGAN:
+        return "Vegano"
+    return "Desconocido"
 
 
 def _sorted_assigned_guests(event: Event, table_by_id: dict[str, Table]) -> list[Guest]:
@@ -448,14 +458,16 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
             f"Mesa {table_by_id[guest.table_id].number}" if guest.table_id else "-",
             _format_guest_type(guest.guest_type),
             "Confirmado" if guest.confirmed else "Pendiente",
+            guest.intolerance or "-",
+            _format_guest_menu(guest.menu),
         ]
         for guest in assigned_guests
     ]
     _draw_data_table(
         layout,
-        ["Invitado", "Familia", "Mesa", "Tipo", "Asistencia"],
+        ["Invitado", "Familia", "Mesa", "Tipo", "Asistencia", "Intolerancia", "Menú"],
         assigned_rows,
-        [0.28, 0.24, 0.14, 0.16, 0.18],
+        [0.19, 0.16, 0.10, 0.12, 0.13, 0.18, 0.12],
         "No hay invitados ubicados.",
     )
 
@@ -467,14 +479,16 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
             guest.group_id or "",
             _format_guest_type(guest.guest_type),
             "Confirmado" if guest.confirmed else "Pendiente",
+            guest.intolerance or "-",
+            _format_guest_menu(guest.menu),
         ]
         for guest in unassigned_guests
     ]
     _draw_data_table(
         layout,
-        ["Invitado", "Familia", "Tipo", "Asistencia"],
+        ["Invitado", "Familia", "Tipo", "Asistencia", "Intolerancia", "Menú"],
         unassigned_rows,
-        [0.34, 0.28, 0.18, 0.20],
+        [0.22, 0.17, 0.12, 0.13, 0.22, 0.14],
         "No hay invitados sin sentar.",
     )
 
@@ -487,12 +501,20 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
             for guest_id in sorted(guest_ids, key=lambda current_id: guest_by_id[current_id].name.casefold()):
                 guest = guest_by_id[guest_id]
                 table_number = table_by_id[guest.table_id].number if guest.table_id else "-"
-                conflict_rows.append([guest.name, group_id, f"Mesa {table_number}"])
+                conflict_rows.append(
+                    [
+                        guest.name,
+                        guest.intolerance or "-",
+                        _format_guest_menu(guest.menu),
+                        group_id,
+                        f"Mesa {table_number}",
+                    ]
+                )
     _draw_data_table(
         layout,
-        ["Invitado", "Familia", "Mesa"],
+        ["Invitado", "Intolerancia", "Menú", "Familia", "Mesa"],
         conflict_rows,
-        [0.46, 0.34, 0.20],
+        [0.24, 0.24, 0.14, 0.24, 0.14],
         "No hay ubicaciones por revisar.",
     )
 

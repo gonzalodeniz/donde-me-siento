@@ -3,6 +3,8 @@ export type Guest = {
   name: string;
   guest_type: string;
   confirmed: boolean;
+  intolerance: string;
+  menu: string;
   group_id: string | null;
   table_id: string | null;
   seat_index: number | null;
