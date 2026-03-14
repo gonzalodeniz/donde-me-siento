@@ -201,6 +201,14 @@ export function App() {
     guests: false,
     tables: false,
   });
+  const [hoveredCardGuest, setHoveredCardGuest] = useState<{
+    tableId: string;
+    name: string;
+    guestType: string;
+    family: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const deferredGuestSearchQuery = useDeferredValue(guestSearchQuery);
 
   const groupedConflictCount = useMemo(
@@ -850,6 +858,23 @@ export function App() {
     setIsUnassignedDropActive(false);
   }
 
+  function updateHoveredCardGuest(event: React.MouseEvent<HTMLElement>, tableId: string, guest: Guest) {
+    const cardElement = event.currentTarget.closest(".table-card");
+    if (!(cardElement instanceof HTMLElement)) {
+      return;
+    }
+
+    const rect = cardElement.getBoundingClientRect();
+    setHoveredCardGuest({
+      tableId,
+      name: guest.name,
+      guestType: formatGuestTypeLabel(guest.guest_type),
+      family: guest.group_id ?? "Sin familia",
+      x: event.clientX - rect.left + 16,
+      y: event.clientY - rect.top + 16,
+    });
+  }
+
   function handleSeatDragEnter(tableId: string, seatIndex: number) {
     if (!draggedGuestId) {
       return;
@@ -1451,12 +1476,22 @@ export function App() {
                         <div
                           className={`guest-chip ${guest.guest_type === "adolescente" ? "guest-chip--teen" : ""} ${guest.guest_type === "nino" ? "guest-chip--child" : "guest-chip--adult"} ${conflictGuestIds.has(guest.id) ? "guest-chip--conflict" : ""}`}
                           key={guest.id}
+                          onMouseEnter={(event) => updateHoveredCardGuest(event, table.id, guest)}
+                          onMouseLeave={() => setHoveredCardGuest((current) => (current?.tableId === table.id ? null : current))}
+                          onMouseMove={(event) => updateHoveredCardGuest(event, table.id, guest)}
                         >
                           <span>{guest.name}</span>
                         </div>
                       ))
                     )}
                   </div>
+                  {hoveredCardGuest?.tableId === table.id ? (
+                    <div className="table-card__tooltip" style={{ left: `${hoveredCardGuest.x}px`, top: `${hoveredCardGuest.y}px` }}>
+                      <strong>{hoveredCardGuest.name}</strong>
+                      <span>Tipo: {hoveredCardGuest.guestType}</span>
+                      <span>Familia: {hoveredCardGuest.family}</span>
+                    </div>
+                  ) : null}
                 </article>
               );
             }) ?? <p className="empty-state">Aun no hay workspace cargado.</p>}

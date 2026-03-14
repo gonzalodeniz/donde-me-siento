@@ -1570,6 +1570,7 @@ select {
 
 .table-card {
   cursor: pointer;
+  position: relative;
 }
 
 .table-card--full {
@@ -1683,6 +1684,31 @@ select {
 
 .table-card__pill--full {
   color: #822f1f;
+}
+
+.table-card__tooltip {
+  position: absolute;
+  z-index: 4;
+  display: grid;
+  gap: 0.18rem;
+  min-width: 11rem;
+  max-width: 16rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(119, 84, 64, 0.14);
+  background: rgba(255, 251, 246, 0.96);
+  box-shadow: 0 16px 36px rgba(87, 49, 24, 0.16);
+  pointer-events: none;
+  backdrop-filter: blur(12px);
+}
+
+.table-card__tooltip strong {
+  font-size: 0.9rem;
+}
+
+.table-card__tooltip span {
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .status-flag {
