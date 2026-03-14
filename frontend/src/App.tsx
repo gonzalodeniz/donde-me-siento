@@ -1443,9 +1443,6 @@ export function App() {
                     {table.available === 0 ? <span className="status-flag status-flag--full">Completa</span> : null}
                     {table.available > 0 && table.available <= 2 ? <span className="status-flag status-flag--tight">Poco margen</span> : null}
                   </div>
-                  <p className="table-card__summary">
-                    Usa el panel de mesa seleccionada para ajustar capacidad y mover invitados.
-                  </p>
                   <div className="seat-ring">
                     {table.guests.length === 0 ? (
                       <p className="empty-state">Sin invitados asignados.</p>
