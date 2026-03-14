@@ -1968,7 +1968,7 @@ select {
 .guest-name-button {
   display: inline-flex;
   align-items: center;
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
   padding: 0;
   border: 0;
@@ -1992,6 +1992,7 @@ select {
 .guest-cell-button {
   display: inline-flex;
   align-items: center;
+  width: 100%;
   max-width: 100%;
   padding: 0;
   border: 0;
@@ -2010,6 +2011,10 @@ select {
 .guest-card__nameplate strong,
 .guest-row__identity strong {
   font-size: 1rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .guest-card__type,
@@ -2017,6 +2022,7 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  max-width: 100%;
   min-height: 1.9rem;
   padding: 0.2rem 0.65rem;
   border-radius: 999px;
@@ -2025,6 +2031,8 @@ select {
   color: #6e4e40;
   font-size: 0.76rem;
   letter-spacing: 0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -2518,7 +2526,7 @@ select {
   min-width: 0;
   width: 100%;
   max-width: 100%;
-  overflow-x: scroll;
+  overflow-x: auto;
 }
 
 .guest-table-shell--drop-active {
@@ -2528,9 +2536,10 @@ select {
 }
 
 .guest-table {
-  width: max-content;
-  min-width: 44rem;
+  width: 100%;
+  min-width: 0;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .guest-table th,
@@ -2539,10 +2548,12 @@ select {
   text-align: left;
   vertical-align: middle;
   border-bottom: 1px solid rgba(119, 84, 64, 0.08);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .guest-table__action-column {
-  width: 1%;
+  width: 5.25rem;
   white-space: nowrap;
 }
 
@@ -2640,6 +2651,7 @@ select {
 .guest-table__cell-inline {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: 0.45rem;
 }
 
