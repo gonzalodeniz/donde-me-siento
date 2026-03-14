@@ -88,19 +88,25 @@ async def test_guest_crud_assignment_and_validation_flow(client: AsyncClient) ->
         json={"id": "guest-1", "name": "Ana", "guest_type": "adulto", "group_id": "g1"},
     )
     assert add_guest_1.status_code == 201
+    created_guest_1 = next(guest for guest in add_guest_1.json()["guests"] if guest["id"] == "guest-1")
+    assert created_guest_1["confirmed"] is False
 
     add_guest_2 = await client.post(
         "/api/guests",
-        json={"id": "guest-2", "name": "Luis", "guest_type": "adulto", "group_id": "g1"},
+        json={"id": "guest-2", "name": "Luis", "guest_type": "adulto", "group_id": "g1", "confirmed": True},
     )
     assert add_guest_2.status_code == 201
+    created_guest_2 = next(guest for guest in add_guest_2.json()["guests"] if guest["id"] == "guest-2")
+    assert created_guest_2["confirmed"] is True
 
     update_guest = await client.put(
         "/api/guests/guest-1",
-        json={"name": "Ana Maria", "guest_type": "adulto", "group_id": "g1"},
+        json={"name": "Ana Maria", "guest_type": "adulto", "group_id": "g1", "confirmed": True},
     )
     assert update_guest.status_code == 200
-    assert any(guest["name"] == "Ana Maria" for guest in update_guest.json()["guests"])
+    updated_guest = next(guest for guest in update_guest.json()["guests"] if guest["id"] == "guest-1")
+    assert updated_guest["name"] == "Ana Maria"
+    assert updated_guest["confirmed"] is True
 
     assign_guest_1 = await client.put(
         "/api/guests/guest-1/assignment",
@@ -131,6 +137,50 @@ async def test_guest_crud_assignment_and_validation_flow(client: AsyncClient) ->
     delete_guest = await client.delete("/api/guests/guest-2")
     assert delete_guest.status_code == 200
     assert all(guest["id"] != "guest-2" for guest in delete_guest.json()["guests"])
+
+
+@pytest.mark.anyio
+async def test_import_guests_creates_all_guests_atomically(client: AsyncClient) -> None:
+    response = await client.post(
+        "/api/guests/import",
+        json={
+            "guests": [
+                {"id": "guest-1", "name": "Ana", "guest_type": "adulto", "confirmed": True, "group_id": "g1"},
+                {"id": "guest-2", "name": "Luis", "guest_type": "adolescente", "confirmed": False, "group_id": "g1"},
+                {"id": "guest-3", "name": "Marta", "guest_type": "nino", "confirmed": True},
+            ]
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert len(payload["guests"]) == 3
+    imported_guest = next(guest for guest in payload["guests"] if guest["id"] == "guest-2")
+    assert imported_guest["guest_type"] == "adolescente"
+    assert imported_guest["confirmed"] is False
+    assert imported_guest["group_id"] == "g1"
+
+
+@pytest.mark.anyio
+async def test_import_guests_rejects_invalid_payload_without_partial_import(client: AsyncClient) -> None:
+    response = await client.post(
+        "/api/guests/import",
+        json={
+            "guests": [
+                {"id": "guest-1", "name": "Ana", "guest_type": "adulto", "confirmed": True},
+                {"id": "guest-2", "name": "Luis", "guest_type": "vip", "confirmed": True},
+            ]
+        },
+    )
+
+    assert response.status_code == 400
+    assert "Tipo de invitado no soportado" in response.json()["detail"]
+
+    workspace_response = await client.get("/api/workspace")
+    assert workspace_response.status_code == 200
+    workspace = workspace_response.json()
+    assert workspace["guests"]["assigned"] == []
+    assert workspace["guests"]["unassigned"] == []
 
 
 @pytest.mark.anyio
@@ -206,6 +256,113 @@ async def test_create_table_and_update_default_capacity_flow(client: AsyncClient
     assert workspace["default_table_capacity"] == 12
     assert workspace["tables"][-1]["id"] == "table-9"
     assert workspace["tables"][-1]["capacity"] == 12
+
+
+@pytest.mark.anyio
+async def test_batch_create_and_duplicate_table_flow(client: AsyncClient) -> None:
+    batch_response = await client.post(
+        "/api/tables/batch",
+        json={"count": 2, "capacity": 9},
+    )
+    assert batch_response.status_code == 201
+    batch_payload = batch_response.json()
+    assert batch_payload["default_table_capacity"] == 9
+    assert len(batch_payload["tables"]) == 10
+    assert batch_payload["tables"][-1]["id"] == "table-10"
+    assert batch_payload["tables"][-1]["capacity"] == 9
+
+    duplicate_response = await client.post("/api/tables/table-2/duplicate")
+    assert duplicate_response.status_code == 201
+    duplicate_payload = duplicate_response.json()
+    duplicated_table = next(table for table in duplicate_payload["tables"] if table["id"] == "table-11")
+    source_table = next(table for table in duplicate_payload["tables"] if table["id"] == "table-2")
+    assert duplicated_table["capacity"] == source_table["capacity"]
+    assert duplicated_table["number"] == 11
+    assert duplicated_table["position_x"] == source_table["position_x"] + 120.0
+    assert duplicated_table["position_y"] == source_table["position_y"] + 120.0
+
+
+@pytest.mark.anyio
+async def test_save_load_and_delete_sessions_flow(client: AsyncClient) -> None:
+    await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto", "confirmed": True})
+    await client.put("/api/guests/guest-1/assignment", json={"table_id": "table-2", "seat_index": 1})
+    await client.put("/api/tables/table-2/position", json={"position_x": 420, "position_y": 360})
+
+    save_response = await client.post("/api/sessions", json={"name": "base familiar"})
+    assert save_response.status_code == 201
+    session_id = save_response.json()["id"]
+    assert save_response.json()["created_at"]
+
+    list_response = await client.get("/api/sessions")
+    assert list_response.status_code == 200
+    assert list_response.json()[0]["id"] == session_id
+    assert list_response.json()[0]["name"] == "base familiar"
+    assert list_response.json()[0]["created_at"]
+
+    export_response = await client.get(f"/api/sessions/{session_id}/export")
+    assert export_response.status_code == 200
+    backup_payload = export_response.json()
+    assert backup_payload["version"] == "1"
+    assert backup_payload["session"]["name"] == "base familiar"
+    assert backup_payload["snapshot"]["guests"][0]["seat_index"] == 1
+    assert backup_payload["snapshot"]["guests"][0]["confirmed"] is True
+
+    await client.put("/api/guests/guest-1/assignment", json={"table_id": "table-1", "seat_index": 0})
+    await client.put("/api/tables/table-2/position", json={"position_x": 150, "position_y": 150})
+
+    load_response = await client.post(f"/api/sessions/{session_id}/load")
+    assert load_response.status_code == 200
+    loaded_guest = next(guest for guest in load_response.json()["guests"] if guest["id"] == "guest-1")
+    loaded_table = next(table for table in load_response.json()["tables"] if table["id"] == "table-2")
+    assert loaded_guest["table_id"] == "table-2"
+    assert loaded_guest["seat_index"] == 1
+    assert loaded_guest["confirmed"] is True
+    assert loaded_table["position_x"] == 420
+    assert loaded_table["position_y"] == 360
+
+    await client.post("/api/workspace/reset")
+    import_response = await client.post("/api/sessions/import", json=backup_payload)
+    assert import_response.status_code == 200
+    imported_guest = next(guest for guest in import_response.json()["guests"] if guest["id"] == "guest-1")
+    assert imported_guest["table_id"] == "table-2"
+    assert imported_guest["seat_index"] == 1
+
+    delete_response = await client.delete(f"/api/sessions/{session_id}")
+    assert delete_response.status_code == 204
+
+    empty_list_response = await client.get("/api/sessions")
+    assert empty_list_response.status_code == 200
+    assert empty_list_response.json() == []
+
+
+@pytest.mark.anyio
+async def test_reset_workspace_clears_tables_and_guests(client: AsyncClient) -> None:
+    await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto"})
+    await client.put("/api/tables/table-1", json={"capacity": 5})
+
+    reset_response = await client.post("/api/workspace/reset")
+    assert reset_response.status_code == 200
+    assert reset_response.json()["tables"] == []
+    assert reset_response.json()["guests"] == []
+
+    workspace_response = await client.get("/api/workspace")
+    assert workspace_response.status_code == 200
+    assert workspace_response.json()["tables"] == []
+    assert workspace_response.json()["guests"]["assigned"] == []
+    assert workspace_response.json()["guests"]["unassigned"] == []
+
+
+@pytest.mark.anyio
+async def test_workspace_report_pdf_download(client: AsyncClient) -> None:
+    await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto", "group_id": "Familia 1"})
+    await client.put("/api/guests/guest-1/assignment", json={"table_id": "table-1", "seat_index": 0})
+
+    response = await client.get("/api/workspace/report.pdf")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.headers["content-disposition"] == 'attachment; filename="donde-me-siento-informe.pdf"'
+    assert response.content.startswith(b"%PDF-1.4")
 
 
 @pytest.mark.anyio

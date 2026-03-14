@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.db.base import Base
@@ -27,6 +27,11 @@ class EventModel(Base):
         back_populates="event",
         cascade="all, delete-orphan",
         order_by="GuestModel.name",
+    )
+    sessions: Mapped[list["SavedSessionModel"]] = relationship(
+        back_populates="event",
+        cascade="all, delete-orphan",
+        order_by="SavedSessionModel.name",
     )
 
 
@@ -54,8 +59,23 @@ class GuestModel(Base):
     event_id: Mapped[str] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     guest_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     group_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     table_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     seat_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     event: Mapped[EventModel] = relationship(back_populates="guests")
+
+
+class SavedSessionModel(Base):
+    """Snapshot persistido de una distribución del salón."""
+
+    __tablename__ = "saved_sessions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    event_id: Mapped[str] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[str] = mapped_column(String(32), nullable=False)
+    snapshot_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+    event: Mapped[EventModel] = relationship(back_populates="sessions")

@@ -1,4 +1,4 @@
-import type { LoginResponse, Workspace } from "./types";
+import type { LoginResponse, SavedSession, SessionBackup, Workspace } from "./types";
 
 const API_HEADERS = {
   "Content-Type": "application/json",
@@ -34,9 +34,25 @@ export async function fetchWorkspace(token: string): Promise<Workspace> {
     },
   });
 }
+
+export async function downloadWorkspaceReport(token: string): Promise<Blob> {
+  const response = await fetch("/api/workspace/report.pdf", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(payload?.detail ?? "No se pudo completar la operacion.");
+  }
+
+  return response.blob();
+}
+
 export async function createGuest(
   token: string,
-  payload: { name: string; guest_type: string; group_id: string | null },
+  payload: { name: string; guest_type: string; confirmed: boolean; group_id: string | null },
 ): Promise<void> {
   await request("/api/guests", {
     method: "POST",
@@ -48,10 +64,24 @@ export async function createGuest(
   });
 }
 
+export async function importGuests(
+  token: string,
+  payload: Array<{ name: string; guest_type: string; confirmed: boolean; group_id: string | null }>,
+): Promise<void> {
+  await request("/api/guests/import", {
+    method: "POST",
+    headers: {
+      ...API_HEADERS,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ guests: payload }),
+  });
+}
+
 export async function updateGuest(
   guestId: string,
   token: string,
-  payload: { name?: string; guest_type?: string; group_id?: string | null },
+  payload: { name?: string; guest_type?: string; confirmed?: boolean; group_id?: string | null },
 ): Promise<void> {
   await request(`/api/guests/${guestId}`, {
     method: "PUT",
@@ -112,8 +142,44 @@ export async function updateTableCapacity(
   });
 }
 
+export async function updateTablePosition(
+  tableId: string,
+  positionX: number,
+  positionY: number,
+  token: string,
+): Promise<void> {
+  await request(`/api/tables/${tableId}/position`, {
+    method: "PUT",
+    headers: {
+      ...API_HEADERS,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ position_x: positionX, position_y: positionY }),
+  });
+}
+
 export async function createTable(token: string): Promise<void> {
   await request("/api/tables", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function createTablesBatch(token: string, payload: { count: number; capacity: number }): Promise<void> {
+  await request("/api/tables/batch", {
+    method: "POST",
+    headers: {
+      ...API_HEADERS,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function duplicateTable(tableId: string, token: string): Promise<void> {
+  await request(`/api/tables/${tableId}/duplicate`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -138,5 +204,70 @@ export async function updateDefaultTableCapacity(capacity: number, token: string
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ capacity }),
+  });
+}
+
+export async function fetchSessions(token: string): Promise<SavedSession[]> {
+  return request<SavedSession[]>("/api/sessions", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function saveSession(name: string, token: string): Promise<SavedSession> {
+  return request<SavedSession>("/api/sessions", {
+    method: "POST",
+    headers: {
+      ...API_HEADERS,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function loadSession(sessionId: string, token: string): Promise<void> {
+  await request(`/api/sessions/${sessionId}/load`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function deleteSession(sessionId: string, token: string): Promise<void> {
+  await request(`/api/sessions/${sessionId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function exportSession(sessionId: string, token: string): Promise<SessionBackup> {
+  return request<SessionBackup>(`/api/sessions/${sessionId}/export`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function importSession(backup: SessionBackup, token: string): Promise<void> {
+  await request("/api/sessions/import", {
+    method: "POST",
+    headers: {
+      ...API_HEADERS,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(backup),
+  });
+}
+
+export async function resetWorkspace(token: string): Promise<void> {
+  await request("/api/workspace/reset", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
 }

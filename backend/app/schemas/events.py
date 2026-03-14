@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.app.domains.seating import Event
@@ -13,9 +15,17 @@ class GuestCreate(BaseModel):
     id: str | None = Field(default=None, min_length=1, max_length=64)
     name: str = Field(min_length=1, max_length=255)
     guest_type: str = Field(min_length=1, max_length=32)
+    confirmed: bool = False
     group_id: str | None = Field(default=None, max_length=64)
     table_id: str | None = Field(default=None, max_length=64)
     seat_index: int | None = Field(default=None, ge=0)
+
+
+class GuestBatchCreateRequest(BaseModel):
+    """Payload para importar varios invitados en una sola operación."""
+
+    guests: list[GuestCreate] = Field(min_length=1, max_length=1000)
+
 
 class TableResponse(BaseModel):
     """Mesa serializada para la API."""
@@ -37,6 +47,7 @@ class GuestResponse(BaseModel):
     id: str
     name: str
     guest_type: str
+    confirmed: bool
     group_id: str | None
     table_id: str | None
     seat_index: int | None
@@ -59,6 +70,7 @@ class GuestUpdate(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=255)
     guest_type: str | None = Field(default=None, min_length=1, max_length=32)
+    confirmed: bool | None = None
     group_id: str | None = Field(default=None, max_length=64)
 
 
@@ -75,10 +87,46 @@ class TableCapacityUpdate(BaseModel):
     capacity: int = Field(gt=0)
 
 
+class TablePositionUpdate(BaseModel):
+    """Payload para recolocar una mesa dentro del plano."""
+
+    position_x: float
+    position_y: float
+
+
+class TableBatchCreateRequest(BaseModel):
+    """Payload para crear varias mesas de una vez."""
+
+    count: int = Field(gt=0, le=50)
+    capacity: int = Field(gt=0, le=24)
+
+
 class DefaultTableCapacityUpdate(BaseModel):
     """Payload para ajustar el aforo por defecto de mesas nuevas."""
 
     capacity: int = Field(gt=0)
+
+
+class SessionCreateRequest(BaseModel):
+    """Payload para guardar un snapshot del salón."""
+
+    name: str = Field(min_length=1, max_length=255)
+
+
+class SessionResponse(BaseModel):
+    """Sesión guardada disponible para cargar."""
+
+    id: str
+    name: str
+    created_at: str
+
+
+class SessionBackupPayload(BaseModel):
+    """Payload serializado para exportar o importar sesiones."""
+
+    version: str = Field(min_length=1, max_length=16)
+    session: SessionResponse
+    snapshot: dict[str, Any]
 
 
 class TableSummaryResponse(BaseModel):
@@ -155,6 +203,7 @@ def build_event_response(event: Event) -> EventResponse:
                 id=guest.id,
                 name=guest.name,
                 guest_type=guest.guest_type.value,
+                confirmed=guest.confirmed,
                 group_id=guest.group_id,
                 table_id=guest.table_id,
                 seat_index=guest.seat_index,
@@ -191,6 +240,7 @@ def build_workspace_response(event: Event) -> WorkspaceResponse:
             id=guest.id,
             name=guest.name,
             guest_type=guest.guest_type.value,
+            confirmed=guest.confirmed,
             group_id=guest.group_id,
             table_id=guest.table_id,
             seat_index=guest.seat_index,
@@ -202,6 +252,7 @@ def build_workspace_response(event: Event) -> WorkspaceResponse:
             id=guest.id,
             name=guest.name,
             guest_type=guest.guest_type.value,
+            confirmed=guest.confirmed,
             group_id=guest.group_id,
             table_id=guest.table_id,
             seat_index=guest.seat_index,
@@ -218,6 +269,7 @@ def build_workspace_response(event: Event) -> WorkspaceResponse:
                 id=guest.id,
                 name=guest.name,
                 guest_type=guest.guest_type.value,
+                confirmed=guest.confirmed,
                 group_id=guest.group_id,
                 table_id=guest.table_id,
                 seat_index=guest.seat_index,

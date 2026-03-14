@@ -40,6 +40,7 @@ class Guest:
     id: str
     name: str
     guest_type: GuestType
+    confirmed: bool = False
     group_id: str | None = None
     table_id: str | None = None
     seat_index: int | None = None
@@ -62,6 +63,12 @@ class Event:
     tables: dict[str, Table] = field(default_factory=dict)
     guests: dict[str, Guest] = field(default_factory=dict)
 
+    GRID_ORIGIN_X = 180.0
+    GRID_ORIGIN_Y = 180.0
+    GRID_SPACING_X = 280.0
+    GRID_SPACING_Y = 280.0
+    DUPLICATE_OFFSET = 120.0
+
     def __post_init__(self) -> None:
         normalized_name = self.name.strip()
         if not normalized_name:
@@ -76,17 +83,14 @@ class Event:
 
         self.tables.clear()
         created_tables: list[Table] = []
-        columns = min(count, 4)
 
         for index in range(count):
-            row = index // columns
-            column = index % columns
             table = Table(
                 id=f"table-{index + 1}",
                 number=index + 1,
                 capacity=self.default_table_capacity,
-                position_x=150.0 + (column * 160.0),
-                position_y=150.0 + (row * 160.0),
+                position_x=self._table_position_x(index, count),
+                position_y=self._table_position_y(index, count),
             )
             self.tables[table.id] = table
             created_tables.append(table)
@@ -104,6 +108,41 @@ class Event:
         )
         self.tables[table.id] = table
         return table
+
+    def add_tables(self, count: int, capacity: int | None = None) -> list[Table]:
+        if count <= 0:
+            raise DomainError("El numero de mesas debe ser mayor que cero.")
+
+        next_number = max((table.number for table in self.tables.values()), default=0) + 1
+        total_count = len(self.tables) + count
+        normalized_capacity = capacity if capacity is not None else self.default_table_capacity
+        if normalized_capacity <= 0:
+            raise DomainError("La capacidad de las mesas debe ser mayor que cero.")
+
+        self.default_table_capacity = normalized_capacity
+
+        created_tables: list[Table] = []
+        for offset in range(count):
+            index = next_number + offset - 1
+            table_number = next_number + offset
+            table = Table(
+                id=f"table-{table_number}",
+                number=table_number,
+                capacity=normalized_capacity,
+                position_x=self._table_position_x(index, total_count),
+                position_y=self._table_position_y(index, total_count),
+            )
+            self.tables[table.id] = table
+            created_tables.append(table)
+
+        return created_tables
+
+    def duplicate_table(self, table_id: str) -> Table:
+        source_table = self._get_table(table_id)
+        duplicated = self.add_tables(1, source_table.capacity)[0]
+        duplicated.position_x = source_table.position_x + self.DUPLICATE_OFFSET
+        duplicated.position_y = source_table.position_y + self.DUPLICATE_OFFSET
+        return duplicated
 
     def remove_table(self, table_id: str) -> None:
         table = self._get_table(table_id)
@@ -155,6 +194,7 @@ class Event:
         *,
         name: str | None = None,
         guest_type: GuestType | None = None,
+        confirmed: bool | None = None,
         group_id: str | None = None,
     ) -> Guest:
         guest = self._get_guest(guest_id)
@@ -165,6 +205,8 @@ class Event:
             guest.name = cleaned_name
         if guest_type is not None:
             guest.guest_type = guest_type
+        if confirmed is not None:
+            guest.confirmed = confirmed
         guest.group_id = group_id
         return guest
 
@@ -196,6 +238,12 @@ class Event:
         if self.table_occupancy(table.id) > capacity:
             raise DomainError("La capacidad no puede ser menor que los invitados asignados.")
         table.capacity = capacity
+        return table
+
+    def update_table_position(self, table_id: str, position_x: float, position_y: float) -> Table:
+        table = self._get_table(table_id)
+        table.position_x = position_x
+        table.position_y = position_y
         return table
 
     def guests_with_table(self) -> list[Guest]:
@@ -295,10 +343,10 @@ class Event:
     def _table_position_x(index: int, count: int) -> float:
         columns = min(count, 4)
         column = index % columns
-        return 150.0 + (column * 160.0)
+        return Event.GRID_ORIGIN_X + (column * Event.GRID_SPACING_X)
 
     @staticmethod
     def _table_position_y(index: int, count: int) -> float:
         columns = min(count, 4)
         row = index // columns
-        return 150.0 + (row * 160.0)
+        return Event.GRID_ORIGIN_Y + (row * Event.GRID_SPACING_Y)

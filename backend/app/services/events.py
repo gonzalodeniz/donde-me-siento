@@ -7,6 +7,7 @@ from uuid import uuid4
 from backend.app.core.config import settings
 from backend.app.domains.seating import DomainError, Event, Guest, GuestType
 from backend.app.repositories.events import EventRepository
+from backend.app.services.report_pdf import generate_workspace_report_pdf
 from backend.app.schemas.events import GuestCreate, GuestUpdate
 
 
@@ -32,14 +33,34 @@ class EventService:
     def get_workspace(self) -> Event:
         return self.ensure_workspace()
 
+    def generate_workspace_report_pdf(self) -> bytes:
+        event = self.ensure_workspace()
+        return generate_workspace_report_pdf(event)
+
     def add_guest(self, payload: GuestCreate) -> Event:
         event = self.ensure_workspace()
         event.add_guest(self._build_guest(payload))
         return self.repository.save(event)
 
+    def add_guests(self, payloads: list[GuestCreate]) -> Event:
+        event = self.ensure_workspace()
+        for payload in payloads:
+            event.add_guest(self._build_guest(payload))
+        return self.repository.save(event)
+
     def add_table(self) -> Event:
         event = self.ensure_workspace()
         event.add_table()
+        return self.repository.save(event)
+
+    def add_tables(self, count: int, capacity: int) -> Event:
+        event = self.ensure_workspace()
+        event.add_tables(count, capacity)
+        return self.repository.save(event)
+
+    def duplicate_table(self, table_id: str) -> Event:
+        event = self.ensure_workspace()
+        event.duplicate_table(table_id)
         return self.repository.save(event)
 
     def remove_table(self, table_id: str) -> Event:
@@ -54,6 +75,7 @@ class EventService:
             guest_id,
             name=payload.name,
             guest_type=guest_type,
+            confirmed=payload.confirmed,
             group_id=payload.group_id,
         )
         return self.repository.save(event)
@@ -78,9 +100,45 @@ class EventService:
         event.update_table_capacity(table_id, capacity)
         return self.repository.save(event)
 
+    def update_table_position(self, table_id: str, position_x: float, position_y: float) -> Event:
+        event = self.ensure_workspace()
+        event.update_table_position(table_id, position_x, position_y)
+        return self.repository.save(event)
+
     def update_default_table_capacity(self, capacity: int) -> Event:
         event = self.ensure_workspace()
         event.update_default_table_capacity(capacity)
+        return self.repository.save(event)
+
+    def list_sessions(self) -> list[dict[str, str]]:
+        event = self.ensure_workspace()
+        return self.repository.list_sessions(event.id)
+
+    def save_session(self, name: str) -> dict[str, str]:
+        event = self.ensure_workspace()
+        return self.repository.save_session(event, name)
+
+    def load_session(self, session_id: str) -> Event:
+        current_event = self.ensure_workspace()
+        loaded_event = self.repository.load_session(current_event.id, session_id)
+        return self.repository.save(loaded_event)
+
+    def delete_session(self, session_id: str) -> bool:
+        event = self.ensure_workspace()
+        return self.repository.delete_session(event.id, session_id)
+
+    def export_session(self, session_id: str) -> dict[str, object]:
+        event = self.ensure_workspace()
+        return self.repository.export_session(event.id, session_id)
+
+    def import_session(self, backup: dict[str, object]) -> Event:
+        event = self.ensure_workspace()
+        return self.repository.import_session(event.id, backup)
+
+    def reset_workspace(self) -> Event:
+        event = self.ensure_workspace()
+        event.tables.clear()
+        event.guests.clear()
         return self.repository.save(event)
 
     @staticmethod
@@ -95,6 +153,7 @@ class EventService:
             id=payload.id or f"guest-{uuid4().hex[:12]}",
             name=payload.name,
             guest_type=self._parse_guest_type(payload.guest_type),
+            confirmed=payload.confirmed,
             group_id=payload.group_id,
             table_id=payload.table_id,
             seat_index=payload.seat_index,

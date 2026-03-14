@@ -30,15 +30,22 @@ def init_db(current_engine=engine) -> None:
 
     Base.metadata.create_all(bind=current_engine)
     inspector = inspect(current_engine)
-    if "guests" not in inspector.get_table_names():
+    table_names = inspector.get_table_names()
+    if "guests" not in table_names:
         return
 
     guest_columns = {column["name"] for column in inspector.get_columns("guests")}
-    if "seat_index" in guest_columns:
-        return
-
     with current_engine.begin() as connection:
-        connection.execute(text("ALTER TABLE guests ADD COLUMN seat_index INTEGER"))
+        if "seat_index" not in guest_columns:
+            connection.execute(text("ALTER TABLE guests ADD COLUMN seat_index INTEGER"))
+        if "confirmed" not in guest_columns:
+            connection.execute(text("ALTER TABLE guests ADD COLUMN confirmed BOOLEAN NOT NULL DEFAULT 0"))
+
+        if "saved_sessions" in table_names:
+            session_columns = {column["name"] for column in inspector.get_columns("saved_sessions")}
+            if "created_at" not in session_columns:
+                connection.execute(text("ALTER TABLE saved_sessions ADD COLUMN created_at VARCHAR(32)"))
+                connection.execute(text("UPDATE saved_sessions SET created_at = '2026-03-13T00:00:00' WHERE created_at IS NULL"))
 
 
 async def get_db_session():

@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from backend.app.api.dependencies import get_current_user, get_event_service
 from backend.app.domains.seating import DomainError
 from backend.app.schemas.events import (
     DefaultTableCapacityUpdate,
     EventResponse,
+    GuestBatchCreateRequest,
     GuestAssignmentRequest,
     GuestCreate,
     GuestUpdate,
+    SessionBackupPayload,
+    SessionCreateRequest,
+    SessionResponse,
+    TableBatchCreateRequest,
     TableCapacityUpdate,
+    TablePositionUpdate,
     TableSummaryResponse,
     ValidationResponse,
     WorkspaceResponse,
@@ -33,6 +39,18 @@ async def get_workspace(service: EventService = Depends(get_event_service)) -> W
     return build_workspace_response(service.get_workspace())
 
 
+@router.get("/workspace/report.pdf")
+async def download_workspace_report(service: EventService = Depends(get_event_service)) -> Response:
+    """Genera un PDF imprimible del estado actual del workspace."""
+
+    pdf_bytes = service.generate_workspace_report_pdf()
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="donde-me-siento-informe.pdf"'},
+    )
+
+
 @router.post("/guests", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
 async def create_guest(
     payload: GuestCreate,
@@ -42,6 +60,21 @@ async def create_guest(
 
     try:
         event = service.add_guest(payload)
+    except DomainError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return build_event_response(event)
+
+
+@router.post("/guests/import", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
+async def import_guests(
+    payload: GuestBatchCreateRequest,
+    service: EventService = Depends(get_event_service),
+) -> EventResponse:
+    """Importa varios invitados en una sola operación atómica."""
+
+    try:
+        event = service.add_guests(payload.guests)
     except DomainError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
@@ -122,6 +155,36 @@ async def create_table(service: EventService = Depends(get_event_service)) -> Ev
     return build_event_response(event)
 
 
+@router.post("/tables/batch", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
+async def create_tables_batch(
+    payload: TableBatchCreateRequest,
+    service: EventService = Depends(get_event_service),
+) -> EventResponse:
+    """Crea varias mesas en una sola acción."""
+
+    try:
+        event = service.add_tables(payload.count, payload.capacity)
+    except DomainError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return build_event_response(event)
+
+
+@router.post("/tables/{table_id}/duplicate", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
+async def duplicate_table(
+    table_id: str,
+    service: EventService = Depends(get_event_service),
+) -> EventResponse:
+    """Duplica una mesa existente con el mismo aforo."""
+
+    try:
+        event = service.duplicate_table(table_id)
+    except DomainError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return build_event_response(event)
+
+
 @router.delete("/tables/{table_id}", response_model=EventResponse)
 async def delete_table(
     table_id: str,
@@ -167,6 +230,22 @@ async def update_table_capacity(
     return build_event_response(event)
 
 
+@router.put("/tables/{table_id}/position", response_model=EventResponse)
+async def update_table_position(
+    table_id: str,
+    payload: TablePositionUpdate,
+    service: EventService = Depends(get_event_service),
+) -> EventResponse:
+    """Reubica manualmente una mesa dentro del plano interactivo."""
+
+    try:
+        event = service.update_table_position(table_id, payload.position_x, payload.position_y)
+    except DomainError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return build_event_response(event)
+
+
 @router.put("/workspace/default-table-capacity", response_model=EventResponse)
 async def update_default_table_capacity(
     payload: DefaultTableCapacityUpdate,
@@ -180,3 +259,89 @@ async def update_default_table_capacity(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     return build_event_response(event)
+
+
+@router.post("/workspace/reset", response_model=EventResponse)
+async def reset_workspace(service: EventService = Depends(get_event_service)) -> EventResponse:
+    """Vacía el salón para iniciar una nueva sesión desde cero."""
+
+    try:
+        event = service.reset_workspace()
+    except DomainError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return build_event_response(event)
+
+
+@router.get("/sessions", response_model=list[SessionResponse])
+async def list_sessions(service: EventService = Depends(get_event_service)) -> list[SessionResponse]:
+    """Lista las sesiones guardadas del workspace."""
+
+    return [SessionResponse(**session) for session in service.list_sessions()]
+
+
+@router.post("/sessions", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
+async def save_session(
+    payload: SessionCreateRequest,
+    service: EventService = Depends(get_event_service),
+) -> SessionResponse:
+    """Guarda la distribución actual como una sesión reutilizable."""
+
+    try:
+        return SessionResponse(**service.save_session(payload.name))
+    except (DomainError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/sessions/{session_id}/load", response_model=EventResponse)
+async def load_session(
+    session_id: str,
+    service: EventService = Depends(get_event_service),
+) -> EventResponse:
+    """Carga una sesión guardada sobre el workspace actual."""
+
+    try:
+        event = service.load_session(session_id)
+    except (DomainError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return build_event_response(event)
+
+
+@router.get("/sessions/{session_id}/export", response_model=SessionBackupPayload)
+async def export_session(
+    session_id: str,
+    service: EventService = Depends(get_event_service),
+) -> SessionBackupPayload:
+    """Exporta una sesión guardada a un fichero descargable."""
+
+    try:
+        return SessionBackupPayload(**service.export_session(session_id))
+    except (DomainError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/sessions/import", response_model=EventResponse)
+async def import_session(
+    payload: SessionBackupPayload,
+    service: EventService = Depends(get_event_service),
+) -> EventResponse:
+    """Importa una sesión desde fichero y la carga en el workspace actual."""
+
+    try:
+        event = service.import_session(payload.model_dump())
+    except (DomainError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return build_event_response(event)
+
+
+@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_session(
+    session_id: str,
+    service: EventService = Depends(get_event_service),
+) -> None:
+    """Elimina una sesión guardada."""
+
+    if not service.delete_session(session_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="La sesión no existe.")
