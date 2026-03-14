@@ -485,6 +485,22 @@ export function App() {
     () => allGuests.filter((guest) => guest.guest_type === "nino").length,
     [allGuests],
   );
+  const fishMenuGuestsCount = useMemo(
+    () => allGuests.filter((guest) => guest.menu === "pescado").length,
+    [allGuests],
+  );
+  const meatMenuGuestsCount = useMemo(
+    () => allGuests.filter((guest) => guest.menu === "carne").length,
+    [allGuests],
+  );
+  const vegetarianMenuGuestsCount = useMemo(
+    () => allGuests.filter((guest) => guest.menu === "vegano").length,
+    [allGuests],
+  );
+  const unknownMenuGuestsCount = useMemo(
+    () => allGuests.filter((guest) => guest.menu === "desconocido").length,
+    [allGuests],
+  );
   const tableNumberById = useMemo(
     () => new Map((workspace?.tables ?? []).map((table) => [table.id, table.number])),
     [workspace],
@@ -1863,6 +1879,24 @@ export function App() {
                 <article className="control-metric">
                   <span>Niños</span>
                   <strong>{childGuestsCount}</strong>
+                </article>
+              </div>
+              <div className="control-metrics">
+                <article className="control-metric">
+                  <span>Comen pescado</span>
+                  <strong>{fishMenuGuestsCount}</strong>
+                </article>
+                <article className="control-metric">
+                  <span>Comen carne</span>
+                  <strong>{meatMenuGuestsCount}</strong>
+                </article>
+                <article className="control-metric">
+                  <span>Vegetarianos</span>
+                  <strong>{vegetarianMenuGuestsCount}</strong>
+                </article>
+                <article className="control-metric">
+                  <span>Menú desconocido</span>
+                  <strong>{unknownMenuGuestsCount}</strong>
                 </article>
               </div>
               </>

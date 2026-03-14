@@ -400,6 +400,10 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
     adult_guests = sum(1 for guest in all_guests if guest.guest_type is GuestType.ADULT)
     teen_guests = sum(1 for guest in all_guests if guest.guest_type is GuestType.TEEN)
     child_guests = sum(1 for guest in all_guests if guest.guest_type is GuestType.CHILD)
+    fish_menu_guests = sum(1 for guest in all_guests if guest.menu is GuestMenu.FISH)
+    meat_menu_guests = sum(1 for guest in all_guests if guest.menu is GuestMenu.MEAT)
+    vegetarian_menu_guests = sum(1 for guest in all_guests if guest.menu is GuestMenu.VEGAN)
+    unknown_menu_guests = sum(1 for guest in all_guests if guest.menu is GuestMenu.UNKNOWN)
     occupancy_average = 0
     total_capacity = sum(table.capacity for table in tables)
     if total_capacity > 0:
@@ -437,6 +441,10 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
         ("Adultos", str(adult_guests), (0.986, 0.975, 0.954)),
         ("Adolescentes", str(teen_guests), (0.942, 0.972, 0.991)),
         ("Niños", str(child_guests), (0.947, 0.984, 0.952)),
+        ("Comen pescado", str(fish_menu_guests), (0.943, 0.974, 0.992)),
+        ("Comen carne", str(meat_menu_guests), (0.988, 0.965, 0.941)),
+        ("Vegetarianos", str(vegetarian_menu_guests), (0.949, 0.984, 0.952)),
+        ("Menú desconocido", str(unknown_menu_guests), (0.978, 0.975, 0.949)),
     ]
     layout.ensure_space(_estimate_summary_cards_height(len(summary_cards)))
     layout.cursor_top = _draw_summary_cards(pdf, layout.cursor_top, summary_cards)
