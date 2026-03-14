@@ -297,6 +297,14 @@ def _draw_summary_cards(pdf: PdfDocument, top: float, items: list[tuple[str, str
     return top + rows * card_height + max(0, rows - 1) * gap + 10
 
 
+def _estimate_summary_cards_height(item_count: int) -> float:
+    columns = 3
+    gap = 12.0
+    card_height = 68.0
+    rows = math.ceil(item_count / columns)
+    return rows * card_height + max(0, rows - 1) * gap + 10
+
+
 def _draw_data_table(
     layout: ReportLayout,
     columns: list[str],
@@ -372,10 +380,16 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
     validation = event.validate_state()
     table_by_id = {table.id: table for table in event.tables.values()}
     tables = sorted(event.tables.values(), key=lambda current: current.number)
+    all_guests = list(event.guests.values())
     assigned_guests = _sorted_assigned_guests(event, table_by_id)
     unassigned_guests = _sorted_unassigned_guests(event)
     full_tables = sum(1 for table in tables if event.table_occupancy(table.id) >= table.capacity)
     conflict_groups = event.grouping_conflicts()
+    confirmed_guests = sum(1 for guest in all_guests if guest.confirmed)
+    unconfirmed_guests = len(all_guests) - confirmed_guests
+    adult_guests = sum(1 for guest in all_guests if guest.guest_type is GuestType.ADULT)
+    teen_guests = sum(1 for guest in all_guests if guest.guest_type is GuestType.TEEN)
+    child_guests = sum(1 for guest in all_guests if guest.guest_type is GuestType.CHILD)
     occupancy_average = 0
     total_capacity = sum(table.capacity for table in tables)
     if total_capacity > 0:
@@ -408,8 +422,13 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
         ("Mesas completas", str(full_tables), (0.976, 0.956, 0.935)),
         ("Ubicaciones por revisar", str(len(conflict_groups)), (0.998, 0.947, 0.937)),
         ("Ocupación media", f"{occupancy_average}%", (0.949, 0.971, 0.991)),
+        ("Confirmados", str(confirmed_guests), (0.958, 0.985, 0.969)),
+        ("Sin confirmar", str(unconfirmed_guests), (0.995, 0.967, 0.949)),
+        ("Adultos", str(adult_guests), (0.986, 0.975, 0.954)),
+        ("Adolescentes", str(teen_guests), (0.942, 0.972, 0.991)),
+        ("Niños", str(child_guests), (0.947, 0.984, 0.952)),
     ]
-    layout.ensure_space(180)
+    layout.ensure_space(_estimate_summary_cards_height(len(summary_cards)))
     layout.cursor_top = _draw_summary_cards(pdf, layout.cursor_top, summary_cards)
     layout.cursor_top += 20
 

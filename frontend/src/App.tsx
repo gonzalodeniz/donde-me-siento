@@ -409,6 +409,30 @@ export function App() {
       ),
     [conflictGuestIds, workspace],
   );
+  const allGuests = useMemo(
+    () => [...(workspace?.guests.unassigned ?? []), ...(workspace?.guests.assigned ?? [])],
+    [workspace],
+  );
+  const confirmedGuestsCount = useMemo(
+    () => allGuests.filter((guest) => guest.confirmed).length,
+    [allGuests],
+  );
+  const unconfirmedGuestsCount = useMemo(
+    () => allGuests.length - confirmedGuestsCount,
+    [allGuests, confirmedGuestsCount],
+  );
+  const adultGuestsCount = useMemo(
+    () => allGuests.filter((guest) => guest.guest_type === "adulto").length,
+    [allGuests],
+  );
+  const teenGuestsCount = useMemo(
+    () => allGuests.filter((guest) => guest.guest_type === "adolescente").length,
+    [allGuests],
+  );
+  const childGuestsCount = useMemo(
+    () => allGuests.filter((guest) => guest.guest_type === "nino").length,
+    [allGuests],
+  );
   const tableNumberById = useMemo(
     () => new Map((workspace?.tables ?? []).map((table) => [table.id, table.number])),
     [workspace],
@@ -1744,6 +1768,30 @@ export function App() {
                         )}%`
                       : "0%"}
                   </strong>
+                </article>
+              </div>
+              <div className="control-metrics">
+                <article className="control-metric">
+                  <span>Confirmados</span>
+                  <strong>{confirmedGuestsCount}</strong>
+                </article>
+                <article className="control-metric">
+                  <span>Sin confirmar</span>
+                  <strong>{unconfirmedGuestsCount}</strong>
+                </article>
+              </div>
+              <div className="control-metrics">
+                <article className="control-metric">
+                  <span>Adultos</span>
+                  <strong>{adultGuestsCount}</strong>
+                </article>
+                <article className="control-metric">
+                  <span>Adolescentes</span>
+                  <strong>{teenGuestsCount}</strong>
+                </article>
+                <article className="control-metric">
+                  <span>Niños</span>
+                  <strong>{childGuestsCount}</strong>
                 </article>
               </div>
               </>
