@@ -56,6 +56,12 @@ type TablePosition = {
 type GuestEditableField = "name" | "confirmed" | "type" | "intolerance" | "menu" | "group" | "table";
 type PanelKey = "salon" | "summary" | "sessions" | "unassigned" | "assigned" | "conflicts" | "guestImport";
 type GuestTablePageKey = "unassigned" | "assigned" | "conflicts";
+type SortDirection = "asc" | "desc";
+type SortTableKey = "sessions" | "unassigned" | "assigned" | "conflicts" | "guestImport";
+type SortState = {
+  column: string;
+  direction: SortDirection;
+};
 type GuestDraft = {
   name: string;
   guest_type: string;
@@ -118,6 +124,25 @@ function paginateGuestTableRows<T>(items: T[], page: number) {
     endItem: Math.min(startIndex + GUEST_TABLE_PAGE_SIZE, totalItems),
     totalItems,
   };
+}
+
+function compareValues(left: string | number | boolean, right: string | number | boolean) {
+  if (typeof left === "boolean" && typeof right === "boolean") {
+    return Number(left) - Number(right);
+  }
+
+  if (typeof left === "number" && typeof right === "number") {
+    return left - right;
+  }
+
+  return String(left).localeCompare(String(right), "es", { numeric: true, sensitivity: "base" });
+}
+
+function sortRows<T>(items: T[], sort: SortState, getValue: (item: T, column: string) => string | number | boolean) {
+  return [...items].sort((left, right) => {
+    const comparison = compareValues(getValue(left, sort.column), getValue(right, sort.column));
+    return sort.direction === "asc" ? comparison : -comparison;
+  });
 }
 
 function parseCsvLine(line: string) {
@@ -404,6 +429,13 @@ export function App() {
     assigned: 1,
     conflicts: 1,
   });
+  const [tableSorts, setTableSorts] = useState<Record<SortTableKey, SortState>>({
+    sessions: { column: "created_at", direction: "desc" },
+    unassigned: { column: "name", direction: "asc" },
+    assigned: { column: "name", direction: "asc" },
+    conflicts: { column: "name", direction: "asc" },
+    guestImport: { column: "name", direction: "asc" },
+  });
   const [collapsedPanels, setCollapsedPanels] = useState<Record<PanelKey, boolean>>({
     salon: false,
     summary: false,
@@ -581,17 +613,113 @@ export function App() {
       previewRows: guestImportPreview.guests.slice(0, 8),
     };
   }, [guestImportPreview]);
+  const sortedSessions = useMemo(
+    () =>
+      sortRows(savedSessions, tableSorts.sessions, (session, column) => {
+        if (column === "created_at") {
+          return new Date(session.created_at).getTime();
+        }
+        return session.name;
+      }),
+    [savedSessions, tableSorts.sessions],
+  );
+  const sortedUnassignedGuests = useMemo(
+    () =>
+      sortRows(filteredUnassignedGuests, tableSorts.unassigned, (guest, column) => {
+        switch (column) {
+          case "confirmed":
+            return guest.confirmed;
+          case "type":
+            return formatGuestTypeLabel(guest.guest_type);
+          case "intolerance":
+            return guest.intolerance || "zzz";
+          case "menu":
+            return formatMenuLabel(guest.menu);
+          case "group":
+            return guest.group_id ?? "zzz";
+          case "table":
+            return guest.table_id ? (tableNumberById.get(guest.table_id) ?? 0) : -1;
+          case "name":
+          default:
+            return guest.name;
+        }
+      }),
+    [filteredUnassignedGuests, tableNumberById, tableSorts.unassigned],
+  );
+  const sortedAssignedGuests = useMemo(
+    () =>
+      sortRows(filteredAssignedGuests, tableSorts.assigned, (guest, column) => {
+        switch (column) {
+          case "confirmed":
+            return guest.confirmed;
+          case "type":
+            return formatGuestTypeLabel(guest.guest_type);
+          case "intolerance":
+            return guest.intolerance || "zzz";
+          case "menu":
+            return formatMenuLabel(guest.menu);
+          case "group":
+            return guest.group_id ?? "zzz";
+          case "table":
+            return guest.table_id ? (tableNumberById.get(guest.table_id) ?? 0) : -1;
+          case "name":
+          default:
+            return guest.name;
+        }
+      }),
+    [filteredAssignedGuests, tableNumberById, tableSorts.assigned],
+  );
+  const sortedConflictRows = useMemo(
+    () =>
+      sortRows(conflictReviewRows, tableSorts.conflicts, (row, column) => {
+        switch (column) {
+          case "intolerance":
+            return row.guest?.intolerance || "zzz";
+          case "menu":
+            return row.guest ? formatMenuLabel(row.guest.menu) : "desconocido";
+          case "group":
+            return row.groupId;
+          case "table":
+            return row.tableLabel;
+          case "name":
+          default:
+            return row.guestName;
+        }
+      }),
+    [conflictReviewRows, tableSorts.conflicts],
+  );
+  const sortedGuestImportPreviewRows = useMemo(
+    () =>
+      sortRows(guestImportPreview?.guests ?? [], tableSorts.guestImport, (guest, column) => {
+        switch (column) {
+          case "confirmed":
+            return guest.confirmed;
+          case "type":
+            return formatGuestTypeLabel(guest.guest_type);
+          case "intolerance":
+            return guest.intolerance || "zzz";
+          case "menu":
+            return formatMenuLabel(guest.menu);
+          case "group":
+            return guest.group_id ?? "zzz";
+          case "name":
+          default:
+            return guest.name;
+        }
+      }).slice(0, 8),
+    [guestImportPreview, tableSorts.guestImport],
+  );
   const paginatedUnassignedGuests = useMemo(
-    () => paginateGuestTableRows(filteredUnassignedGuests, guestTablePages.unassigned),
-    [filteredUnassignedGuests, guestTablePages.unassigned],
+    () => paginateGuestTableRows(sortedUnassignedGuests, guestTablePages.unassigned),
+    [guestTablePages.unassigned, sortedUnassignedGuests],
   );
   const paginatedAssignedGuests = useMemo(
-    () => paginateGuestTableRows(filteredAssignedGuests, guestTablePages.assigned),
-    [filteredAssignedGuests, guestTablePages.assigned],
+    () => paginateGuestTableRows(sortedAssignedGuests, guestTablePages.assigned),
+    [guestTablePages.assigned, sortedAssignedGuests],
   );
   const paginatedConflictRows = useMemo(
-    () => paginateGuestTableRows(conflictReviewRows, guestTablePages.conflicts),
-    [conflictReviewRows, guestTablePages.conflicts],
+    () => paginateGuestTableRows(sortedConflictRows, guestTablePages.conflicts),
+    [guestTablePages.conflicts, sortedConflictRows],
   );
   const guestSectionBusy =
     loadingWorkspace ||
@@ -1348,6 +1476,48 @@ export function App() {
     setGuestTablePages((current) => ({ ...current, [panel]: page }));
   }
 
+  function toggleTableSort(table: SortTableKey, column: string) {
+    setTableSorts((current) => {
+      const activeSort = current[table];
+      if (activeSort.column === column) {
+        return {
+          ...current,
+          [table]: {
+            column,
+            direction: activeSort.direction === "asc" ? "desc" : "asc",
+          },
+        };
+      }
+
+      return {
+        ...current,
+        [table]: {
+          column,
+          direction: "asc",
+        },
+      };
+    });
+  }
+
+  function renderSortableHeader(table: SortTableKey, column: string, label: string) {
+    const isActive = tableSorts[table].column === column;
+    const direction = tableSorts[table].direction === "asc" ? "↑" : "↓";
+
+    return (
+      <button
+        aria-label={`Ordenar por ${label}`}
+        className={`guest-table__sort-button ${isActive ? "guest-table__sort-button--active" : ""}`}
+        onClick={() => toggleTableSort(table, column)}
+        type="button"
+      >
+        <span>{label}</span>
+        <span aria-hidden="true" className="guest-table__sort-indicator">
+          {isActive ? direction : "↕"}
+        </span>
+      </button>
+    );
+  }
+
   function updateGuestDraft(index: number, nextDraft: GuestDraft) {
     setGuestDrafts((current) => {
       const nextDrafts = current.map((draft, currentIndex) => (currentIndex === index ? nextDraft : draft));
@@ -1941,15 +2111,15 @@ export function App() {
                   <table className="guest-table session-table">
                     <thead>
                       <tr>
-                        <th>Sesión</th>
-                        <th>Creada</th>
+                        <th>{renderSortableHeader("sessions", "name", "Sesión")}</th>
+                        <th>{renderSortableHeader("sessions", "created_at", "Creada")}</th>
                         <th aria-label="Descargar sesión" className="guest-table__action-column" />
                         <th aria-label="Cargar sesión" className="guest-table__action-column" />
                         <th aria-label="Eliminar sesión" className="guest-table__action-column" />
                       </tr>
                     </thead>
                     <tbody>
-                      {savedSessions.map((session) => (
+                      {sortedSessions.map((session) => (
                         <tr className="guest-table__row" key={session.id}>
                           <td>
                             <strong>{session.name}</strong>
@@ -2315,13 +2485,13 @@ export function App() {
                         <table className="guest-table">
                           <thead>
                             <tr>
-                              <th>Invitado</th>
-                              <th>Asistencia</th>
-                              <th>Tipo</th>
-                              <th>Intolerancia</th>
-                              <th>Menú</th>
-                              <th>Familia</th>
-                              <th>Mesa</th>
+                              <th>{renderSortableHeader("unassigned", "name", "Invitado")}</th>
+                              <th>{renderSortableHeader("unassigned", "confirmed", "Asistencia")}</th>
+                              <th>{renderSortableHeader("unassigned", "type", "Tipo")}</th>
+                              <th>{renderSortableHeader("unassigned", "intolerance", "Intolerancia")}</th>
+                              <th>{renderSortableHeader("unassigned", "menu", "Menú")}</th>
+                              <th>{renderSortableHeader("unassigned", "group", "Familia")}</th>
+                              <th>{renderSortableHeader("unassigned", "table", "Mesa")}</th>
                               <th aria-label="Eliminar invitado" className="guest-table__action-column" />
                             </tr>
                           </thead>
@@ -2696,13 +2866,13 @@ export function App() {
                     <table className="guest-table guest-table--placed">
                       <thead>
                         <tr>
-                          <th>Invitado</th>
-                          <th>Asistencia</th>
-                          <th>Tipo</th>
-                          <th>Intolerancia</th>
-                          <th>Menú</th>
-                          <th>Familia</th>
-                          <th>Mesa</th>
+                          <th>{renderSortableHeader("assigned", "name", "Invitado")}</th>
+                          <th>{renderSortableHeader("assigned", "confirmed", "Asistencia")}</th>
+                          <th>{renderSortableHeader("assigned", "type", "Tipo")}</th>
+                          <th>{renderSortableHeader("assigned", "intolerance", "Intolerancia")}</th>
+                          <th>{renderSortableHeader("assigned", "menu", "Menú")}</th>
+                          <th>{renderSortableHeader("assigned", "group", "Familia")}</th>
+                          <th>{renderSortableHeader("assigned", "table", "Mesa")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2961,11 +3131,11 @@ export function App() {
                     <table className="guest-table guest-table--placed">
                       <thead>
                         <tr>
-                          <th>Invitado</th>
-                          <th>Intolerancia</th>
-                          <th>Menú</th>
-                          <th>Familia</th>
-                          <th>Mesa</th>
+                          <th>{renderSortableHeader("conflicts", "name", "Invitado")}</th>
+                          <th>{renderSortableHeader("conflicts", "intolerance", "Intolerancia")}</th>
+                          <th>{renderSortableHeader("conflicts", "menu", "Menú")}</th>
+                          <th>{renderSortableHeader("conflicts", "group", "Familia")}</th>
+                          <th>{renderSortableHeader("conflicts", "table", "Mesa")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -3136,16 +3306,16 @@ export function App() {
                       <table className="guest-table guest-import-panel__table">
                         <thead>
                           <tr>
-                            <th>Invitado</th>
-                            <th>Asistencia</th>
-                            <th>Tipo</th>
-                            <th>Intolerancia</th>
-                            <th>Menú</th>
-                            <th>Familia</th>
+                            <th>{renderSortableHeader("guestImport", "name", "Invitado")}</th>
+                            <th>{renderSortableHeader("guestImport", "confirmed", "Asistencia")}</th>
+                            <th>{renderSortableHeader("guestImport", "type", "Tipo")}</th>
+                            <th>{renderSortableHeader("guestImport", "intolerance", "Intolerancia")}</th>
+                            <th>{renderSortableHeader("guestImport", "menu", "Menú")}</th>
+                            <th>{renderSortableHeader("guestImport", "group", "Familia")}</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {guestImportStats.previewRows.map((guest, index) => (
+                          {sortedGuestImportPreviewRows.map((guest, index) => (
                             <tr className="guest-table__row" key={`${guest.name}-${guest.group_id ?? "sin-familia"}-${index}`}>
                               <td>
                                 <strong>{guest.name}</strong>

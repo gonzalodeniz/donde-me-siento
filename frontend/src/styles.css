@@ -2568,6 +2568,36 @@ select {
   text-transform: uppercase;
 }
 
+.guest-table__sort-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.guest-table__sort-button:hover,
+.guest-table__sort-button:focus-visible,
+.guest-table__sort-button--active {
+  color: #7d2f1f;
+  outline: none;
+}
+
+.guest-table__sort-indicator {
+  flex: 0 0 auto;
+  font-size: 0.82em;
+}
+
 .guest-table__row {
   background: rgba(255, 252, 247, 0.7);
 }
