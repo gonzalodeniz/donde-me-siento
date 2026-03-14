@@ -1615,7 +1615,7 @@ export function App() {
                       <input
                         onChange={(event) => setGuestSearchQuery(event.target.value)}
                         placeholder="Encuentra a un ser querido..."
-                        type="search"
+                        type="text"
                         value={guestSearchQuery}
                       />
                       <button
