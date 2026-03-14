@@ -6,8 +6,12 @@ UVICORN ?= $(VENV_BIN)/uvicorn
 BACKEND_PORT ?= 8000
 FRONTEND_PORT ?= 5173
 API_PROXY_TARGET ?= http://127.0.0.1:$(BACKEND_PORT)
+DOCKER_IMAGE ?= donde-me-siento:latest
+DOCKER_CONTAINER ?= donde-me-siento
+DOCKER_PORT ?= 8080
+DOCKER_DATA_DIR ?= $(CURDIR)/data
 
-.PHONY: help install test test-cov run-backend install-frontend run-frontend run-app build-frontend test-e2e install-e2e lint clean
+.PHONY: help install test test-cov run-backend install-frontend run-frontend run-app build-frontend test-e2e install-e2e docker-build docker-run docker-stop lint clean
 
 help:
 	@printf "Objetivos disponibles:\n"
@@ -19,6 +23,9 @@ help:
 	@printf "  make run-frontend      Arranca Vite en modo desarrollo.\n"
 	@printf "  make run-app           Arranca backend y frontend a la vez.\n"
 	@printf "  make build-frontend    Genera la build del frontend.\n"
+	@printf "  make docker-build      Construye la imagen Docker de produccion.\n"
+	@printf "  make docker-run        Arranca el contenedor publicando el puerto $(DOCKER_PORT).\n"
+	@printf "  make docker-stop       Detiene el contenedor Docker si existe.\n"
 	@printf "  make install-e2e       Instala navegadores de Playwright.\n"
 	@printf "  make test-e2e          Ejecuta el flujo E2E minimo.\n"
 	@printf "  make clean        Limpia caches de Python y pytest.\n"
@@ -89,6 +96,20 @@ run-app:
 
 build-frontend:
 	cd frontend && npm run build
+
+docker-build:
+	docker build -t $(DOCKER_IMAGE) .
+
+docker-run:
+	mkdir -p $(DOCKER_DATA_DIR)
+	docker run --rm \
+		--name $(DOCKER_CONTAINER) \
+		-p $(DOCKER_PORT):80 \
+		-v $(DOCKER_DATA_DIR):/app/data \
+		$(DOCKER_IMAGE)
+
+docker-stop:
+	-docker stop $(DOCKER_CONTAINER)
 
 install-e2e:
 	cd frontend && npx playwright install chromium

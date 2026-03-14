@@ -113,6 +113,60 @@ make run-frontend
 
 Vite queda configurado con proxy a `http://127.0.0.1:8000` para las rutas `/api`.
 
+## Ejecutar con Docker
+
+La imagen Docker incluida empaqueta:
+
+- frontend compilado con Vite;
+- backend FastAPI con Uvicorn;
+- Nginx sirviendo la SPA y haciendo proxy a `/api`;
+- `supervisord` para levantar Nginx y Uvicorn dentro del contenedor.
+
+Ficheros relevantes:
+
+- Dockerfile: [Dockerfile](/home/gdeniz/Workspaces/development/donde-me-siento/Dockerfile)
+- Nginx interno del contenedor: [deploy/docker/nginx.conf](/home/gdeniz/Workspaces/development/donde-me-siento/deploy/docker/nginx.conf)
+- Supervisor del contenedor: [deploy/docker/supervisord.conf](/home/gdeniz/Workspaces/development/donde-me-siento/deploy/docker/supervisord.conf)
+
+Construcción de la imagen:
+
+```bash
+make docker-build
+```
+
+Ejecución del contenedor:
+
+```bash
+make docker-run
+```
+
+Por defecto se publica la aplicación en `http://127.0.0.1:8080`.
+
+También puedes lanzarla manualmente:
+
+```bash
+mkdir -p ./data
+docker build -t donde-me-siento:latest .
+docker run --rm \
+  --name donde-me-siento \
+  -p 8080:80 \
+  -v "$(pwd)/data:/app/data" \
+  donde-me-siento:latest
+```
+
+Variables útiles del `Makefile`:
+
+- `DOCKER_IMAGE`: nombre y tag de la imagen. Default `donde-me-siento:latest`
+- `DOCKER_CONTAINER`: nombre del contenedor. Default `donde-me-siento`
+- `DOCKER_PORT`: puerto publicado en host. Default `8080`
+- `DOCKER_DATA_DIR`: directorio local montado en `/app/data`. Default `./data`
+
+Persistencia:
+
+- Debes montar un volumen en `/app/data`
+
+Ese directorio guarda la base de datos SQLite y cualquier dato persistente del backend. Si no lo montas, perderás los datos al eliminar el contenedor.
+
 ## Ejecutar E2E
 
 ```bash
