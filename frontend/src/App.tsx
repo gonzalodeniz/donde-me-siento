@@ -37,6 +37,7 @@ const CANVAS_MIN_MAIN_WIDTH = 260;
 const RAIL_PANEL_MIN_WIDTH = 360;
 const RAIL_PANEL_MAX_WIDTH = 760;
 const SHELL_MIN_MAIN_WIDTH = 720;
+const GUEST_TABLE_PAGE_SIZE = 20;
 type SectionTone = "success" | "error" | "info";
 type SectionKey = "guests" | "tables";
 type SectionNotice = {
@@ -53,6 +54,7 @@ type TablePosition = {
 };
 type GuestEditableField = "name" | "confirmed" | "type" | "group" | "table";
 type PanelKey = "salon" | "summary" | "sessions" | "unassigned" | "assigned" | "conflicts" | "guestImport";
+type GuestTablePageKey = "unassigned" | "assigned" | "conflicts";
 type GuestDraft = {
   name: string;
   guest_type: string;
@@ -89,6 +91,26 @@ function normalizeSearchText(value: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+}
+
+function getGuestTableTotalPages(totalItems: number) {
+  return Math.max(1, Math.ceil(totalItems / GUEST_TABLE_PAGE_SIZE));
+}
+
+function paginateGuestTableRows<T>(items: T[], page: number) {
+  const totalItems = items.length;
+  const totalPages = getGuestTableTotalPages(totalItems);
+  const currentPage = Math.min(Math.max(page, 1), totalPages);
+  const startIndex = (currentPage - 1) * GUEST_TABLE_PAGE_SIZE;
+
+  return {
+    rows: items.slice(startIndex, startIndex + GUEST_TABLE_PAGE_SIZE),
+    currentPage,
+    totalPages,
+    startItem: totalItems === 0 ? 0 : startIndex + 1,
+    endItem: Math.min(startIndex + GUEST_TABLE_PAGE_SIZE, totalItems),
+    totalItems,
+  };
 }
 
 function parseCsvLine(line: string) {
@@ -325,6 +347,11 @@ export function App() {
     guests: false,
     tables: false,
   });
+  const [guestTablePages, setGuestTablePages] = useState<Record<GuestTablePageKey, number>>({
+    unassigned: 1,
+    assigned: 1,
+    conflicts: 1,
+  });
   const [collapsedPanels, setCollapsedPanels] = useState<Record<PanelKey, boolean>>({
     salon: false,
     summary: false,
@@ -460,6 +487,18 @@ export function App() {
       previewRows: guestImportPreview.guests.slice(0, 8),
     };
   }, [guestImportPreview]);
+  const paginatedUnassignedGuests = useMemo(
+    () => paginateGuestTableRows(filteredUnassignedGuests, guestTablePages.unassigned),
+    [filteredUnassignedGuests, guestTablePages.unassigned],
+  );
+  const paginatedAssignedGuests = useMemo(
+    () => paginateGuestTableRows(filteredAssignedGuests, guestTablePages.assigned),
+    [filteredAssignedGuests, guestTablePages.assigned],
+  );
+  const paginatedConflictRows = useMemo(
+    () => paginateGuestTableRows(conflictReviewRows, guestTablePages.conflicts),
+    [conflictReviewRows, guestTablePages.conflicts],
+  );
   const guestSectionBusy =
     loadingWorkspace ||
     submittingAction === "create-guest" ||
@@ -488,6 +527,23 @@ export function App() {
   useEffect(() => {
     localStorage.setItem(LISTS_PANEL_WIDTH_STORAGE_KEY, String(listsPanelWidth));
   }, [listsPanelWidth]);
+
+  useEffect(() => {
+    setGuestTablePages((current) => ({
+      unassigned: Math.min(current.unassigned, getGuestTableTotalPages(filteredUnassignedGuests.length)),
+      assigned: Math.min(current.assigned, getGuestTableTotalPages(filteredAssignedGuests.length)),
+      conflicts: Math.min(current.conflicts, getGuestTableTotalPages(conflictReviewRows.length)),
+    }));
+  }, [filteredAssignedGuests.length, filteredUnassignedGuests.length, conflictReviewRows.length]);
+
+  useEffect(() => {
+    setGuestTablePages((current) => ({
+      ...current,
+      unassigned: 1,
+      assigned: 1,
+      conflicts: 1,
+    }));
+  }, [deferredGuestSearchQuery]);
 
   useEffect(() => {
     const timers: number[] = [];
@@ -1175,6 +1231,10 @@ export function App() {
 
   function togglePanel(panel: PanelKey) {
     setCollapsedPanels((current) => ({ ...current, [panel]: !current[panel] }));
+  }
+
+  function setGuestTablePage(panel: GuestTablePageKey, page: number) {
+    setGuestTablePages((current) => ({ ...current, [panel]: page }));
   }
 
   function updateGuestDraft(index: number, nextDraft: GuestDraft) {
@@ -2061,6 +2121,7 @@ export function App() {
                   >
                     {(workspace?.guests.unassigned.length ?? 0) > 0 ? (
                       filteredUnassignedGuests.length > 0 ? (
+                        <>
                         <table className="guest-table">
                           <thead>
                             <tr>
@@ -2073,7 +2134,7 @@ export function App() {
                             </tr>
                           </thead>
                           <tbody>
-                            {filteredUnassignedGuests.map((guest) => (
+                            {paginatedUnassignedGuests.rows.map((guest) => (
                               <Fragment key={guest.id}>
                                 <tr
                                   className={`guest-table__row ${conflictGuestIds.has(guest.id) ? "guest-table__row--conflict" : ""} ${draggedGuestId === guest.id ? "guest-table__row--dragging" : ""}`}
@@ -2243,6 +2304,35 @@ export function App() {
                             ))}
                           </tbody>
                         </table>
+                        {paginatedUnassignedGuests.totalPages > 1 ? (
+                          <div className="guest-table-pagination">
+                            <span className="guest-table-pagination__summary">
+                              {paginatedUnassignedGuests.startItem}-{paginatedUnassignedGuests.endItem} de {paginatedUnassignedGuests.totalItems}
+                            </span>
+                            <div className="guest-table-pagination__actions">
+                              <button
+                                className="button button--ghost button--small"
+                                disabled={paginatedUnassignedGuests.currentPage === 1}
+                                onClick={() => setGuestTablePage("unassigned", paginatedUnassignedGuests.currentPage - 1)}
+                                type="button"
+                              >
+                                Anterior
+                              </button>
+                              <span className="guest-table-pagination__status">
+                                Página {paginatedUnassignedGuests.currentPage} de {paginatedUnassignedGuests.totalPages}
+                              </span>
+                              <button
+                                className="button button--ghost button--small"
+                                disabled={paginatedUnassignedGuests.currentPage === paginatedUnassignedGuests.totalPages}
+                                onClick={() => setGuestTablePage("unassigned", paginatedUnassignedGuests.currentPage + 1)}
+                                type="button"
+                              >
+                                Siguiente
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
+                        </>
                       ) : (
                         <p className="empty-state empty-state--paper">No encontramos a nadie con esa búsqueda.</p>
                       )
@@ -2343,6 +2433,7 @@ export function App() {
                 </div>
                 <div className="guest-table-shell guest-table-shell--compact">
                   {filteredAssignedGuests.length > 0 ? (
+                    <>
                     <table className="guest-table guest-table--placed">
                       <thead>
                         <tr>
@@ -2354,7 +2445,7 @@ export function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredAssignedGuests.map((guest) => {
+                        {paginatedAssignedGuests.rows.map((guest) => {
                           const tableNumber = guest.table_id ? tableNumberById.get(guest.table_id) : null;
 
                           return (
@@ -2513,6 +2604,35 @@ export function App() {
                         })}
                       </tbody>
                     </table>
+                    {paginatedAssignedGuests.totalPages > 1 ? (
+                      <div className="guest-table-pagination">
+                        <span className="guest-table-pagination__summary">
+                          {paginatedAssignedGuests.startItem}-{paginatedAssignedGuests.endItem} de {paginatedAssignedGuests.totalItems}
+                        </span>
+                        <div className="guest-table-pagination__actions">
+                          <button
+                            className="button button--ghost button--small"
+                            disabled={paginatedAssignedGuests.currentPage === 1}
+                            onClick={() => setGuestTablePage("assigned", paginatedAssignedGuests.currentPage - 1)}
+                            type="button"
+                          >
+                            Anterior
+                          </button>
+                          <span className="guest-table-pagination__status">
+                            Página {paginatedAssignedGuests.currentPage} de {paginatedAssignedGuests.totalPages}
+                          </span>
+                          <button
+                            className="button button--ghost button--small"
+                            disabled={paginatedAssignedGuests.currentPage === paginatedAssignedGuests.totalPages}
+                            onClick={() => setGuestTablePage("assigned", paginatedAssignedGuests.currentPage + 1)}
+                            type="button"
+                          >
+                            Siguiente
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                    </>
                   ) : (
                     <p className="empty-state empty-state--paper">
                       {guestSearchQuery ? "No hay invitados ubicados con esa búsqueda." : "Todavía no hay invitados sentados."}
@@ -2539,6 +2659,7 @@ export function App() {
                 </div>
                 <div className="guest-table-shell guest-table-shell--compact">
                   {workspace && groupedConflictCount > 0 ? (
+                    <>
                     <table className="guest-table guest-table--placed">
                       <thead>
                         <tr>
@@ -2548,7 +2669,7 @@ export function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {conflictReviewRows.map((row) => (
+                        {paginatedConflictRows.rows.map((row) => (
                           <tr className="guest-table__row guest-table__row--conflict" key={row.rowId}>
                             <td>
                               <strong>{row.guestName}</strong>
@@ -2559,6 +2680,35 @@ export function App() {
                         ))}
                       </tbody>
                     </table>
+                    {paginatedConflictRows.totalPages > 1 ? (
+                      <div className="guest-table-pagination">
+                        <span className="guest-table-pagination__summary">
+                          {paginatedConflictRows.startItem}-{paginatedConflictRows.endItem} de {paginatedConflictRows.totalItems}
+                        </span>
+                        <div className="guest-table-pagination__actions">
+                          <button
+                            className="button button--ghost button--small"
+                            disabled={paginatedConflictRows.currentPage === 1}
+                            onClick={() => setGuestTablePage("conflicts", paginatedConflictRows.currentPage - 1)}
+                            type="button"
+                          >
+                            Anterior
+                          </button>
+                          <span className="guest-table-pagination__status">
+                            Página {paginatedConflictRows.currentPage} de {paginatedConflictRows.totalPages}
+                          </span>
+                          <button
+                            className="button button--ghost button--small"
+                            disabled={paginatedConflictRows.currentPage === paginatedConflictRows.totalPages}
+                            onClick={() => setGuestTablePage("conflicts", paginatedConflictRows.currentPage + 1)}
+                            type="button"
+                          >
+                            Siguiente
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                    </>
                   ) : (
                     <p className="empty-state empty-state--paper">No hay ubicaciones por revisar.</p>
                   )}

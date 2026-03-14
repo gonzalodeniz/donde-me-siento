@@ -2563,6 +2563,28 @@ select {
   font-size: 0.76rem;
 }
 
+.guest-table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 0.2rem 0.05rem;
+  flex-wrap: wrap;
+}
+
+.guest-table-pagination__summary,
+.guest-table-pagination__status {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.guest-table-pagination__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .guest-table__cell-inline {
   display: flex;
   align-items: center;
