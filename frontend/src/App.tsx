@@ -49,6 +49,17 @@ type TablePosition = {
 };
 type GuestEditableField = "name" | "type" | "group" | "table";
 type PanelKey = "salon" | "summary" | "sessions" | "unassigned" | "assigned" | "conflicts";
+type GuestDraft = {
+  name: string;
+  guest_type: string;
+};
+
+function createEmptyGuestDraft(): GuestDraft {
+  return {
+    name: "",
+    guest_type: "adulto",
+  };
+}
 
 function normalizeText(value: string) {
   return value.trim();
@@ -145,9 +156,8 @@ export function App() {
   const [loadingWorkspace, setLoadingWorkspace] = useState(false);
   const [submittingAction, setSubmittingAction] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [guestName, setGuestName] = useState("");
-  const [guestType, setGuestType] = useState("adulto");
   const [guestGroupId, setGuestGroupId] = useState("");
+  const [guestDrafts, setGuestDrafts] = useState<GuestDraft[]>(() => [createEmptyGuestDraft()]);
   const [guestSearchQuery, setGuestSearchQuery] = useState("");
   const [tableBatchCount, setTableBatchCount] = useState("8");
   const [tableBatchCapacity, setTableBatchCapacity] = useState("8");
@@ -771,9 +781,15 @@ export function App() {
       return;
     }
 
-    const normalizedGuestName = normalizeText(guestName);
-    if (!normalizedGuestName) {
-      setGuestFormError("Introduce el nombre del invitado antes de guardarlo.");
+    const guestsToCreate = guestDrafts
+      .map((draft) => ({
+        name: normalizeText(draft.name),
+        guest_type: draft.guest_type,
+      }))
+      .filter((draft) => draft.name);
+
+    if (guestsToCreate.length === 0) {
+      setGuestFormError("Introduce al menos un nombre antes de guardar.");
       return;
     }
     setGuestFormError(null);
@@ -781,18 +797,20 @@ export function App() {
     const created = await runWorkspaceAction(
       "create-guest",
       "guests",
-      () =>
-        createGuest(token, {
-          name: normalizedGuestName,
-          guest_type: guestType,
-          group_id: normalizeText(guestGroupId) || null,
-        }),
-      "Invitado anadido al workspace.",
+      async () => {
+        for (const guest of guestsToCreate) {
+          await createGuest(token, {
+            name: guest.name,
+            guest_type: guest.guest_type,
+            group_id: normalizeText(guestGroupId) || null,
+          });
+        }
+      },
+      guestsToCreate.length === 1 ? "Invitado añadido al workspace." : "Familia añadida al workspace.",
     );
     if (created) {
-      setGuestName("");
-      setGuestType("adulto");
       setGuestGroupId("");
+      setGuestDrafts([createEmptyGuestDraft()]);
     }
   }
 
@@ -857,6 +875,27 @@ export function App() {
 
   function togglePanel(panel: PanelKey) {
     setCollapsedPanels((current) => ({ ...current, [panel]: !current[panel] }));
+  }
+
+  function updateGuestDraft(index: number, nextDraft: GuestDraft) {
+    setGuestDrafts((current) => {
+      const nextDrafts = current.map((draft, currentIndex) => (currentIndex === index ? nextDraft : draft));
+      const hasTrailingEmptyDraft = nextDrafts[nextDrafts.length - 1]?.name.trim() === "";
+
+      if (!hasTrailingEmptyDraft) {
+        nextDrafts.push(createEmptyGuestDraft());
+      }
+
+      while (
+        nextDrafts.length > 1 &&
+        nextDrafts[nextDrafts.length - 1].name.trim() === "" &&
+        nextDrafts[nextDrafts.length - 2].name.trim() === ""
+      ) {
+        nextDrafts.pop();
+      }
+
+      return nextDrafts;
+    });
   }
 
   function handleGuestDragStart(event: DragEvent<Element>, guestId: string) {
@@ -1856,27 +1895,44 @@ export function App() {
                   </summary>
                   <form className="stack-form stack-form--guest-salon" onSubmit={handleGuestCreate}>
                     <label className="mini-field">
-                      <span>Nombre</span>
-                      <input
-                        data-testid="guest-name-input"
-                        value={guestName}
-                        aria-invalid={Boolean(guestFormError)}
-                        onChange={(event) => setGuestName(event.target.value)}
-                      />
+                      <span>Familia</span>
+                      <input placeholder="opcional" value={guestGroupId} onChange={(event) => setGuestGroupId(event.target.value)} />
                     </label>
-                    <div className="mini-grid">
-                      <label className="mini-field">
-                        <span>Tipo</span>
-                        <select value={guestType} onChange={(event) => setGuestType(event.target.value)}>
-                          <option value="adulto">adulto</option>
-                          <option value="adolescente">adolescente</option>
-                          <option value="nino">nino</option>
-                        </select>
-                      </label>
-                      <label className="mini-field">
-                        <span>Familia</span>
-                        <input placeholder="opcional" value={guestGroupId} onChange={(event) => setGuestGroupId(event.target.value)} />
-                      </label>
+                    <div className="guest-family-form">
+                      {guestDrafts.map((draft, index) => (
+                        <div className="mini-grid guest-family-form__row" key={index}>
+                          <label className="mini-field">
+                            <span>{index === 0 ? "Nombre" : `Nombre ${index + 1}`}</span>
+                            <input
+                              data-testid={index === 0 ? "guest-name-input" : undefined}
+                              value={draft.name}
+                              aria-invalid={Boolean(guestFormError)}
+                              onChange={(event) =>
+                                updateGuestDraft(index, {
+                                  ...draft,
+                                  name: event.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                          <label className="mini-field">
+                            <span>Tipo</span>
+                            <select
+                              value={draft.guest_type}
+                              onChange={(event) =>
+                                updateGuestDraft(index, {
+                                  ...draft,
+                                  guest_type: event.target.value,
+                                })
+                              }
+                            >
+                              <option value="adulto">adulto</option>
+                              <option value="adolescente">adolescente</option>
+                              <option value="nino">nino</option>
+                            </select>
+                          </label>
+                        </div>
+                      ))}
                     </div>
                     {guestFormError ? <p className="inline-feedback inline-feedback--error">{guestFormError}</p> : null}
                     <button className="button button--primary button--small" disabled={isActionRunning("create-guest")} type="submit">

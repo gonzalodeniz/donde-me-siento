@@ -1856,6 +1856,15 @@ select {
   flex-wrap: wrap;
 }
 
+.guest-family-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.guest-family-form__row {
+  align-items: flex-end;
+}
+
 .guest-card__header {
   justify-content: space-between;
 }
