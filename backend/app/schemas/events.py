@@ -20,6 +20,13 @@ class GuestCreate(BaseModel):
     table_id: str | None = Field(default=None, max_length=64)
     seat_index: int | None = Field(default=None, ge=0)
 
+
+class GuestBatchCreateRequest(BaseModel):
+    """Payload para importar varios invitados en una sola operación."""
+
+    guests: list[GuestCreate] = Field(min_length=1, max_length=1000)
+
+
 class TableResponse(BaseModel):
     """Mesa serializada para la API."""
 

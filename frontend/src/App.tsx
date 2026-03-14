@@ -12,6 +12,7 @@ import {
   exportSession,
   fetchSessions,
   fetchWorkspace,
+  importGuests,
   importSession,
   loadSession,
   login,
@@ -51,12 +52,24 @@ type TablePosition = {
   position_y: number;
 };
 type GuestEditableField = "name" | "confirmed" | "type" | "group" | "table";
-type PanelKey = "salon" | "summary" | "sessions" | "unassigned" | "assigned" | "conflicts";
+type PanelKey = "salon" | "summary" | "sessions" | "unassigned" | "assigned" | "conflicts" | "guestImport";
 type GuestDraft = {
   name: string;
   guest_type: string;
   confirmed: boolean;
 };
+type ImportedGuestDraft = {
+  name: string;
+  guest_type: string;
+  confirmed: boolean;
+  group_id: string | null;
+};
+type GuestImportPreview = {
+  fileName: string;
+  guests: ImportedGuestDraft[];
+};
+
+const REQUIRED_GUEST_CSV_COLUMNS = ["nombre", "asistencia", "tipo", "familia"] as const;
 
 function createEmptyGuestDraft(): GuestDraft {
   return {
@@ -76,6 +89,111 @@ function normalizeSearchText(value: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+}
+
+function parseCsvLine(line: string) {
+  const values: string[] = [];
+  let currentValue = "";
+  let insideQuotes = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+
+    if (character === "\"") {
+      if (insideQuotes && line[index + 1] === "\"") {
+        currentValue += "\"";
+        index += 1;
+      } else {
+        insideQuotes = !insideQuotes;
+      }
+      continue;
+    }
+
+    if (character === "," && !insideQuotes) {
+      values.push(currentValue);
+      currentValue = "";
+      continue;
+    }
+
+    currentValue += character;
+  }
+
+  values.push(currentValue);
+  return values.map((value) => value.trim());
+}
+
+function parseGuestCsvAttendance(rawValue: string, lineNumber: number) {
+  const normalizedValue = normalizeSearchText(rawValue);
+  if (normalizedValue === "confirmado" || normalizedValue === "si" || normalizedValue === "true") {
+    return true;
+  }
+  if (
+    normalizedValue === "no confirmado" ||
+    normalizedValue === "pendiente" ||
+    normalizedValue === "no" ||
+    normalizedValue === "false"
+  ) {
+    return false;
+  }
+
+  throw new Error(`Línea ${lineNumber}: valor de asistencia no válido: "${rawValue || "vacío"}".`);
+}
+
+function parseGuestCsvType(rawValue: string, lineNumber: number) {
+  const normalizedValue = normalizeSearchText(rawValue);
+  if (normalizedValue === "adulto" || normalizedValue === "adolescente" || normalizedValue === "nino") {
+    return normalizedValue;
+  }
+
+  throw new Error(`Línea ${lineNumber}: tipo de invitado no válido: "${rawValue || "vacío"}".`);
+}
+
+function parseGuestImportCsv(fileName: string, content: string): GuestImportPreview {
+  const rows = content
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .map((line, index) => ({ line, lineNumber: index + 1 }))
+    .filter(({ line }) => line.trim() !== "");
+
+  if (rows.length < 2) {
+    throw new Error("El CSV debe incluir cabecera y al menos un invitado.");
+  }
+
+  const headerCells = parseCsvLine(rows[0].line).map((value) => normalizeSearchText(value));
+  const missingColumns = REQUIRED_GUEST_CSV_COLUMNS.filter((column) => !headerCells.includes(column));
+  if (missingColumns.length > 0) {
+    throw new Error(`Faltan columnas obligatorias en el CSV: ${missingColumns.join(", ")}.`);
+  }
+
+  const headerIndexes = Object.fromEntries(
+    REQUIRED_GUEST_CSV_COLUMNS.map((column) => [column, headerCells.indexOf(column)]),
+  ) as Record<(typeof REQUIRED_GUEST_CSV_COLUMNS)[number], number>;
+
+  const guests = rows.slice(1).map(({ line, lineNumber }) => {
+    const cells = parseCsvLine(line);
+    const name = normalizeText(cells[headerIndexes.nombre] ?? "");
+    if (!name) {
+      throw new Error(`Línea ${lineNumber}: el nombre del invitado es obligatorio.`);
+    }
+
+    const groupId = normalizeText(cells[headerIndexes.familia] ?? "") || null;
+
+    return {
+      name,
+      confirmed: parseGuestCsvAttendance(cells[headerIndexes.asistencia] ?? "", lineNumber),
+      guest_type: parseGuestCsvType(cells[headerIndexes.tipo] ?? "", lineNumber),
+      group_id: groupId,
+    };
+  });
+
+  if (guests.length === 0) {
+    throw new Error("El CSV no contiene invitados válidos para importar.");
+  }
+
+  return {
+    fileName,
+    guests,
+  };
 }
 
 function randomLoginName() {
@@ -139,6 +257,7 @@ export function App() {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLElement | null>(null);
   const sessionImportInputRef = useRef<HTMLInputElement | null>(null);
+  const guestImportInputRef = useRef<HTMLInputElement | null>(null);
   const [username, setUsername] = useState<string>(() => randomLoginName());
   const [password, setPassword] = useState("");
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_STORAGE_KEY));
@@ -156,6 +275,8 @@ export function App() {
   const [savedSessions, setSavedSessions] = useState<SavedSession[]>([]);
   const [isResetSessionPending, setIsResetSessionPending] = useState(false);
   const [guestFormError, setGuestFormError] = useState<string | null>(null);
+  const [guestImportPreview, setGuestImportPreview] = useState<GuestImportPreview | null>(null);
+  const [guestImportError, setGuestImportError] = useState<string | null>(null);
   const [editingGuestId, setEditingGuestId] = useState<string | null>(null);
   const [editingGuestField, setEditingGuestField] = useState<GuestEditableField>("name");
   const [editingGuestName, setEditingGuestName] = useState("");
@@ -211,6 +332,7 @@ export function App() {
     unassigned: false,
     assigned: false,
     conflicts: false,
+    guestImport: false,
   });
   const [activeCardDropTableId, setActiveCardDropTableId] = useState<string | null>(null);
   const [hoveredCardGuest, setHoveredCardGuest] = useState<{
@@ -319,9 +441,29 @@ export function App() {
         }),
     [guestById, tableNumberById, workspace],
   );
+  const guestImportStats = useMemo(() => {
+    if (!guestImportPreview) {
+      return null;
+    }
+
+    const confirmedCount = guestImportPreview.guests.filter((guest) => guest.confirmed).length;
+    const pendingCount = guestImportPreview.guests.length - confirmedCount;
+    const familyCount = new Set(
+      guestImportPreview.guests.map((guest) => guest.group_id).filter((groupId): groupId is string => Boolean(groupId)),
+    ).size;
+
+    return {
+      total: guestImportPreview.guests.length,
+      confirmed: confirmedCount,
+      pending: pendingCount,
+      families: familyCount,
+      previewRows: guestImportPreview.guests.slice(0, 8),
+    };
+  }, [guestImportPreview]);
   const guestSectionBusy =
     loadingWorkspace ||
     submittingAction === "create-guest" ||
+    submittingAction === "import-guests-file" ||
     (submittingAction !== null &&
       (submittingAction.startsWith("update-") ||
         submittingAction.startsWith("delete-") ||
@@ -439,6 +581,8 @@ export function App() {
     if (!token) {
       setWorkspace(null);
       setSavedSessions([]);
+      setGuestImportPreview(null);
+      setGuestImportError(null);
       setSectionNotices({ guests: null, tables: null });
       setUsername(randomLoginName());
       setPassword("");
@@ -537,6 +681,8 @@ export function App() {
     setToken(null);
     setErrorMessage(null);
     setGuestFormError(null);
+    setGuestImportPreview(null);
+    setGuestImportError(null);
     setEditingGuestError(null);
     setSectionNotices({ guests: null, tables: null });
     setPendingTableRemovalId(null);
@@ -836,6 +982,58 @@ export function App() {
     if (created) {
       setGuestGroupId("");
       setGuestDrafts([createEmptyGuestDraft()]);
+    }
+  }
+
+  function clearGuestImportSelection() {
+    setGuestImportPreview(null);
+    setGuestImportError(null);
+    if (guestImportInputRef.current) {
+      guestImportInputRef.current.value = "";
+    }
+  }
+
+  async function handleGuestImportFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      const parsedImport = parseGuestImportCsv(file.name, await file.text());
+      setGuestImportPreview(parsedImport);
+      setGuestImportError(null);
+    } catch (error) {
+      setGuestImportPreview(null);
+      setGuestImportError(error instanceof Error ? error.message : "No se pudo leer el fichero CSV.");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  async function handleGuestImportSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token) {
+      return;
+    }
+    if (!guestImportPreview) {
+      setGuestImportError("Selecciona un fichero CSV válido antes de importar.");
+      return;
+    }
+
+    setGuestImportError(null);
+
+    const imported = await runWorkspaceAction(
+      "import-guests-file",
+      "guests",
+      () => importGuests(token, guestImportPreview.guests),
+      guestImportPreview.guests.length === 1
+        ? "1 invitado importado desde el CSV."
+        : `${guestImportPreview.guests.length} invitados importados desde el CSV.`,
+    );
+
+    if (imported) {
+      clearGuestImportSelection();
     }
   }
 
@@ -2366,6 +2564,104 @@ export function App() {
                   )}
                 </div>
               </section>
+              ) : null}
+            </section>
+
+            <section className="list-card">
+              <div className="list-card__header">
+                <button className="panel-toggle panel-toggle--compact" onClick={() => togglePanel("guestImport")} type="button">
+                  <h3>Cargar invitados desde fichero</h3>
+                  <span aria-hidden="true" className={`panel-toggle__chevron ${collapsedPanels.guestImport ? "panel-toggle__chevron--collapsed" : ""}`}>▾</span>
+                </button>
+              </div>
+              {!collapsedPanels.guestImport ? (
+              <form className="stack-form stack-form--guest-salon guest-import-panel" onSubmit={handleGuestImportSubmit}>
+                <input
+                  accept=".csv,text/csv"
+                  className="session-library__file-input"
+                  onChange={handleGuestImportFileChange}
+                  ref={guestImportInputRef}
+                  type="file"
+                />
+                <p className="guest-import-panel__lead">
+                  Importa un CSV con las columnas <code>nombre</code>, <code>asistencia</code>, <code>tipo</code> y <code>familia</code>.
+                </p>
+                <div className="guest-import-panel__actions">
+                  <button className="button button--ghost button--small" onClick={() => guestImportInputRef.current?.click()} type="button">
+                    {guestImportPreview ? "Cambiar fichero" : "Seleccionar fichero CSV"}
+                  </button>
+                  {guestImportPreview ? (
+                    <button className="button button--quiet button--small" onClick={clearGuestImportSelection} type="button">
+                      Quitar fichero
+                    </button>
+                  ) : null}
+                  <button
+                    className="button button--primary button--small"
+                    disabled={!guestImportPreview || isActionRunning("import-guests-file")}
+                    type="submit"
+                  >
+                    {isActionRunning("import-guests-file") ? "Importando..." : "Importar invitados"}
+                  </button>
+                </div>
+                {guestImportError ? <p className="inline-feedback inline-feedback--error">{guestImportError}</p> : null}
+                {guestImportPreview && guestImportStats ? (
+                  <>
+                    <div className="guest-import-panel__file">
+                      <strong>{guestImportPreview.fileName}</strong>
+                      <span>{guestImportStats.total} invitados listos para importar.</span>
+                    </div>
+                    <div className="control-metrics guest-import-panel__metrics">
+                      <article className="control-metric">
+                        <span>Total</span>
+                        <strong>{guestImportStats.total}</strong>
+                      </article>
+                      <article className="control-metric">
+                        <span>Confirmados</span>
+                        <strong>{guestImportStats.confirmed}</strong>
+                      </article>
+                      <article className="control-metric">
+                        <span>Pendientes</span>
+                        <strong>{guestImportStats.pending}</strong>
+                      </article>
+                      <article className="control-metric">
+                        <span>Familias</span>
+                        <strong>{guestImportStats.families}</strong>
+                      </article>
+                    </div>
+                    <p className="guest-import-panel__preview-note">
+                      Vista previa de los primeros {guestImportStats.previewRows.length} invitados del CSV.
+                    </p>
+                    <div className="guest-table-shell guest-table-shell--compact">
+                      <table className="guest-table guest-import-panel__table">
+                        <thead>
+                          <tr>
+                            <th>Invitado</th>
+                            <th>Asistencia</th>
+                            <th>Tipo</th>
+                            <th>Familia</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {guestImportStats.previewRows.map((guest, index) => (
+                            <tr className="guest-table__row" key={`${guest.name}-${guest.group_id ?? "sin-familia"}-${index}`}>
+                              <td>
+                                <strong>{guest.name}</strong>
+                              </td>
+                              <td>{formatConfirmedLabel(guest.confirmed)}</td>
+                              <td>{formatGuestTypeLabel(guest.guest_type)}</td>
+                              <td>{guest.group_id ?? "Sin familia"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : (
+                  <p className="empty-state empty-state--paper">
+                    Selecciona un fichero CSV como <code>invitados.csv</code> para crear invitados en lote.
+                  </p>
+                )}
+              </form>
               ) : null}
             </section>
 

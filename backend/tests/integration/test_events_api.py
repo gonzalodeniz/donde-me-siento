@@ -140,6 +140,50 @@ async def test_guest_crud_assignment_and_validation_flow(client: AsyncClient) ->
 
 
 @pytest.mark.anyio
+async def test_import_guests_creates_all_guests_atomically(client: AsyncClient) -> None:
+    response = await client.post(
+        "/api/guests/import",
+        json={
+            "guests": [
+                {"id": "guest-1", "name": "Ana", "guest_type": "adulto", "confirmed": True, "group_id": "g1"},
+                {"id": "guest-2", "name": "Luis", "guest_type": "adolescente", "confirmed": False, "group_id": "g1"},
+                {"id": "guest-3", "name": "Marta", "guest_type": "nino", "confirmed": True},
+            ]
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert len(payload["guests"]) == 3
+    imported_guest = next(guest for guest in payload["guests"] if guest["id"] == "guest-2")
+    assert imported_guest["guest_type"] == "adolescente"
+    assert imported_guest["confirmed"] is False
+    assert imported_guest["group_id"] == "g1"
+
+
+@pytest.mark.anyio
+async def test_import_guests_rejects_invalid_payload_without_partial_import(client: AsyncClient) -> None:
+    response = await client.post(
+        "/api/guests/import",
+        json={
+            "guests": [
+                {"id": "guest-1", "name": "Ana", "guest_type": "adulto", "confirmed": True},
+                {"id": "guest-2", "name": "Luis", "guest_type": "vip", "confirmed": True},
+            ]
+        },
+    )
+
+    assert response.status_code == 400
+    assert "Tipo de invitado no soportado" in response.json()["detail"]
+
+    workspace_response = await client.get("/api/workspace")
+    assert workspace_response.status_code == 200
+    workspace = workspace_response.json()
+    assert workspace["guests"]["assigned"] == []
+    assert workspace["guests"]["unassigned"] == []
+
+
+@pytest.mark.anyio
 async def test_assignment_rejects_full_table(client: AsyncClient) -> None:
     await client.put("/api/tables/table-1", json={"capacity": 1})
     await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto"})

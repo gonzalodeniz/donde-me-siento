@@ -9,6 +9,7 @@ from backend.app.domains.seating import DomainError
 from backend.app.schemas.events import (
     DefaultTableCapacityUpdate,
     EventResponse,
+    GuestBatchCreateRequest,
     GuestAssignmentRequest,
     GuestCreate,
     GuestUpdate,
@@ -59,6 +60,21 @@ async def create_guest(
 
     try:
         event = service.add_guest(payload)
+    except DomainError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return build_event_response(event)
+
+
+@router.post("/guests/import", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
+async def import_guests(
+    payload: GuestBatchCreateRequest,
+    service: EventService = Depends(get_event_service),
+) -> EventResponse:
+    """Importa varios invitados en una sola operación atómica."""
+
+    try:
+        event = service.add_guests(payload.guests)
     except DomainError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 

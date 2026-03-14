@@ -42,6 +42,12 @@ class EventService:
         event.add_guest(self._build_guest(payload))
         return self.repository.save(event)
 
+    def add_guests(self, payloads: list[GuestCreate]) -> Event:
+        event = self.ensure_workspace()
+        for payload in payloads:
+            event.add_guest(self._build_guest(payload))
+        return self.repository.save(event)
+
     def add_table(self) -> Event:
         event = self.ensure_workspace()
         event.add_table()

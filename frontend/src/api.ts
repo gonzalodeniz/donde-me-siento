@@ -64,6 +64,20 @@ export async function createGuest(
   });
 }
 
+export async function importGuests(
+  token: string,
+  payload: Array<{ name: string; guest_type: string; confirmed: boolean; group_id: string | null }>,
+): Promise<void> {
+  await request("/api/guests/import", {
+    method: "POST",
+    headers: {
+      ...API_HEADERS,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ guests: payload }),
+  });
+}
+
 export async function updateGuest(
   guestId: string,
   token: string,
