@@ -64,6 +64,7 @@ class EventService:
             guest_id,
             name=payload.name,
             guest_type=guest_type,
+            confirmed=payload.confirmed,
             group_id=payload.group_id,
         )
         return self.repository.save(event)
@@ -133,6 +134,7 @@ class EventService:
             id=payload.id or f"guest-{uuid4().hex[:12]}",
             name=payload.name,
             guest_type=self._parse_guest_type(payload.guest_type),
+            confirmed=payload.confirmed,
             group_id=payload.group_id,
             table_id=payload.table_id,
             seat_index=payload.seat_index,

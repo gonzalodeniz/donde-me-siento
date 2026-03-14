@@ -36,7 +36,7 @@ export async function fetchWorkspace(token: string): Promise<Workspace> {
 }
 export async function createGuest(
   token: string,
-  payload: { name: string; guest_type: string; group_id: string | null },
+  payload: { name: string; guest_type: string; confirmed: boolean; group_id: string | null },
 ): Promise<void> {
   await request("/api/guests", {
     method: "POST",
@@ -51,7 +51,7 @@ export async function createGuest(
 export async function updateGuest(
   guestId: string,
   token: string,
-  payload: { name?: string; guest_type?: string; group_id?: string | null },
+  payload: { name?: string; guest_type?: string; confirmed?: boolean; group_id?: string | null },
 ): Promise<void> {
   await request(`/api/guests/${guestId}`, {
     method: "PUT",

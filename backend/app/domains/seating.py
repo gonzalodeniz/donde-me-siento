@@ -40,6 +40,7 @@ class Guest:
     id: str
     name: str
     guest_type: GuestType
+    confirmed: bool = False
     group_id: str | None = None
     table_id: str | None = None
     seat_index: int | None = None
@@ -193,6 +194,7 @@ class Event:
         *,
         name: str | None = None,
         guest_type: GuestType | None = None,
+        confirmed: bool | None = None,
         group_id: str | None = None,
     ) -> Guest:
         guest = self._get_guest(guest_id)
@@ -203,6 +205,8 @@ class Event:
             guest.name = cleaned_name
         if guest_type is not None:
             guest.guest_type = guest_type
+        if confirmed is not None:
+            guest.confirmed = confirmed
         guest.group_id = group_id
         return guest
 

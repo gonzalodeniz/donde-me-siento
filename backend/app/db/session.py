@@ -38,6 +38,8 @@ def init_db(current_engine=engine) -> None:
     with current_engine.begin() as connection:
         if "seat_index" not in guest_columns:
             connection.execute(text("ALTER TABLE guests ADD COLUMN seat_index INTEGER"))
+        if "confirmed" not in guest_columns:
+            connection.execute(text("ALTER TABLE guests ADD COLUMN confirmed BOOLEAN NOT NULL DEFAULT 0"))
 
         if "saved_sessions" in table_names:
             session_columns = {column["name"] for column in inspector.get_columns("saved_sessions")}

@@ -47,17 +47,19 @@ type TablePosition = {
   position_x: number;
   position_y: number;
 };
-type GuestEditableField = "name" | "type" | "group" | "table";
+type GuestEditableField = "name" | "confirmed" | "type" | "group" | "table";
 type PanelKey = "salon" | "summary" | "sessions" | "unassigned" | "assigned" | "conflicts";
 type GuestDraft = {
   name: string;
   guest_type: string;
+  confirmed: boolean;
 };
 
 function createEmptyGuestDraft(): GuestDraft {
   return {
     name: "",
     guest_type: "adulto",
+    confirmed: true,
   };
 }
 
@@ -105,6 +107,10 @@ function formatSessionDate(value: string) {
   }).format(parsed);
 }
 
+function formatConfirmedLabel(confirmed: boolean) {
+  return confirmed ? "Confirmado" : "Pendiente";
+}
+
 function matchesGuestSearch(guest: Guest, rawQuery: string) {
   const query = normalizeSearchText(rawQuery);
   if (!query) {
@@ -122,8 +128,8 @@ function matchesGuestSearch(guest: Guest, rawQuery: string) {
   return searchableFields.some((field) => normalizeSearchText(field).includes(query));
 }
 
-function GuestSignal(_: { guest: Guest }) {
-  return null;
+function GuestSignal({ guest }: { guest: Guest }) {
+  return guest.confirmed ? null : <span className="guest-signal" title="Invitado no confirmado">?</span>;
 }
 
 export function App() {
@@ -150,6 +156,7 @@ export function App() {
   const [editingGuestField, setEditingGuestField] = useState<GuestEditableField>("name");
   const [editingGuestName, setEditingGuestName] = useState("");
   const [editingGuestType, setEditingGuestType] = useState("adulto");
+  const [editingGuestConfirmed, setEditingGuestConfirmed] = useState(false);
   const [editingGuestGroupId, setEditingGuestGroupId] = useState("");
   const [editingGuestError, setEditingGuestError] = useState<string | null>(null);
   const [assignmentValues, setAssignmentValues] = useState<Record<string, string>>({});
@@ -207,6 +214,7 @@ export function App() {
     name: string;
     guestType: string;
     family: string;
+    confirmedLabel: string;
     x: number;
     y: number;
   } | null>(null);
@@ -586,6 +594,7 @@ export function App() {
     setEditingGuestField(field);
     setEditingGuestName(guest.name);
     setEditingGuestType(guest.guest_type);
+    setEditingGuestConfirmed(guest.confirmed);
     setEditingGuestGroupId(guest.group_id ?? "");
   }
 
@@ -593,6 +602,7 @@ export function App() {
     setEditingGuestId(null);
     setEditingGuestName("");
     setEditingGuestType("adulto");
+    setEditingGuestConfirmed(false);
     setEditingGuestGroupId("");
     setEditingGuestError(null);
   }
@@ -629,6 +639,7 @@ export function App() {
     const hasChanges =
       normalizedGuestName !== currentGuest.name ||
       editingGuestType !== currentGuest.guest_type ||
+      editingGuestConfirmed !== currentGuest.confirmed ||
       normalizedGroupId !== currentGuest.group_id;
 
     if (!hasChanges) {
@@ -645,6 +656,7 @@ export function App() {
         updateGuest(editingGuestId, token, {
           name: normalizedGuestName,
           guest_type: editingGuestType,
+          confirmed: editingGuestConfirmed,
           group_id: normalizedGroupId,
         }),
       "Invitado actualizado.",
@@ -766,6 +778,7 @@ export function App() {
       .map((draft) => ({
         name: normalizeText(draft.name),
         guest_type: draft.guest_type,
+        confirmed: draft.confirmed,
       }))
       .filter((draft) => draft.name);
 
@@ -783,6 +796,7 @@ export function App() {
           await createGuest(token, {
             name: guest.name,
             guest_type: guest.guest_type,
+            confirmed: guest.confirmed,
             group_id: normalizeText(guestGroupId) || null,
           });
         }
@@ -905,6 +919,7 @@ export function App() {
       name: guest.name,
       guestType: formatGuestTypeLabel(guest.guest_type),
       family: guest.group_id ?? "Sin familia",
+      confirmedLabel: guest.confirmed ? "Confirmado" : "No confirmado",
       x: event.clientX - rect.left + 16,
       y: event.clientY - rect.top + 16,
     });
@@ -1596,6 +1611,7 @@ export function App() {
                       <strong>{hoveredCardGuest.name}</strong>
                       <span>Tipo: {hoveredCardGuest.guestType}</span>
                       <span>Familia: {hoveredCardGuest.family}</span>
+                      <span>Estado: {hoveredCardGuest.confirmedLabel}</span>
                     </div>
                   ) : null}
                 </article>
@@ -1702,6 +1718,7 @@ export function App() {
                           <thead>
                             <tr>
                               <th>Invitado</th>
+                              <th>Asistencia</th>
                               <th>Tipo</th>
                               <th>Familia</th>
                               <th>Mesa</th>
@@ -1735,6 +1752,25 @@ export function App() {
                                           <strong>{guest.name}</strong>
                                           <GuestSignal guest={guest} />
                                         </span>
+                                      </button>
+                                    )}
+                                  </td>
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "confirmed" ? (
+                                      <select
+                                        autoFocus
+                                        className="guest-table__select"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => setEditingGuestConfirmed(event.target.value === "true")}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={String(editingGuestConfirmed)}
+                                      >
+                                        <option value="true">Confirmado</option>
+                                        <option value="false">Pendiente</option>
+                                      </select>
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "confirmed")} type="button">
+                                        {formatConfirmedLabel(guest.confirmed)}
                                       </button>
                                     )}
                                   </td>
@@ -1916,6 +1952,19 @@ export function App() {
                               <option value="nino">nino</option>
                             </select>
                           </label>
+                          <label className="mini-field mini-field--checkbox">
+                            <span>Confirmado</span>
+                            <input
+                              checked={draft.confirmed}
+                              onChange={(event) =>
+                                updateGuestDraft(index, {
+                                  ...draft,
+                                  confirmed: event.target.checked,
+                                })
+                              }
+                              type="checkbox"
+                            />
+                          </label>
                         </div>
                       ))}
                     </div>
@@ -1951,6 +2000,7 @@ export function App() {
                       <thead>
                         <tr>
                           <th>Invitado</th>
+                          <th>Asistencia</th>
                           <th>Tipo</th>
                           <th>Familia</th>
                           <th>Mesa</th>
@@ -1982,6 +2032,25 @@ export function App() {
                                         <strong>{guest.name}</strong>
                                         <GuestSignal guest={guest} />
                                       </span>
+                                    </button>
+                                  )}
+                                </td>
+                                <td>
+                                  {editingGuestId === guest.id && editingGuestField === "confirmed" ? (
+                                    <select
+                                      autoFocus
+                                      className="guest-table__select"
+                                      onBlur={handleGuestEditBlur}
+                                      onChange={(event) => setEditingGuestConfirmed(event.target.value === "true")}
+                                      onKeyDown={handleGuestEditKeyDown}
+                                      value={String(editingGuestConfirmed)}
+                                    >
+                                      <option value="true">Confirmado</option>
+                                      <option value="false">Pendiente</option>
+                                    </select>
+                                  ) : (
+                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "confirmed")} type="button">
+                                      {formatConfirmedLabel(guest.confirmed)}
                                     </button>
                                   )}
                                 </td>

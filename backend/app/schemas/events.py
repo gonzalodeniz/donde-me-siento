@@ -13,6 +13,7 @@ class GuestCreate(BaseModel):
     id: str | None = Field(default=None, min_length=1, max_length=64)
     name: str = Field(min_length=1, max_length=255)
     guest_type: str = Field(min_length=1, max_length=32)
+    confirmed: bool = False
     group_id: str | None = Field(default=None, max_length=64)
     table_id: str | None = Field(default=None, max_length=64)
     seat_index: int | None = Field(default=None, ge=0)
@@ -37,6 +38,7 @@ class GuestResponse(BaseModel):
     id: str
     name: str
     guest_type: str
+    confirmed: bool
     group_id: str | None
     table_id: str | None
     seat_index: int | None
@@ -59,6 +61,7 @@ class GuestUpdate(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=255)
     guest_type: str | None = Field(default=None, min_length=1, max_length=32)
+    confirmed: bool | None = None
     group_id: str | None = Field(default=None, max_length=64)
 
 
@@ -183,6 +186,7 @@ def build_event_response(event: Event) -> EventResponse:
                 id=guest.id,
                 name=guest.name,
                 guest_type=guest.guest_type.value,
+                confirmed=guest.confirmed,
                 group_id=guest.group_id,
                 table_id=guest.table_id,
                 seat_index=guest.seat_index,
@@ -219,6 +223,7 @@ def build_workspace_response(event: Event) -> WorkspaceResponse:
             id=guest.id,
             name=guest.name,
             guest_type=guest.guest_type.value,
+            confirmed=guest.confirmed,
             group_id=guest.group_id,
             table_id=guest.table_id,
             seat_index=guest.seat_index,
@@ -230,6 +235,7 @@ def build_workspace_response(event: Event) -> WorkspaceResponse:
             id=guest.id,
             name=guest.name,
             guest_type=guest.guest_type.value,
+            confirmed=guest.confirmed,
             group_id=guest.group_id,
             table_id=guest.table_id,
             seat_index=guest.seat_index,
@@ -246,6 +252,7 @@ def build_workspace_response(event: Event) -> WorkspaceResponse:
                 id=guest.id,
                 name=guest.name,
                 guest_type=guest.guest_type.value,
+                confirmed=guest.confirmed,
                 group_id=guest.group_id,
                 table_id=guest.table_id,
                 seat_index=guest.seat_index,

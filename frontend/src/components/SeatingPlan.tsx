@@ -119,6 +119,7 @@ export function SeatingPlan({
     name: string;
     guestType: string;
     family: string;
+    confirmedLabel: string;
     x: number;
     y: number;
   } | null>(null);
@@ -460,6 +461,7 @@ export function SeatingPlan({
       name: guest.name,
       guestType: formatGuestTypeLabel(guest.guest_type),
       family: guest.group_id ?? "Sin familia",
+      confirmedLabel: guest.confirmed ? "Confirmado" : "No confirmado",
       x: clientX - rect.left + 16,
       y: clientY - rect.top + 16,
     });
@@ -742,6 +744,7 @@ export function SeatingPlan({
               <strong>{hoveredGuestCard.name}</strong>
               <span>Tipo: {hoveredGuestCard.guestType}</span>
               <span>Familia: {hoveredGuestCard.family}</span>
+              <span>Estado: {hoveredGuestCard.confirmedLabel}</span>
             </div>
           ) : null}
         </div>

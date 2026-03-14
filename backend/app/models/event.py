@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.db.base import Base
@@ -59,6 +59,7 @@ class GuestModel(Base):
     event_id: Mapped[str] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     guest_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     group_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     table_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     seat_index: Mapped[int | None] = mapped_column(Integer, nullable=True)

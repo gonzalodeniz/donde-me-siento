@@ -88,19 +88,25 @@ async def test_guest_crud_assignment_and_validation_flow(client: AsyncClient) ->
         json={"id": "guest-1", "name": "Ana", "guest_type": "adulto", "group_id": "g1"},
     )
     assert add_guest_1.status_code == 201
+    created_guest_1 = next(guest for guest in add_guest_1.json()["guests"] if guest["id"] == "guest-1")
+    assert created_guest_1["confirmed"] is False
 
     add_guest_2 = await client.post(
         "/api/guests",
-        json={"id": "guest-2", "name": "Luis", "guest_type": "adulto", "group_id": "g1"},
+        json={"id": "guest-2", "name": "Luis", "guest_type": "adulto", "group_id": "g1", "confirmed": True},
     )
     assert add_guest_2.status_code == 201
+    created_guest_2 = next(guest for guest in add_guest_2.json()["guests"] if guest["id"] == "guest-2")
+    assert created_guest_2["confirmed"] is True
 
     update_guest = await client.put(
         "/api/guests/guest-1",
-        json={"name": "Ana Maria", "guest_type": "adulto", "group_id": "g1"},
+        json={"name": "Ana Maria", "guest_type": "adulto", "group_id": "g1", "confirmed": True},
     )
     assert update_guest.status_code == 200
-    assert any(guest["name"] == "Ana Maria" for guest in update_guest.json()["guests"])
+    updated_guest = next(guest for guest in update_guest.json()["guests"] if guest["id"] == "guest-1")
+    assert updated_guest["name"] == "Ana Maria"
+    assert updated_guest["confirmed"] is True
 
     assign_guest_1 = await client.put(
         "/api/guests/guest-1/assignment",
@@ -234,7 +240,7 @@ async def test_batch_create_and_duplicate_table_flow(client: AsyncClient) -> Non
 
 @pytest.mark.anyio
 async def test_save_load_and_delete_sessions_flow(client: AsyncClient) -> None:
-    await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto"})
+    await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto", "confirmed": True})
     await client.put("/api/guests/guest-1/assignment", json={"table_id": "table-2", "seat_index": 1})
     await client.put("/api/tables/table-2/position", json={"position_x": 420, "position_y": 360})
 
@@ -258,6 +264,7 @@ async def test_save_load_and_delete_sessions_flow(client: AsyncClient) -> None:
     loaded_table = next(table for table in load_response.json()["tables"] if table["id"] == "table-2")
     assert loaded_guest["table_id"] == "table-2"
     assert loaded_guest["seat_index"] == 1
+    assert loaded_guest["confirmed"] is True
     assert loaded_table["position_x"] == 420
     assert loaded_table["position_y"] == 360
 
