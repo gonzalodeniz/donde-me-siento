@@ -201,6 +201,7 @@ export function App() {
     guests: false,
     tables: false,
   });
+  const [activeCardDropTableId, setActiveCardDropTableId] = useState<string | null>(null);
   const [hoveredCardGuest, setHoveredCardGuest] = useState<{
     tableId: string;
     name: string;
@@ -856,6 +857,7 @@ export function App() {
     setDraggedGuestId(null);
     setActiveDropSeat(null);
     setIsUnassignedDropActive(false);
+    setActiveCardDropTableId(null);
   }
 
   function updateHoveredCardGuest(event: React.MouseEvent<HTMLElement>, tableId: string, guest: Guest) {
@@ -915,6 +917,54 @@ export function App() {
       "tables",
       () => assignGuest(droppedGuestId, tableId, seatIndex, token ?? ""),
       `${guest.name} colocado mediante arrastrar y soltar.`,
+    );
+  }
+
+  function handleTableCardDragOver(event: DragEvent<HTMLElement>, tableId: string) {
+    if (!draggedGuestId) {
+      return;
+    }
+
+    event.preventDefault();
+    setActiveDropSeat(null);
+    setSelectedTableId(tableId);
+    if (activeCardDropTableId !== tableId) {
+      setActiveCardDropTableId(tableId);
+    }
+  }
+
+  function handleTableCardDragLeave(event: DragEvent<HTMLElement>, tableId: string) {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      return;
+    }
+
+    setActiveCardDropTableId((current) => (current === tableId ? null : current));
+  }
+
+  function handleTableCardDrop(event: DragEvent<HTMLElement>, tableId: string) {
+    event.preventDefault();
+    const droppedGuestId = event.dataTransfer.getData("text/plain") || draggedGuestId;
+    if (!workspace || !droppedGuestId) {
+      return;
+    }
+
+    const guest =
+      workspace.guests.unassigned.find((currentGuest) => currentGuest.id === droppedGuestId) ??
+      workspace.guests.assigned.find((currentGuest) => currentGuest.id === droppedGuestId);
+
+    setDraggedGuestId(null);
+    setActiveCardDropTableId(null);
+    setActiveDropSeat(null);
+
+    if (!guest || guest.table_id === tableId) {
+      return;
+    }
+
+    void runWorkspaceAction(
+      `assign-dnd-card-${droppedGuestId}`,
+      "tables",
+      () => assignGuest(droppedGuestId, tableId, null, token ?? ""),
+      `${guest.name} movido a otra mesa.`,
     );
   }
 
@@ -1446,10 +1496,13 @@ export function App() {
 
               return (
                 <article
-                  className={`table-card ${selectedTableId === table.id ? "table-card--selected" : ""} ${table.available === 0 ? "table-card--full" : ""} ${conflictTableIds.has(table.id) ? "table-card--conflict" : ""}`}
+                  className={`table-card ${selectedTableId === table.id ? "table-card--selected" : ""} ${table.available === 0 ? "table-card--full" : ""} ${conflictTableIds.has(table.id) ? "table-card--conflict" : ""} ${activeCardDropTableId === table.id ? "table-card--drop-target" : ""}`}
                   data-testid={`table-card-${table.id}`}
                   key={table.id}
                   onClick={() => selectTable(table.id)}
+                  onDragLeave={(event) => handleTableCardDragLeave(event, table.id)}
+                  onDragOver={(event) => handleTableCardDragOver(event, table.id)}
+                  onDrop={(event) => handleTableCardDrop(event, table.id)}
                 >
                   <div className="table-card__header">
                     <div>
@@ -1475,7 +1528,10 @@ export function App() {
                       table.guests.map((guest) => (
                         <div
                           className={`guest-chip ${guest.guest_type === "adolescente" ? "guest-chip--teen" : ""} ${guest.guest_type === "nino" ? "guest-chip--child" : "guest-chip--adult"} ${conflictGuestIds.has(guest.id) ? "guest-chip--conflict" : ""}`}
+                          draggable
                           key={guest.id}
+                          onDragEnd={handleGuestDragEnd}
+                          onDragStart={(event) => handleGuestDragStart(event, guest.id)}
                           onMouseEnter={(event) => updateHoveredCardGuest(event, table.id, guest)}
                           onMouseLeave={() => setHoveredCardGuest((current) => (current?.tableId === table.id ? null : current))}
                           onMouseMove={(event) => updateHoveredCardGuest(event, table.id, guest)}

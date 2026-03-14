@@ -1582,6 +1582,13 @@ select {
   background: rgba(255, 245, 239, 0.8);
 }
 
+.table-card--drop-target {
+  border-color: rgba(154, 79, 36, 0.42);
+  box-shadow:
+    0 0 0 2px rgba(154, 79, 36, 0.16),
+    0 18px 36px rgba(154, 79, 36, 0.14);
+}
+
 .editor-card {
   padding: 1.1rem;
   border-radius: 1.4rem;
@@ -1627,6 +1634,10 @@ select {
   border-radius: 999px;
   padding: 0.48rem 0.78rem;
   background: rgba(50, 88, 81, 0.08);
+}
+
+.guest-chip {
+  cursor: grab;
 }
 
 .guest-chip--adult {
