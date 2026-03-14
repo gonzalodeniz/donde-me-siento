@@ -1437,6 +1437,18 @@ select {
   stroke: rgba(114, 79, 55, 0.18);
 }
 
+.plan-seat--teen {
+  fill: rgba(132, 189, 214, 0.72);
+  stroke: rgba(44, 108, 140, 0.72);
+  stroke-width: 1.9;
+}
+
+.plan-seat--child {
+  fill: rgba(149, 212, 157, 0.82);
+  stroke: rgba(58, 133, 76, 0.78);
+  stroke-width: 1.9;
+}
+
 .plan-seat--search-match {
   fill: rgba(217, 188, 76, 0.86);
   stroke: rgba(146, 103, 16, 0.9);
@@ -1464,6 +1476,14 @@ select {
   font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.01em;
+}
+
+.plan-seat__label--teen {
+  fill: #184d67;
+}
+
+.plan-seat__label--child {
+  fill: #1e5b2b;
 }
 
 .plan-seat__label--conflict {

@@ -585,7 +585,7 @@ export function SeatingPlan({
                   return (
                     <g key={`${table.id}-seat-${seatIndex}`}>
                       <circle
-                        className={`plan-seat ${guest ? "plan-seat--occupied" : ""} ${hasConflict ? "plan-seat--conflict" : ""} ${isSearchMatch ? "plan-seat--search-match" : ""} ${isDropTarget ? "plan-seat--drop" : ""} ${isDraggingGuest && !guest ? "plan-seat--available" : ""}`}
+                        className={`plan-seat ${guest ? "plan-seat--occupied" : ""} ${guest?.guest_type === "adolescente" ? "plan-seat--teen" : ""} ${guest?.guest_type === "nino" ? "plan-seat--child" : ""} ${hasConflict ? "plan-seat--conflict" : ""} ${isSearchMatch ? "plan-seat--search-match" : ""} ${isDropTarget ? "plan-seat--drop" : ""} ${isDraggingGuest && !guest ? "plan-seat--available" : ""}`}
                         cx={seatX}
                         cy={seatY}
                         r={guest ? seatRadius : 18}
@@ -594,7 +594,7 @@ export function SeatingPlan({
                         <>
                           <title>{conflictTooltip ? `${guest.name}\n${conflictTooltip}` : guest.name}</title>
                           <text
-                            className={`plan-seat__label ${hasConflict ? "plan-seat__label--conflict" : ""}`}
+                            className={`plan-seat__label ${guest.guest_type === "adolescente" ? "plan-seat__label--teen" : ""} ${guest.guest_type === "nino" ? "plan-seat__label--child" : ""} ${hasConflict ? "plan-seat__label--conflict" : ""}`}
                             fontSize={seatLabelFontSize}
                             textAnchor="middle"
                             x={seatX}

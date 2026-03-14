@@ -1241,7 +1241,6 @@ export function App() {
             <section className="list-card rail-card">
               <div className="list-card__header">
                 <h3>Sesiones</h3>
-                <span>{savedSessions.length}</span>
               </div>
               <form className="session-library" onSubmit={handleSaveSession}>
                 <label className="mini-field session-library__field">
