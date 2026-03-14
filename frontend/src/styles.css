@@ -1356,6 +1356,31 @@ select {
   white-space: nowrap;
 }
 
+.plan-guest-tooltip {
+  position: absolute;
+  z-index: 7;
+  display: grid;
+  gap: 0.18rem;
+  min-width: 11rem;
+  max-width: 16rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(119, 84, 64, 0.14);
+  background: rgba(255, 251, 246, 0.96);
+  box-shadow: 0 16px 36px rgba(87, 49, 24, 0.16);
+  pointer-events: none;
+  backdrop-filter: blur(12px);
+}
+
+.plan-guest-tooltip strong {
+  font-size: 0.9rem;
+}
+
+.plan-guest-tooltip span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .plan-table {
   cursor: pointer;
   outline: none;

@@ -114,6 +114,14 @@ export function SeatingPlan({
     positionX: number;
     positionY: number;
   } | null>(null);
+  const [hoveredGuestCard, setHoveredGuestCard] = useState<{
+    guestId: string;
+    name: string;
+    guestType: string;
+    family: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const conflictGuestIds = new Set(
     Object.values(workspace.validation.grouping_conflicts).flatMap((guestIds) => guestIds),
   );
@@ -427,6 +435,36 @@ export function SeatingPlan({
     });
   }
 
+  function formatGuestTypeLabel(guestType: Guest["guest_type"]) {
+    switch (guestType) {
+      case "adulto":
+        return "Adulto";
+      case "adolescente":
+        return "Adolescente";
+      case "nino":
+        return "Niño";
+      default:
+        return guestType;
+    }
+  }
+
+  function updateHoveredGuestCardPosition(clientX: number, clientY: number, guest: Guest) {
+    const stageElement = stageRef.current;
+    if (!stageElement) {
+      return;
+    }
+
+    const rect = stageElement.getBoundingClientRect();
+    setHoveredGuestCard({
+      guestId: guest.id,
+      name: guest.name,
+      guestType: formatGuestTypeLabel(guest.guest_type),
+      family: guest.group_id ?? "Sin familia",
+      x: clientX - rect.left + 16,
+      y: clientY - rect.top + 16,
+    });
+  }
+
   return (
     <section className="plan-card">
       <div className="plan-card__header">
@@ -643,18 +681,19 @@ export function SeatingPlan({
                 if (guest) {
                   const { seatRadius } = getSeatVisualMetrics(guest.name);
                   const hitSize = seatRadius * 2 + 10;
-                  const conflictTooltip = conflictTooltipByGuestId.get(guest.id);
                   return (
                     <button
-                      aria-label={`${guest.name} en mesa ${table.number}, silla ${seatIndex + 1}${conflictTooltip ? `. ${conflictTooltip}` : ""}`}
+                      aria-label={`${guest.name} en mesa ${table.number}, silla ${seatIndex + 1}`}
                       className="plan-seat-hit plan-seat-hit--occupied"
                       draggable
                       key={`seat-hit-${table.id}-${seatIndex}`}
                       onClick={() => onSelectTable(table.id)}
                       onDragEnd={onGuestDragEnd}
                       onDragStart={(event) => onGuestDragStart(event, guest.id)}
+                      onMouseEnter={(event) => updateHoveredGuestCardPosition(event.clientX, event.clientY, guest)}
+                      onMouseLeave={() => setHoveredGuestCard(null)}
+                      onMouseMove={(event) => updateHoveredGuestCardPosition(event.clientX, event.clientY, guest)}
                       style={{ left: `${left}%`, top: `${top}%`, width: `${hitSize}px`, height: `${hitSize}px` }}
-                      title={conflictTooltip ?? undefined}
                       type="button"
                     />
                   );
@@ -695,6 +734,16 @@ export function SeatingPlan({
               });
             })}
           </div>
+          {hoveredGuestCard ? (
+            <div
+              className="plan-guest-tooltip"
+              style={{ left: `${hoveredGuestCard.x}px`, top: `${hoveredGuestCard.y}px` }}
+            >
+              <strong>{hoveredGuestCard.name}</strong>
+              <span>Tipo: {hoveredGuestCard.guestType}</span>
+              <span>Familia: {hoveredGuestCard.family}</span>
+            </div>
+          ) : null}
         </div>
         </div>
       </div>
