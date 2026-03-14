@@ -48,6 +48,7 @@ type TablePosition = {
   position_y: number;
 };
 type GuestEditableField = "name" | "type" | "group" | "table";
+type PanelKey = "salon" | "summary" | "sessions" | "unassigned" | "assigned" | "conflicts";
 
 function normalizeText(value: string) {
   return value.trim();
@@ -200,6 +201,14 @@ export function App() {
   const [visibleToasts, setVisibleToasts] = useState<Record<SectionKey, boolean>>({
     guests: false,
     tables: false,
+  });
+  const [collapsedPanels, setCollapsedPanels] = useState<Record<PanelKey, boolean>>({
+    salon: false,
+    summary: false,
+    sessions: false,
+    unassigned: false,
+    assigned: false,
+    conflicts: false,
   });
   const [activeCardDropTableId, setActiveCardDropTableId] = useState<string | null>(null);
   const [hoveredCardGuest, setHoveredCardGuest] = useState<{
@@ -846,6 +855,10 @@ export function App() {
     return submittingAction === actionKey;
   }
 
+  function togglePanel(panel: PanelKey) {
+    setCollapsedPanels((current) => ({ ...current, [panel]: !current[panel] }));
+  }
+
   function handleGuestDragStart(event: DragEvent<Element>, guestId: string) {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", guestId);
@@ -1130,12 +1143,15 @@ export function App() {
             <section className="list-card rail-card">
               <div className="rail-section">
               <div className="rail-section__header">
-                <div>
-                  <p className="eyebrow eyebrow--compact">Preparación</p>
-                  <h2>Crea tu salón</h2>
-                </div>
+                <button className="panel-toggle" onClick={() => togglePanel("salon")} type="button">
+                  <div>
+                    <p className="eyebrow eyebrow--compact">Preparación</p>
+                    <h2>Crea tu salón</h2>
+                  </div>
+                  <span aria-hidden="true" className={`panel-toggle__chevron ${collapsedPanels.salon ? "panel-toggle__chevron--collapsed" : ""}`}>▾</span>
+                </button>
               </div>
-              {selectedTable ? (
+              {!collapsedPanels.salon ? (selectedTable ? (
                 <div className="rail-table-settings rail-table-settings--selected">
                   <div className="rail-table-settings__meta">
                     <span>Mesa {selectedTable.number}</span>
@@ -1267,14 +1283,19 @@ export function App() {
                     </button>
                   </form>
                 </div>
-              )}
+              )) : null}
               </div>
             </section>
 
             <section className={`list-card rail-card rail-summary ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
               <div className="rail-summary__header">
-                <h4>Resumen del banquete</h4>
+                <button className="panel-toggle panel-toggle--compact" onClick={() => togglePanel("summary")} type="button">
+                  <h4>Resumen del banquete</h4>
+                  <span aria-hidden="true" className={`panel-toggle__chevron ${collapsedPanels.summary ? "panel-toggle__chevron--collapsed" : ""}`}>▾</span>
+                </button>
               </div>
+              {!collapsedPanels.summary ? (
+              <>
               <div className="control-metrics control-metrics--summary">
                 <article className="control-metric">
                   <span>Total invitados</span>
@@ -1311,12 +1332,19 @@ export function App() {
                   </strong>
                 </article>
               </div>
+              </>
+              ) : null}
             </section>
 
             <section className="list-card rail-card">
               <div className="list-card__header">
-                <h3>Sesiones</h3>
+                <button className="panel-toggle panel-toggle--compact" onClick={() => togglePanel("sessions")} type="button">
+                  <h3>Sesiones</h3>
+                  <span aria-hidden="true" className={`panel-toggle__chevron ${collapsedPanels.sessions ? "panel-toggle__chevron--collapsed" : ""}`}>▾</span>
+                </button>
               </div>
+              {!collapsedPanels.sessions ? (
+              <>
               <form className="session-library" onSubmit={handleSaveSession}>
                 <label className="mini-field session-library__field">
                   <span>Guardar distribución actual</span>
@@ -1440,6 +1468,8 @@ export function App() {
                   Nueva sesión
                 </button>
               )}
+              </>
+              ) : null}
             </section>
           </div>
         </div>
@@ -1632,10 +1662,13 @@ export function App() {
             <section className="list-card list-card--guests">
               <div data-testid="unassigned-guests-panel">
                 <div className="list-card__header list-card__header--guests">
-                  <div>
+                  <button className="panel-toggle panel-toggle--compact" onClick={() => togglePanel("unassigned")} type="button">
                     <h3>Invitados sin sentar</h3>
-                  </div>
+                    <span aria-hidden="true" className={`panel-toggle__chevron ${collapsedPanels.unassigned ? "panel-toggle__chevron--collapsed" : ""}`}>▾</span>
+                  </button>
                 </div>
+                {!collapsedPanels.unassigned ? (
+                <>
                 <section className="guest-salon__section">
                   {(workspace?.guests.unassigned.length ?? 0) > 0 ? (
                     <div
@@ -1851,18 +1884,19 @@ export function App() {
                     </button>
                   </form>
                 </details>
+                </>
+                ) : null}
               </div>
             </section>
 
             <section className="list-card list-card--guests">
               <div className="list-card__header list-card__header--guests">
-                <div>
+                <button className="panel-toggle panel-toggle--compact" onClick={() => togglePanel("assigned")} type="button">
                   <h3>Invitados ubicados</h3>
-                </div>
-                <span>
-                  {filteredAssignedGuests.length}/{workspace?.guests.assigned.length ?? 0}
-                </span>
+                  <span aria-hidden="true" className={`panel-toggle__chevron ${collapsedPanels.assigned ? "panel-toggle__chevron--collapsed" : ""}`}>▾</span>
+                </button>
               </div>
+              {!collapsedPanels.assigned ? (
               <section className="guest-salon__section guest-salon__section--standalone">
                 <div className="guest-salon__section-header">
                   <div>
@@ -2029,13 +2063,17 @@ export function App() {
                   )}
                 </div>
               </section>
+              ) : null}
             </section>
 
             <section className="list-card">
               <div className="list-card__header">
-                <h3>Conflictos activos</h3>
-                <span>{groupedConflictCount}</span>
+                <button className="panel-toggle panel-toggle--compact" onClick={() => togglePanel("conflicts")} type="button">
+                  <h3>Conflictos activos</h3>
+                  <span aria-hidden="true" className={`panel-toggle__chevron ${collapsedPanels.conflicts ? "panel-toggle__chevron--collapsed" : ""}`}>▾</span>
+                </button>
               </div>
+              {!collapsedPanels.conflicts ? (
               <div className="guest-list">
                 {workspace && groupedConflictCount > 0 ? (
                   Object.entries(workspace.validation.grouping_conflicts).map(([groupId, guestIds]) => (
@@ -2053,6 +2091,7 @@ export function App() {
                   <p className="empty-state">Sin conflictos de familia.</p>
                 )}
               </div>
+              ) : null}
             </section>
 
               </>

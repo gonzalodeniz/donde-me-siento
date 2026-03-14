@@ -469,6 +469,43 @@ select {
   gap: 1rem;
 }
 
+.panel-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.panel-toggle h2,
+.panel-toggle h3,
+.panel-toggle h4,
+.panel-toggle p {
+  margin: 0;
+}
+
+.panel-toggle--compact {
+  align-items: center;
+}
+
+.panel-toggle__chevron {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1;
+  transition: transform 180ms ease;
+}
+
+.panel-toggle__chevron--collapsed {
+  transform: rotate(-90deg);
+}
+
 .events-list,
 .guest-list {
   display: grid;
