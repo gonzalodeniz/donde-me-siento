@@ -441,16 +441,24 @@ export function SeatingPlan({
         </div>
         <div className="plan-legend">
           <span className="plan-legend__item">
+            <i className="plan-legend__dot plan-legend__dot--adult" />
+            adulto
+          </span>
+          <span className="plan-legend__item">
+            <i className="plan-legend__dot plan-legend__dot--teen" />
+            adolescente
+          </span>
+          <span className="plan-legend__item">
+            <i className="plan-legend__dot plan-legend__dot--child" />
+            niño
+          </span>
+          <span className="plan-legend__item">
+            <i className="plan-legend__dot plan-legend__dot--available" />
+            silla libre
+          </span>
+          <span className="plan-legend__item">
             <i className="plan-legend__dot plan-legend__dot--conflict" />
             conflicto
-          </span>
-          <span className="plan-legend__item">
-            <i className="plan-legend__dot plan-legend__dot--full" />
-            completa
-          </span>
-          <span className="plan-legend__item">
-            <i className="plan-legend__dot plan-legend__dot--active" />
-            silla libre
           </span>
         </div>
       </div>

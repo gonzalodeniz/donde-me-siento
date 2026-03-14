@@ -1125,16 +1125,28 @@ select {
   border: 1px solid rgba(36, 24, 20, 0.12);
 }
 
+.plan-legend__dot--adult {
+  background: rgba(223, 205, 188, 0.92);
+  border-color: rgba(114, 79, 55, 0.24);
+}
+
+.plan-legend__dot--teen {
+  background: rgba(132, 189, 214, 0.9);
+  border-color: rgba(44, 108, 140, 0.72);
+}
+
+.plan-legend__dot--child {
+  background: rgba(149, 212, 157, 0.94);
+  border-color: rgba(58, 133, 76, 0.78);
+}
+
+.plan-legend__dot--available {
+  background: rgba(255, 251, 245, 0.98);
+  border-color: rgba(154, 79, 36, 0.16);
+}
+
 .plan-legend__dot--conflict {
   background: rgba(154, 79, 36, 0.7);
-}
-
-.plan-legend__dot--full {
-  background: rgba(87, 62, 49, 0.58);
-}
-
-.plan-legend__dot--active {
-  background: rgba(114, 79, 55, 0.72);
 }
 
 .plan-stage {
