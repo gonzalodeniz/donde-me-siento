@@ -181,12 +181,15 @@ class ReportLayout:
             self.cursor_top += leading
         self.cursor_top += gap_after
 
-    def section_title(self, value: str) -> None:
+    def section_title(self, value: str, underline: bool = True) -> None:
         self.text_block(value, size=15, bold=True, color=ACCENT_COLOR, gap_after=4)
-        self.ensure_space(8)
-        y = PAGE_HEIGHT - self.cursor_top
-        self.pdf.line(PAGE_MARGIN, y, PAGE_WIDTH - PAGE_MARGIN, y, width=1.2, color=ACCENT_COLOR)
-        self.cursor_top += 12
+        if underline:
+            self.ensure_space(8)
+            y = PAGE_HEIGHT - self.cursor_top
+            self.pdf.line(PAGE_MARGIN, y, PAGE_WIDTH - PAGE_MARGIN, y, width=1.2, color=ACCENT_COLOR)
+            self.cursor_top += 12
+        else:
+            self.cursor_top += 4
 
 
 def _format_guest_type(guest_type: GuestType) -> str:
@@ -225,26 +228,57 @@ def _draw_table_diagram(pdf: PdfDocument, top: float, height: float, tables: lis
         pdf.text(box_x + 16, box_y + height - 26, "No hay mesas para representar.", size=11, color=MUTED_COLOR)
         return top + height + 12
 
-    min_x = min(table.position_x for table in tables)
-    max_x = max(table.position_x for table in tables)
-    min_y = min(table.position_y for table in tables)
-    max_y = max(table.position_y for table in tables)
+    min_x = min(table.position_x for table in tables) - 160.0
+    max_x = max(table.position_x for table in tables) + 180.0
+    min_y = min(table.position_y for table in tables) - 160.0
+    max_y = max(table.position_y for table in tables) + 180.0
     span_x = max(max_x - min_x, 1.0)
     span_y = max(max_y - min_y, 1.0)
-    padding = 42.0
+    padding = 24.0
     available_w = box_width - padding * 2
     available_h = height - padding * 2
     scale = min(available_w / span_x, available_h / span_y)
+    offset_x = box_x + (box_width - span_x * scale) / 2
+    offset_y = box_y + (height - span_y * scale) / 2
 
     for table in tables:
-        center_x = box_x + padding + (table.position_x - min_x) * scale
-        center_y = box_y + padding + (table.position_y - min_y) * scale
+        center_x = offset_x + (table.position_x - min_x) * scale
+        center_y = offset_y + (max_y - table.position_y) * scale
         occupied = event.table_occupancy(table.id)
-        pdf.circle(center_x, center_y, 22, stroke=ACCENT_COLOR, fill=(1.0, 0.976, 0.945))
-        pdf.text(center_x - 6, center_y + 2, str(table.number), size=11, bold=True, color=ACCENT_COLOR)
-        pdf.text(center_x - 16, center_y - 26, f"{occupied}/{table.capacity}", size=8, color=MUTED_COLOR)
+        pdf.circle(center_x, center_y, 24, stroke=ACCENT_COLOR, fill=(1.0, 0.976, 0.945))
+        number_text = str(table.number)
+        occupancy_text = f"{occupied}/{table.capacity}"
+        pdf.text(center_x - _estimated_text_width(number_text, 11) / 2, center_y + 5, number_text, size=11, bold=True, color=ACCENT_COLOR)
+        pdf.text(
+            center_x - _estimated_text_width(occupancy_text, 7.5) / 2,
+            center_y - 8,
+            occupancy_text,
+            size=7.5,
+            color=MUTED_COLOR,
+        )
 
     return top + height + 12
+
+
+def _draw_summary_cards(pdf: PdfDocument, top: float, items: list[tuple[str, str, tuple[float, float, float]]]) -> float:
+    columns = 3
+    gap = 12.0
+    card_height = 68.0
+    card_width = (PAGE_WIDTH - PAGE_MARGIN * 2 - gap * (columns - 1)) / columns
+
+    for index, (label, value, fill) in enumerate(items):
+        row = index // columns
+        column = index % columns
+        x = PAGE_MARGIN + column * (card_width + gap)
+        y_top = top + row * (card_height + gap)
+        y = PAGE_HEIGHT - y_top - card_height
+
+        pdf.rect(x, y, card_width, card_height, stroke=(0.78, 0.69, 0.61), fill=fill)
+        pdf.text(x + 14, y + card_height - 22, label, size=9.2, color=MUTED_COLOR)
+        pdf.text(x + 14, y + 18, value, size=21, bold=True, color=ACCENT_COLOR)
+
+    rows = math.ceil(len(items) / columns)
+    return top + rows * card_height + max(0, rows - 1) * gap + 10
 
 
 def generate_workspace_report_pdf(event: Event) -> bytes:
@@ -277,21 +311,21 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
     pdf.line(PAGE_MARGIN, header_baseline - 34, PAGE_WIDTH - PAGE_MARGIN, header_baseline - 34, width=1.1, color=ACCENT_COLOR)
     layout.cursor_top = PAGE_MARGIN + 52
 
-    layout.section_title("Resumen del banquete")
-    summary_lines = [
-        f"Total invitados: {len(event.guests)}",
-        f"Invitados sentados: {validation['assigned_guests']}",
-        f"Invitados sin sentar: {validation['unassigned_guests']}",
-        f"Total mesas: {len(tables)}",
-        f"Mesas completas: {full_tables}",
-        f"Mesas con conflicto: {len(conflict_groups)}",
-        f"Ocupación media: {occupancy_average}%",
+    layout.section_title("Resumen del banquete", underline=False)
+    summary_cards = [
+        ("Total invitados", str(len(event.guests)), (0.995, 0.987, 0.975)),
+        ("Invitados sentados", str(validation["assigned_guests"]), (0.967, 0.986, 0.972)),
+        ("Invitados sin sentar", str(validation["unassigned_guests"]), (0.994, 0.973, 0.952)),
+        ("Total mesas", str(len(tables)), (0.984, 0.979, 0.996)),
+        ("Mesas completas", str(full_tables), (0.976, 0.956, 0.935)),
+        ("Mesas con conflicto", str(len(conflict_groups)), (0.998, 0.947, 0.937)),
+        ("Ocupación media", f"{occupancy_average}%", (0.949, 0.971, 0.991)),
     ]
-    for line in summary_lines:
-        layout.text_block(line, size=11, gap_after=1)
-    layout.cursor_top += 6
+    layout.ensure_space(180)
+    layout.cursor_top = _draw_summary_cards(pdf, layout.cursor_top, summary_cards)
+    layout.cursor_top += 16
 
-    layout.section_title("Diagrama de mesas")
+    layout.section_title("Diagrama de mesas", underline=False)
     layout.ensure_space(255)
     layout.cursor_top = _draw_table_diagram(pdf, layout.cursor_top, 240, tables, event)
 
