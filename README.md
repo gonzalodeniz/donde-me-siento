@@ -195,7 +195,9 @@ make docker-build
 ./deploy/reverse-proxy/certs/privkey.pem
 ```
 
-Para pruebas rápidas puedes generar un certificado autofirmado:
+Si no existen, el proxy los generará automáticamente al arrancar usando un certificado autofirmado temporal.
+
+Si prefieres generarlos tú manualmente para pruebas rápidas:
 
 ```bash
 mkdir -p deploy/reverse-proxy/certs

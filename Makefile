@@ -118,7 +118,7 @@ docker-stop:
 
 compose-up:
 	mkdir -p $(DOCKER_DATA_DIR) deploy/reverse-proxy/certs
-	docker compose up -d
+	docker compose up -d --build
 
 compose-down:
 	docker compose down
