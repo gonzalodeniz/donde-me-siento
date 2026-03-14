@@ -1448,7 +1448,10 @@ export function App() {
                       <p className="empty-state">Sin invitados asignados.</p>
                     ) : (
                       table.guests.map((guest) => (
-                        <div className={`guest-chip ${conflictGuestIds.has(guest.id) ? "guest-chip--conflict" : ""}`} key={guest.id}>
+                        <div
+                          className={`guest-chip ${guest.guest_type === "adolescente" ? "guest-chip--teen" : ""} ${guest.guest_type === "nino" ? "guest-chip--child" : "guest-chip--adult"} ${conflictGuestIds.has(guest.id) ? "guest-chip--conflict" : ""}`}
+                          key={guest.id}
+                        >
                           <span>{guest.name}</span>
                         </div>
                       ))
