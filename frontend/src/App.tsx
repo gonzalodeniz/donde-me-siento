@@ -30,6 +30,7 @@ const TOKEN_STORAGE_KEY = "dms.auth.token";
 const LISTS_PANEL_WIDTH_STORAGE_KEY = "dms.ui.listsPanelWidth";
 const RAIL_PANEL_WIDTH_STORAGE_KEY = "dms.ui.railPanelWidth";
 const LISTS_PANEL_OPEN_STORAGE_KEY = "dms.ui.listsPanelOpen";
+const CENTER_PANEL_OPEN_STORAGE_KEY = "dms.ui.centerPanelOpen";
 const LOGIN_NAMES = ["raquel", "héctor"] as const;
 const LISTS_PANEL_MIN_WIDTH = 280;
 const LISTS_PANEL_MAX_WIDTH = 760;
@@ -338,6 +339,10 @@ export function App() {
     const stored = localStorage.getItem(LISTS_PANEL_OPEN_STORAGE_KEY);
     return stored === null ? true : stored === "true";
   });
+  const [isCenterPanelOpen, setIsCenterPanelOpen] = useState<boolean>(() => {
+    const stored = localStorage.getItem(CENTER_PANEL_OPEN_STORAGE_KEY);
+    return stored === null ? true : stored === "true";
+  });
   const [isResizingListsPanel, setIsResizingListsPanel] = useState(false);
   const [sectionNotices, setSectionNotices] = useState<Record<SectionKey, SectionNotice | null>>({
     guests: null,
@@ -547,6 +552,10 @@ export function App() {
   useEffect(() => {
     localStorage.setItem(LISTS_PANEL_OPEN_STORAGE_KEY, String(isListsPanelOpen));
   }, [isListsPanelOpen]);
+
+  useEffect(() => {
+    localStorage.setItem(CENTER_PANEL_OPEN_STORAGE_KEY, String(isCenterPanelOpen));
+  }, [isCenterPanelOpen]);
 
   useEffect(() => {
     localStorage.setItem(LISTS_PANEL_WIDTH_STORAGE_KEY, String(listsPanelWidth));
@@ -1986,106 +1995,143 @@ export function App() {
 
         <section
           ref={canvasRef}
-          className={`canvas ${isResizingListsPanel ? "canvas--resizing" : ""}`}
+          className={`canvas ${isResizingListsPanel ? "canvas--resizing" : ""} ${isCenterPanelOpen ? "" : "canvas--center-collapsed"}`}
           style={{
-            gridTemplateColumns: isListsPanelOpen
-              ? `minmax(0, 1fr) 0.85rem minmax(${LISTS_PANEL_MIN_WIDTH}px, ${listsPanelWidth}px)`
-              : `minmax(0, 1fr) 0.85rem 2.75rem`,
+            gridTemplateColumns: isCenterPanelOpen
+              ? (
+                  isListsPanelOpen
+                    ? `minmax(0, 1fr) 0.85rem minmax(${LISTS_PANEL_MIN_WIDTH}px, ${listsPanelWidth}px)`
+                    : `minmax(0, 1fr) 0.85rem 2.75rem`
+                )
+              : (
+                  isListsPanelOpen
+                    ? `2.75rem 0 minmax(${LISTS_PANEL_MIN_WIDTH}px, 1fr)`
+                    : `2.75rem 0 2.75rem`
+                ),
           }}
         >
-          <div className={`canvas__tables ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
-            {workspace ? (
-              <SeatingPlan
-                activeDropSeat={activeDropSeat}
-                draggedGuestName={draggedGuest?.name ?? null}
-                highlightedGuestIds={guestSearchQuery.trim() ? filteredAssignedGuests.map((guest) => guest.id) : []}
-                isSearchActive={Boolean(guestSearchQuery.trim()) && Boolean(deferredGuestSearchQuery.trim())}
-                onGuestDragEnd={handleGuestDragEnd}
-                onGuestDragStart={handleGuestDragStart}
-                onMoveTable={handleTableMove}
-                onSelectTable={selectTable}
-                onSeatDragEnter={handleSeatDragEnter}
-                onSeatDragLeave={handleSeatDragLeave}
-                onSeatDrop={handleSeatDrop}
-                selectedTableId={selectedTableId ?? null}
-                workspace={workspaceForPlan ?? workspace}
-              />
-            ) : null}
-            {workspace?.tables.map((table) => {
-              const ratio = table.capacity === 0 ? 0 : Math.round((table.occupied / table.capacity) * 100);
-
-              return (
-                <article
-                  className={`table-card ${selectedTableId === table.id ? "table-card--selected" : ""} ${table.available === 0 ? "table-card--full" : ""} ${conflictTableIds.has(table.id) ? "table-card--conflict" : ""} ${activeCardDropTableId === table.id ? "table-card--drop-target" : ""}`}
-                  data-testid={`table-card-${table.id}`}
-                  key={table.id}
-                  onClick={() => selectTable(table.id)}
-                  onDragLeave={(event) => handleTableCardDragLeave(event, table.id)}
-                  onDragOver={(event) => handleTableCardDragOver(event, table.id)}
-                  onDrop={(event) => handleTableCardDrop(event, table.id)}
+          {isCenterPanelOpen ? (
+            <div className={`canvas__tables ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
+              <div className="canvas__tables-header">
+                <button
+                  aria-expanded={isCenterPanelOpen}
+                  aria-label="Cerrar paneles centrales"
+                  className="canvas__toggle"
+                  onClick={() => setIsCenterPanelOpen(false)}
+                  type="button"
                 >
-                  <div className="table-card__header">
-                    <div>
-                      <span className="table-card__label">Mesa {table.number}</span>
-                      <h3>{table.occupied}/{table.capacity} asientos</h3>
+                  <span aria-hidden="true" className="canvas__toggle-triangle">
+                    ◀
+                  </span>
+                </button>
+              </div>
+              {workspace ? (
+                <SeatingPlan
+                  activeDropSeat={activeDropSeat}
+                  draggedGuestName={draggedGuest?.name ?? null}
+                  highlightedGuestIds={guestSearchQuery.trim() ? filteredAssignedGuests.map((guest) => guest.id) : []}
+                  isSearchActive={Boolean(guestSearchQuery.trim()) && Boolean(deferredGuestSearchQuery.trim())}
+                  onGuestDragEnd={handleGuestDragEnd}
+                  onGuestDragStart={handleGuestDragStart}
+                  onMoveTable={handleTableMove}
+                  onSelectTable={selectTable}
+                  onSeatDragEnter={handleSeatDragEnter}
+                  onSeatDragLeave={handleSeatDragLeave}
+                  onSeatDrop={handleSeatDrop}
+                  selectedTableId={selectedTableId ?? null}
+                  workspace={workspaceForPlan ?? workspace}
+                />
+              ) : null}
+              {workspace?.tables.map((table) => {
+                const ratio = table.capacity === 0 ? 0 : Math.round((table.occupied / table.capacity) * 100);
+
+                return (
+                  <article
+                    className={`table-card ${selectedTableId === table.id ? "table-card--selected" : ""} ${table.available === 0 ? "table-card--full" : ""} ${conflictTableIds.has(table.id) ? "table-card--conflict" : ""} ${activeCardDropTableId === table.id ? "table-card--drop-target" : ""}`}
+                    data-testid={`table-card-${table.id}`}
+                    key={table.id}
+                    onClick={() => selectTable(table.id)}
+                    onDragLeave={(event) => handleTableCardDragLeave(event, table.id)}
+                    onDragOver={(event) => handleTableCardDragOver(event, table.id)}
+                    onDrop={(event) => handleTableCardDrop(event, table.id)}
+                  >
+                    <div className="table-card__header">
+                      <div>
+                        <span className="table-card__label">Mesa {table.number}</span>
+                        <h3>{table.occupied}/{table.capacity} asientos</h3>
+                      </div>
+                      <span className={`table-card__pill ${table.available === 0 ? "table-card__pill--full" : ""}`}>
+                        {table.available} libres
+                      </span>
                     </div>
-                    <span className={`table-card__pill ${table.available === 0 ? "table-card__pill--full" : ""}`}>
-                      {table.available} libres
-                    </span>
-                  </div>
-                  <div className="table-card__meter" aria-hidden="true">
-                    <i style={{ width: `${ratio}%` }} />
-                  </div>
-                  <div className="table-card__flags">
-                    {conflictTableIds.has(table.id) ? <span className="status-flag status-flag--conflict">Por revisar</span> : null}
-                    {table.available === 0 ? <span className="status-flag status-flag--full">Completa</span> : null}
-                    {table.available > 0 && table.available <= 2 ? <span className="status-flag status-flag--tight">Poco margen</span> : null}
-                  </div>
-                  <div className="seat-ring">
-                    {table.guests.length === 0 ? (
-                      <p className="empty-state">Sin invitados asignados.</p>
-                    ) : (
-                      table.guests.map((guest) => (
-                        <div
-                          className={`guest-chip ${guest.guest_type === "adolescente" ? "guest-chip--teen" : ""} ${guest.guest_type === "nino" ? "guest-chip--child" : "guest-chip--adult"} ${conflictGuestIds.has(guest.id) ? "guest-chip--conflict" : ""}`}
-                          draggable
-                          key={guest.id}
-                          onDragEnd={handleGuestDragEnd}
-                          onDragStart={(event) => handleGuestDragStart(event, guest.id)}
-                          onMouseEnter={(event) => updateHoveredCardGuest(event, table.id, guest)}
-                          onMouseLeave={() => setHoveredCardGuest((current) => (current?.tableId === table.id ? null : current))}
-                          onMouseMove={(event) => updateHoveredCardGuest(event, table.id, guest)}
-                        >
-                          <span>{guest.name}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  {hoveredCardGuest?.tableId === table.id ? (
-                    <div className="table-card__tooltip" style={{ left: `${hoveredCardGuest.x}px`, top: `${hoveredCardGuest.y}px` }}>
-                      <strong>{hoveredCardGuest.name}</strong>
-                      <span>Tipo: {hoveredCardGuest.guestType}</span>
-                      <span>Familia: {hoveredCardGuest.family}</span>
-                      <span>Estado: {hoveredCardGuest.confirmedLabel}</span>
+                    <div className="table-card__meter" aria-hidden="true">
+                      <i style={{ width: `${ratio}%` }} />
                     </div>
-                  ) : null}
-                </article>
-              );
-            }) ?? <p className="empty-state">Aun no hay workspace cargado.</p>}
-          </div>
+                    <div className="table-card__flags">
+                      {conflictTableIds.has(table.id) ? <span className="status-flag status-flag--conflict">Por revisar</span> : null}
+                      {table.available === 0 ? <span className="status-flag status-flag--full">Completa</span> : null}
+                      {table.available > 0 && table.available <= 2 ? <span className="status-flag status-flag--tight">Poco margen</span> : null}
+                    </div>
+                    <div className="seat-ring">
+                      {table.guests.length === 0 ? (
+                        <p className="empty-state">Sin invitados asignados.</p>
+                      ) : (
+                        table.guests.map((guest) => (
+                          <div
+                            className={`guest-chip ${guest.guest_type === "adolescente" ? "guest-chip--teen" : ""} ${guest.guest_type === "nino" ? "guest-chip--child" : "guest-chip--adult"} ${conflictGuestIds.has(guest.id) ? "guest-chip--conflict" : ""}`}
+                            draggable
+                            key={guest.id}
+                            onDragEnd={handleGuestDragEnd}
+                            onDragStart={(event) => handleGuestDragStart(event, guest.id)}
+                            onMouseEnter={(event) => updateHoveredCardGuest(event, table.id, guest)}
+                            onMouseLeave={() => setHoveredCardGuest((current) => (current?.tableId === table.id ? null : current))}
+                            onMouseMove={(event) => updateHoveredCardGuest(event, table.id, guest)}
+                          >
+                            <span>{guest.name}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    {hoveredCardGuest?.tableId === table.id ? (
+                      <div className="table-card__tooltip" style={{ left: `${hoveredCardGuest.x}px`, top: `${hoveredCardGuest.y}px` }}>
+                        <strong>{hoveredCardGuest.name}</strong>
+                        <span>Tipo: {hoveredCardGuest.guestType}</span>
+                        <span>Familia: {hoveredCardGuest.family}</span>
+                        <span>Estado: {hoveredCardGuest.confirmedLabel}</span>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              }) ?? <p className="empty-state">Aun no hay workspace cargado.</p>}
+            </div>
+          ) : (
+            <div className="canvas__collapsed-strip">
+              <button
+                aria-expanded={isCenterPanelOpen}
+                aria-label="Abrir paneles centrales"
+                className="canvas__toggle"
+                onClick={() => setIsCenterPanelOpen(true)}
+                type="button"
+              >
+                <span aria-hidden="true" className="canvas__toggle-triangle">
+                  ▶
+                </span>
+              </button>
+            </div>
+          )}
 
           <div
-            aria-hidden={!isListsPanelOpen}
+            aria-hidden={!isListsPanelOpen || !isCenterPanelOpen}
             aria-label="Ajustar ancho de la columna derecha"
             aria-orientation="vertical"
             aria-valuemax={LISTS_PANEL_MAX_WIDTH}
             aria-valuemin={LISTS_PANEL_MIN_WIDTH}
             aria-valuenow={Math.round(listsPanelWidth)}
-            className={`canvas__resizer ${isListsPanelOpen ? "" : "canvas__resizer--inactive"}`}
-            onKeyDown={isListsPanelOpen ? handleListsPanelResizeKeyDown : undefined}
-            onPointerDown={isListsPanelOpen ? startListsPanelResize : undefined}
+            className={`canvas__resizer ${isListsPanelOpen && isCenterPanelOpen ? "" : "canvas__resizer--inactive"}`}
+            onKeyDown={isListsPanelOpen && isCenterPanelOpen ? handleListsPanelResizeKeyDown : undefined}
+            onPointerDown={isListsPanelOpen && isCenterPanelOpen ? startListsPanelResize : undefined}
             role="separator"
-            tabIndex={isListsPanelOpen ? 0 : -1}
+            tabIndex={isListsPanelOpen && isCenterPanelOpen ? 0 : -1}
           />
 
           <div

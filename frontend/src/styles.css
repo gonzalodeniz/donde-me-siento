@@ -1096,6 +1096,54 @@ select {
   align-content: start;
 }
 
+.canvas__tables-header {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: -0.15rem;
+}
+
+.canvas__toggle {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  border: 1px solid rgba(66, 53, 46, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.74);
+  color: rgba(36, 24, 20, 0.72);
+  box-shadow: 0 10px 24px rgba(77, 56, 43, 0.08);
+  cursor: pointer;
+  transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease;
+}
+
+.canvas__toggle:hover,
+.canvas__toggle:focus-visible {
+  transform: translateX(-1px);
+  background: rgba(255, 252, 247, 0.92);
+  border-color: rgba(66, 53, 46, 0.28);
+  outline: none;
+}
+
+.canvas__toggle-triangle {
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.canvas__collapsed-strip {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  min-height: 100%;
+  padding-top: 1rem;
+  border-right: 1px solid var(--line);
+  border-radius: 1.35rem;
+  background: rgba(248, 241, 232, 0.68);
+  backdrop-filter: blur(22px);
+}
+
 .canvas__resizer {
   position: relative;
   align-self: stretch;
@@ -1129,6 +1177,10 @@ select {
 .canvas__resizer--inactive {
   pointer-events: none;
   opacity: 0;
+}
+
+.canvas--center-collapsed {
+  gap: 0.9rem;
 }
 
 .plan-card {
