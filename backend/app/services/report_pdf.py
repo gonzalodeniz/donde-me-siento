@@ -281,6 +281,77 @@ def _draw_summary_cards(pdf: PdfDocument, top: float, items: list[tuple[str, str
     return top + rows * card_height + max(0, rows - 1) * gap + 10
 
 
+def _draw_data_table(
+    layout: ReportLayout,
+    columns: list[str],
+    rows: list[list[str]],
+    width_fractions: list[float],
+    empty_message: str,
+) -> None:
+    table_width = PAGE_WIDTH - PAGE_MARGIN * 2
+    column_widths = [table_width * fraction for fraction in width_fractions]
+    header_height = 26.0
+    line_height = 10.8
+    cell_padding_x = 8.0
+    cell_padding_y = 7.0
+
+    def draw_row_background(y_top: float, row_height: float, fill: tuple[float, float, float]) -> None:
+        y = PAGE_HEIGHT - y_top - row_height
+        layout.pdf.rect(PAGE_MARGIN, y, table_width, row_height, stroke=(0.80, 0.72, 0.65), fill=fill)
+        cursor_x = PAGE_MARGIN
+        for width in column_widths[:-1]:
+            cursor_x += width
+            layout.pdf.line(cursor_x, y, cursor_x, y + row_height, width=0.7, color=(0.86, 0.79, 0.73))
+
+    def draw_header() -> None:
+        layout.ensure_space(header_height)
+        draw_row_background(layout.cursor_top, header_height, (0.972, 0.948, 0.925))
+        cursor_x = PAGE_MARGIN
+        baseline = PAGE_HEIGHT - layout.cursor_top - 17
+        for index, label in enumerate(columns):
+            layout.pdf.text(cursor_x + cell_padding_x, baseline, label, size=9.4, bold=True, color=ACCENT_COLOR)
+            cursor_x += column_widths[index]
+        layout.cursor_top += header_height
+
+    draw_header()
+
+    if not rows:
+        empty_height = 24.0
+        layout.ensure_space(empty_height)
+        draw_row_background(layout.cursor_top, empty_height, (0.995, 0.990, 0.983))
+        layout.pdf.text(PAGE_MARGIN + cell_padding_x, PAGE_HEIGHT - layout.cursor_top - 16, empty_message, size=9.8, color=MUTED_COLOR)
+        layout.cursor_top += empty_height + 6
+        return
+
+    for row_index, row in enumerate(rows):
+        wrapped_cells = [
+            _wrap_text(cell, max(column_widths[column_index] - cell_padding_x * 2, 24), 9.3)
+            for column_index, cell in enumerate(row)
+        ]
+        row_line_count = max(len(lines) for lines in wrapped_cells)
+        row_height = max(24.0, row_line_count * line_height + cell_padding_y * 2)
+
+        if layout.cursor_top + row_height > PAGE_HEIGHT - BOTTOM_MARGIN:
+            layout.pdf.new_page()
+            layout.cursor_top = PAGE_MARGIN
+            draw_header()
+
+        fill = (0.998, 0.995, 0.990) if row_index % 2 == 0 else (0.989, 0.983, 0.974)
+        draw_row_background(layout.cursor_top, row_height, fill)
+
+        cursor_x = PAGE_MARGIN
+        for column_index, lines in enumerate(wrapped_cells):
+            text_top = layout.cursor_top + cell_padding_y
+            for line_index, line in enumerate(lines):
+                baseline = PAGE_HEIGHT - (text_top + line_index * line_height) - 8
+                layout.pdf.text(cursor_x + cell_padding_x, baseline, line, size=9.3, color=TEXT_COLOR)
+            cursor_x += column_widths[column_index]
+
+        layout.cursor_top += row_height
+
+    layout.cursor_top += 8
+
+
 def generate_workspace_report_pdf(event: Event) -> bytes:
     validation = event.validate_state()
     table_by_id = {table.id: table for table in event.tables.values()}
@@ -323,50 +394,68 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
     ]
     layout.ensure_space(180)
     layout.cursor_top = _draw_summary_cards(pdf, layout.cursor_top, summary_cards)
-    layout.cursor_top += 16
+    layout.cursor_top += 20
 
     layout.section_title("Diagrama de mesas", underline=False)
     layout.ensure_space(255)
     layout.cursor_top = _draw_table_diagram(pdf, layout.cursor_top, 240, tables, event)
+    layout.cursor_top += 18
 
-    layout.section_title("Invitados ubicados")
-    layout.text_block("Ordenado por familia y por nombre.", size=10, color=MUTED_COLOR, gap_after=4)
-    for guest in assigned_guests:
-        table_number = table_by_id[guest.table_id].number if guest.table_id else "-"
-        family = guest.group_id or "Sin familia"
-        confirmation = "Confirmado" if guest.confirmed else "Pendiente"
-        layout.text_block(
-            f"{family} | {guest.name} | Mesa {table_number} | {_format_guest_type(guest.guest_type)} | {confirmation}",
-            size=10.5,
-            gap_after=1,
-        )
+    layout.section_title("Invitados ubicados", underline=False)
+    layout.text_block("Ordenado por familia y por nombre.", size=10, color=MUTED_COLOR, gap_after=6)
+    assigned_rows = [
+        [
+            guest.name,
+            guest.group_id or "",
+            f"Mesa {table_by_id[guest.table_id].number}" if guest.table_id else "-",
+            _format_guest_type(guest.guest_type),
+            "Confirmado" if guest.confirmed else "Pendiente",
+        ]
+        for guest in assigned_guests
+    ]
+    _draw_data_table(
+        layout,
+        ["Invitado", "Familia", "Mesa", "Tipo", "Asistencia"],
+        assigned_rows,
+        [0.28, 0.24, 0.14, 0.16, 0.18],
+        "No hay invitados ubicados.",
+    )
 
-    layout.cursor_top += 6
-    layout.section_title("Invitados sin sentar")
-    if unassigned_guests:
-        for guest in unassigned_guests:
-            family = guest.group_id or "Sin familia"
-            confirmation = "Confirmado" if guest.confirmed else "Pendiente"
-            layout.text_block(
-                f"{family} | {guest.name} | {_format_guest_type(guest.guest_type)} | {confirmation}",
-                size=10.5,
-                gap_after=1,
-            )
-    else:
-        layout.text_block("No hay invitados pendientes de ubicar.", size=10.5, color=MUTED_COLOR)
+    layout.cursor_top += 8
+    layout.section_title("Invitados sin sentar", underline=False)
+    unassigned_rows = [
+        [
+            guest.name,
+            guest.group_id or "",
+            _format_guest_type(guest.guest_type),
+            "Confirmado" if guest.confirmed else "Pendiente",
+        ]
+        for guest in unassigned_guests
+    ]
+    _draw_data_table(
+        layout,
+        ["Invitado", "Familia", "Tipo", "Asistencia"],
+        unassigned_rows,
+        [0.34, 0.28, 0.18, 0.20],
+        "No hay invitados sin sentar.",
+    )
 
-    layout.cursor_top += 6
-    layout.section_title("Conflictos activos")
+    layout.cursor_top += 8
+    layout.section_title("Conflictos activos", underline=False)
+    conflict_rows: list[list[str]] = []
     if conflict_groups:
         guest_by_id = event.guests
         for group_id, guest_ids in sorted(conflict_groups.items(), key=lambda item: item[0].casefold()):
-            layout.text_block(f"Familia {group_id}", size=11.5, bold=True, gap_after=2)
-            for guest_id in sorted(guest_ids):
+            for guest_id in sorted(guest_ids, key=lambda current_id: guest_by_id[current_id].name.casefold()):
                 guest = guest_by_id[guest_id]
                 table_number = table_by_id[guest.table_id].number if guest.table_id else "-"
-                layout.text_block(f"{guest.name} - mesa {table_number}", size=10.5, indent=12, gap_after=1)
-            layout.cursor_top += 3
-    else:
-        layout.text_block("No hay conflictos activos.", size=10.5, color=MUTED_COLOR)
+                conflict_rows.append([guest.name, group_id, f"Mesa {table_number}"])
+    _draw_data_table(
+        layout,
+        ["Invitado", "Familia", "Mesa"],
+        conflict_rows,
+        [0.46, 0.34, 0.20],
+        "No hay conflictos activos.",
+    )
 
     return pdf.render()
