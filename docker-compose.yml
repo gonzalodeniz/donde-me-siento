@@ -1,0 +1,25 @@
+services:
+  app:
+    image: donde-me-siento:latest
+    container_name: donde-me-siento
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./data:/app/data
+
+  reverse-proxy:
+    image: nginx:1.27-alpine
+    container_name: donde-me-siento-proxy
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./deploy/reverse-proxy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/reverse-proxy/conf.d:/etc/nginx/conf.d:ro
+      - ./deploy/reverse-proxy/certs:/etc/nginx/certs:ro

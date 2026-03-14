@@ -167,6 +167,76 @@ Persistencia:
 
 Ese directorio guarda la base de datos SQLite y cualquier dato persistente del backend. Si no lo montas, perderás los datos al eliminar el contenedor.
 
+## Ejecutar con docker compose y proxy inverso
+
+Se incluye un despliegue con dos servicios:
+
+- `app`: ejecuta la imagen `donde-me-siento:latest` y la publica internamente en `8080`
+- `reverse-proxy`: Nginx frontal que escucha en `80` y `443` y redirige al puerto `8080`
+
+Ficheros incluidos:
+
+- Compose: [docker-compose.yml](/home/gdeniz/Workspaces/development/donde-me-siento/docker-compose.yml)
+- Nginx principal del proxy: [deploy/reverse-proxy/nginx.conf](/home/gdeniz/Workspaces/development/donde-me-siento/deploy/reverse-proxy/nginx.conf)
+- Virtual host del proxy: [deploy/reverse-proxy/conf.d/donde-me-siento.conf](/home/gdeniz/Workspaces/development/donde-me-siento/deploy/reverse-proxy/conf.d/donde-me-siento.conf)
+
+Antes de levantarlo:
+
+1. Construye la imagen de aplicación:
+
+```bash
+make docker-build
+```
+
+2. Crea o copia los certificados TLS en:
+
+```text
+./deploy/reverse-proxy/certs/fullchain.pem
+./deploy/reverse-proxy/certs/privkey.pem
+```
+
+Para pruebas rápidas puedes generar un certificado autofirmado:
+
+```bash
+mkdir -p deploy/reverse-proxy/certs
+openssl req -x509 -nodes -days 365 \
+  -newkey rsa:2048 \
+  -keyout deploy/reverse-proxy/certs/privkey.pem \
+  -out deploy/reverse-proxy/certs/fullchain.pem \
+  -subj "/CN=localhost"
+```
+
+Arranque:
+
+```bash
+make compose-up
+```
+
+Parada:
+
+```bash
+make compose-down
+```
+
+Logs:
+
+```bash
+make compose-logs
+```
+
+Persistencia con `docker compose`:
+
+- `./data` debe persistirse porque se monta como `/app/data`
+- `./deploy/reverse-proxy/certs` debe persistirse porque contiene los certificados usados por el proxy en `443`
+
+Comprobaciones útiles:
+
+```bash
+curl -I http://127.0.0.1/
+curl -kI https://127.0.0.1/
+curl -i http://127.0.0.1/health
+```
+
 ## Ejecutar E2E
 
 ```bash

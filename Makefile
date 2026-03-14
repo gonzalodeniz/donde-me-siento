@@ -11,7 +11,7 @@ DOCKER_CONTAINER ?= donde-me-siento
 DOCKER_PORT ?= 8080
 DOCKER_DATA_DIR ?= $(CURDIR)/data
 
-.PHONY: help install test test-cov run-backend install-frontend run-frontend run-app build-frontend test-e2e install-e2e docker-build docker-run docker-stop lint clean
+.PHONY: help install test test-cov run-backend install-frontend run-frontend run-app build-frontend test-e2e install-e2e docker-build docker-run docker-stop compose-up compose-down compose-logs lint clean
 
 help:
 	@printf "Objetivos disponibles:\n"
@@ -26,6 +26,9 @@ help:
 	@printf "  make docker-build      Construye la imagen Docker de produccion.\n"
 	@printf "  make docker-run        Arranca el contenedor publicando el puerto $(DOCKER_PORT).\n"
 	@printf "  make docker-stop       Detiene el contenedor Docker si existe.\n"
+	@printf "  make compose-up        Arranca app + proxy inverso con docker compose.\n"
+	@printf "  make compose-down      Detiene los servicios de docker compose.\n"
+	@printf "  make compose-logs      Muestra los logs de docker compose.\n"
 	@printf "  make install-e2e       Instala navegadores de Playwright.\n"
 	@printf "  make test-e2e          Ejecuta el flujo E2E minimo.\n"
 	@printf "  make clean        Limpia caches de Python y pytest.\n"
@@ -112,6 +115,16 @@ docker-run:
 
 docker-stop:
 	-docker stop $(DOCKER_CONTAINER)
+
+compose-up:
+	mkdir -p $(DOCKER_DATA_DIR) deploy/reverse-proxy/certs
+	docker compose up -d
+
+compose-down:
+	docker compose down
+
+compose-logs:
+	docker compose logs -f
 
 install-e2e:
 	cd frontend && npx playwright install chromium
