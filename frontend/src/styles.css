@@ -1800,6 +1800,11 @@ select {
   background: rgba(154, 79, 36, 0.12);
 }
 
+.conflict-row__guests {
+  display: grid;
+  gap: 0.18rem;
+}
+
 .guest-row {
   align-items: center;
   padding: 0.8rem 0.9rem;

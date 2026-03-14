@@ -252,10 +252,10 @@ export function App() {
     () => new Map((workspace?.tables ?? []).map((table) => [table.id, table.number])),
     [workspace],
   );
-  const guestNameById = useMemo(
+  const guestById = useMemo(
     () =>
       new Map(
-        [...(workspace?.guests.unassigned ?? []), ...(workspace?.guests.assigned ?? [])].map((guest) => [guest.id, guest.name]),
+        [...(workspace?.guests.unassigned ?? []), ...(workspace?.guests.assigned ?? [])].map((guest) => [guest.id, guest]),
       ),
     [workspace],
   );
@@ -2120,11 +2120,21 @@ export function App() {
                   Object.entries(workspace.validation.grouping_conflicts).map(([groupId, guestIds]) => (
                     <article className="conflict-row" key={groupId}>
                       <strong>Familia {groupId}</strong>
-                      <span>
+                      <span className="conflict-row__guests">
                         {guestIds
-                          .map((guestId) => guestNameById.get(guestId) ?? guestId)
+                          .map((guestId) => {
+                            const guest = guestById.get(guestId);
+                            if (!guest) {
+                              return guestId;
+                            }
+
+                            const tableNumber = guest.table_id ? tableNumberById.get(guest.table_id) : null;
+                            return tableNumber ? `${guest.name} - mesa ${tableNumber}` : guest.name;
+                          })
                           .sort((left, right) => left.localeCompare(right, "es"))
-                          .join(", ")}
+                          .map((guestLabel) => (
+                            <span key={guestLabel}>{guestLabel}</span>
+                          ))}
                       </span>
                     </article>
                   ))
