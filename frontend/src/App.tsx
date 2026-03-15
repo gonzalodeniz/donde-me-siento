@@ -54,7 +54,7 @@ type TablePosition = {
 type GuestEditableField = "name" | "confirmed" | "type" | "intolerance" | "menu" | "group" | "table" | "seat";
 type PanelKey = "salon" | "summary" | "sessions" | "unassigned" | "assigned" | "conflicts" | "guestImport";
 type GuestTablePageKey = "unassigned" | "assigned" | "conflicts";
-type UnassignedGuestColumnKey = "confirmed" | "type" | "group" | "food";
+type UnassignedGuestColumnKey = "confirmed" | "type" | "group" | "food" | "table";
 type SortDirection = "asc" | "desc";
 type SortTableKey = "sessions" | "unassigned" | "assigned" | "conflicts" | "guestImport";
 type SortState = {
@@ -445,7 +445,8 @@ export function App() {
     confirmed: true,
     type: true,
     group: true,
-    food: true,
+    food: false,
+    table: false,
   });
   const [tableSorts, setTableSorts] = useState<Record<SortTableKey, SortState>>({
     sessions: { column: "created_at", direction: "desc" },
@@ -2579,6 +2580,14 @@ export function App() {
                     >
                       Comida
                     </button>
+                    <button
+                      aria-pressed={visibleUnassignedColumns.table}
+                      className={`guest-table-visibility__toggle ${visibleUnassignedColumns.table ? "guest-table-visibility__toggle--active" : ""}`}
+                      onClick={() => toggleUnassignedColumn("table")}
+                      type="button"
+                    >
+                      Mesa
+                    </button>
                   </div>
                   <div
                     className={`guest-table-shell ${isUnassignedDropActive ? "guest-table-shell--drop-active" : ""}`}
@@ -2598,8 +2607,8 @@ export function App() {
                               {visibleUnassignedColumns.group ? <th>{renderSortableHeader("unassigned", "group", "Familia")}</th> : null}
                               {visibleUnassignedColumns.food ? <th>{renderSortableHeader("unassigned", "intolerance", "Intolerancia")}</th> : null}
                               {visibleUnassignedColumns.food ? <th>{renderSortableHeader("unassigned", "menu", "Menú")}</th> : null}
-                              <th>{renderSortableHeader("unassigned", "table", "Mesa")}</th>
-                              <th>{renderSortableHeader("unassigned", "seat", "Asiento")}</th>
+                              {visibleUnassignedColumns.table ? <th>{renderSortableHeader("unassigned", "table", "Mesa")}</th> : null}
+                              {visibleUnassignedColumns.table ? <th>{renderSortableHeader("unassigned", "seat", "Asiento")}</th> : null}
                               <th aria-label="Eliminar invitado" className="guest-table__action-column" />
                             </tr>
                           </thead>
@@ -2733,32 +2742,36 @@ export function App() {
                                       )}
                                     </td>
                                   ) : null}
-                                  <td>
-                                    {editingGuestId === guest.id && editingGuestField === "table" ? (
-                                      <select
-                                        autoFocus
-                                        className="guest-table__select"
-                                        onBlur={handleGuestEditBlur}
-                                        onChange={(event) => handleGuestAssignmentSelection(guest, event.target.value)}
-                                        onKeyDown={handleGuestEditKeyDown}
-                                        value={assignmentValues[guest.id] ?? ""}
-                                      >
-                                        <option value="">Sin mesa</option>
-                                        {workspace?.tables.map((table) => (
-                                          <option key={table.id} value={table.id}>
-                                            Mesa {table.number}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    ) : (
-                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "table")} type="button">
-                                        <span className="guest-row__table guest-row__table--muted">Sin mesa</span>
-                                      </button>
-                                    )}
-                                  </td>
-                                  <td>
-                                    <span className="guest-row__table guest-row__table--muted">Sin asiento</span>
-                                  </td>
+                                  {visibleUnassignedColumns.table ? (
+                                    <td>
+                                      {editingGuestId === guest.id && editingGuestField === "table" ? (
+                                        <select
+                                          autoFocus
+                                          className="guest-table__select"
+                                          onBlur={handleGuestEditBlur}
+                                          onChange={(event) => handleGuestAssignmentSelection(guest, event.target.value)}
+                                          onKeyDown={handleGuestEditKeyDown}
+                                          value={assignmentValues[guest.id] ?? ""}
+                                        >
+                                          <option value="">Sin mesa</option>
+                                          {workspace?.tables.map((table) => (
+                                            <option key={table.id} value={table.id}>
+                                              Mesa {table.number}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      ) : (
+                                        <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "table")} type="button">
+                                          <span className="guest-row__table guest-row__table--muted">Sin mesa</span>
+                                        </button>
+                                      )}
+                                    </td>
+                                  ) : null}
+                                  {visibleUnassignedColumns.table ? (
+                                    <td>
+                                      <span className="guest-row__table guest-row__table--muted">Sin asiento</span>
+                                    </td>
+                                  ) : null}
                                   <td className="guest-table__action-column">
                                     <div className="guest-table__actions guest-table__actions--icon-only">
                                       {editingGuestId === guest.id ? (
