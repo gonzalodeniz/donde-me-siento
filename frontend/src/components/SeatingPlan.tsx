@@ -231,6 +231,9 @@ export function SeatingPlan({
     guestType: string;
     family: string;
     confirmedLabel: string;
+    seatLabel: string;
+    intoleranceLabel: string;
+    menuLabel: string;
     x: number;
     y: number;
   } | null>(null);
@@ -647,6 +650,20 @@ export function SeatingPlan({
     }
   }
 
+  function formatMenuLabel(menu: Guest["menu"]) {
+    switch (menu) {
+      case "carne":
+        return "Carne";
+      case "pescado":
+        return "Pescado";
+      case "vegano":
+        return "Vegano";
+      case "desconocido":
+      default:
+        return "Desconocido";
+    }
+  }
+
   function updateHoveredGuestCardPosition(clientX: number, clientY: number, guest: Guest) {
     const stageElement = stageRef.current;
     if (!stageElement) {
@@ -660,6 +677,9 @@ export function SeatingPlan({
       guestType: formatGuestTypeLabel(guest.guest_type),
       family: guest.group_id ?? "Sin familia",
       confirmedLabel: guest.confirmed ? "Confirmado" : "No confirmado",
+      seatLabel: guest.seat_index !== null ? `Silla ${guest.seat_index + 1}` : "Sin asiento",
+      intoleranceLabel: guest.intolerance || "Sin intolerancia",
+      menuLabel: formatMenuLabel(guest.menu),
       x: clientX - rect.left + 16,
       y: clientY - rect.top + 16,
     });
@@ -1010,7 +1030,10 @@ export function SeatingPlan({
                 style={{ left: `${hoveredGuestCard.x}px`, top: `${hoveredGuestCard.y}px` }}
               >
                 <strong>{hoveredGuestCard.name}</strong>
+                <span>Asiento: {hoveredGuestCard.seatLabel}</span>
                 <span>Tipo: {hoveredGuestCard.guestType}</span>
+                <span>Intolerancias: {hoveredGuestCard.intoleranceLabel}</span>
+                <span>Menú: {hoveredGuestCard.menuLabel}</span>
                 <span>Familia: {hoveredGuestCard.family}</span>
                 <span>Estado: {hoveredGuestCard.confirmedLabel}</span>
               </div>
