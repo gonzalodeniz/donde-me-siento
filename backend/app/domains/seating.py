@@ -109,6 +109,7 @@ class Event:
     DUPLICATE_OFFSET = 120.0
     COUPLE_TABLE_ID = "table-couple"
     COUPLE_TABLE_NUMBER = 0
+    COUPLE_TABLE_CAPACITY = 2
     COUPLE_TABLE_POSITION_X = 600.0
     COUPLE_TABLE_POSITION_Y = 90.0
 
@@ -291,6 +292,8 @@ class Event:
 
     def update_table_capacity(self, table_id: str, capacity: int) -> Table:
         table = self._get_table(table_id)
+        if table.is_couple:
+            raise DomainError("La mesa de novios siempre tiene exactamente 2 asientos.")
         if capacity <= 0:
             raise DomainError("La capacidad de la mesa debe ser mayor que cero.")
         if self.table_occupancy(table.id) > capacity:
@@ -427,6 +430,7 @@ class Event:
             couple_table = couple_tables[0]
             couple_table.id = self.COUPLE_TABLE_ID
             couple_table.number = self.COUPLE_TABLE_NUMBER
+            couple_table.capacity = self.COUPLE_TABLE_CAPACITY
             couple_table.kind = TableKind.COUPLE
             couple_table.rotation_degrees = Table._normalize_rotation(couple_table.rotation_degrees)
             self.tables = {
@@ -438,7 +442,7 @@ class Event:
         couple_table = Table(
             id=self.COUPLE_TABLE_ID,
             number=self.COUPLE_TABLE_NUMBER,
-            capacity=self.default_table_capacity,
+            capacity=self.COUPLE_TABLE_CAPACITY,
             position_x=self.COUPLE_TABLE_POSITION_X,
             position_y=self.COUPLE_TABLE_POSITION_Y,
             kind=TableKind.COUPLE,

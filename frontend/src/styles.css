@@ -572,6 +572,10 @@ select {
   text-align: center;
 }
 
+.stepper__value--static {
+  grid-column: 1 / -1;
+}
+
 .stepper__caption {
   color: var(--muted);
   font-size: 0.75rem;

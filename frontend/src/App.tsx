@@ -1962,44 +1962,53 @@ export function App() {
                     <span>{getTableLabel(selectedTable)}</span>
                     <strong>{selectedTable.occupied} sentados</strong>
                   </div>
-                  <div className="stepper" aria-label="Asientos">
-                    <button
-                      className="stepper__button"
-                      disabled={
-                        isActionRunning(`capacity-${selectedTable.id}`) || selectedTable.capacity <= selectedTable.occupied
-                      }
-                      onClick={() =>
-                        void runWorkspaceAction(
-                          `capacity-${selectedTable.id}`,
-                          "tables",
-                          () => updateTableCapacity(selectedTable.id, selectedTable.capacity - 1, token ?? ""),
-                          `Los asientos de ${getTableReferenceLabel(selectedTable)} se han ajustado.`,
-                        )
-                      }
-                      type="button"
-                    >
-                      -
-                    </button>
-                    <div className="stepper__value stepper__value--stacked">
-                      <span className="stepper__caption">Asientos</span>
-                      <strong>{selectedTable.capacity}</strong>
+                  {isCoupleTable(selectedTable) ? (
+                    <div className="stepper" aria-label="Asientos de la mesa de novios">
+                      <div className="stepper__value stepper__value--stacked stepper__value--static">
+                        <span className="stepper__caption">Asientos</span>
+                        <strong>2</strong>
+                      </div>
                     </div>
-                    <button
-                      className="stepper__button"
-                      disabled={isActionRunning(`capacity-${selectedTable.id}`)}
-                      onClick={() =>
-                        void runWorkspaceAction(
-                          `capacity-${selectedTable.id}`,
-                          "tables",
-                          () => updateTableCapacity(selectedTable.id, selectedTable.capacity + 1, token ?? ""),
-                          `Los asientos de ${getTableReferenceLabel(selectedTable)} se han ajustado.`,
-                        )
-                      }
-                      type="button"
-                    >
-                      +
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="stepper" aria-label="Asientos">
+                      <button
+                        className="stepper__button"
+                        disabled={
+                          isActionRunning(`capacity-${selectedTable.id}`) || selectedTable.capacity <= selectedTable.occupied
+                        }
+                        onClick={() =>
+                          void runWorkspaceAction(
+                            `capacity-${selectedTable.id}`,
+                            "tables",
+                            () => updateTableCapacity(selectedTable.id, selectedTable.capacity - 1, token ?? ""),
+                            `Los asientos de ${getTableReferenceLabel(selectedTable)} se han ajustado.`,
+                          )
+                        }
+                        type="button"
+                      >
+                        -
+                      </button>
+                      <div className="stepper__value stepper__value--stacked">
+                        <span className="stepper__caption">Asientos</span>
+                        <strong>{selectedTable.capacity}</strong>
+                      </div>
+                      <button
+                        className="stepper__button"
+                        disabled={isActionRunning(`capacity-${selectedTable.id}`)}
+                        onClick={() =>
+                          void runWorkspaceAction(
+                            `capacity-${selectedTable.id}`,
+                            "tables",
+                            () => updateTableCapacity(selectedTable.id, selectedTable.capacity + 1, token ?? ""),
+                            `Los asientos de ${getTableReferenceLabel(selectedTable)} se han ajustado.`,
+                          )
+                        }
+                        type="button"
+                      >
+                        +
+                      </button>
+                    </div>
+                  )}
                   {isCoupleTable(selectedTable) ? (
                     <>
                       <div className="stepper" aria-label="Rotación de la mesa de novios">
@@ -2039,7 +2048,7 @@ export function App() {
                         </button>
                       </div>
                       <p className="rail-table-settings__hint">
-                        La mesa de novios siempre está en el salón. Puedes moverla en el plano y girarla con este control o con el tirador circular.
+                        La mesa de novios siempre está en el salón y mantiene 2 asientos en el mismo lado largo. Puedes moverla en el plano y girarla con este control o con el tirador circular.
                       </p>
                     </>
                   ) : (

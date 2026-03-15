@@ -53,8 +53,8 @@ const COUPLE_TABLE_WIDTH = 176;
 const COUPLE_TABLE_HEIGHT = 74;
 const COUPLE_HALO_WIDTH = 214;
 const COUPLE_HALO_HEIGHT = 108;
-const COUPLE_SEAT_RADIUS_X = 124;
-const COUPLE_SEAT_RADIUS_Y = 92;
+const COUPLE_SEAT_SIDE_OFFSET_X = 38;
+const COUPLE_SEAT_SIDE_OFFSET_Y = -74;
 
 function truncateName(name: string) {
   return name.length > 12 ? `${name.slice(0, 12)}…` : name;
@@ -156,19 +156,16 @@ function getSeatPosition(
   seatIndex: number,
   seatCount: number,
 ) {
-  const angle = (Math.PI * 2 * seatIndex) / seatCount - Math.PI / 2;
   if (!isCoupleTable(table)) {
+    const angle = (Math.PI * 2 * seatIndex) / seatCount - Math.PI / 2;
     return {
       x: transform.positionX + Math.cos(angle) * ROUND_SEAT_RADIUS,
       y: transform.positionY + Math.sin(angle) * ROUND_SEAT_RADIUS,
     };
   }
 
-  const rotated = rotateOffset(
-    Math.cos(angle) * COUPLE_SEAT_RADIUS_X,
-    Math.sin(angle) * COUPLE_SEAT_RADIUS_Y,
-    transform.rotationDegrees,
-  );
+  const seatSpacing = seatCount === 1 ? 0 : ((seatIndex / (seatCount - 1)) * 2 - 1) * COUPLE_SEAT_SIDE_OFFSET_X;
+  const rotated = rotateOffset(seatSpacing, COUPLE_SEAT_SIDE_OFFSET_Y, transform.rotationDegrees);
   return {
     x: transform.positionX + rotated.x,
     y: transform.positionY + rotated.y,
@@ -677,7 +674,7 @@ export function SeatingPlan({
           <p className="plan-card__lead">
             {isDraggingGuest
               ? `Desliza a ${draggedGuestName} y suéltalo directamente sobre una silla libre.`
-              : "Puedes arrastrar cada mesa para colocarla como estará en el salón real. La mesa de novios siempre aparece arriba, en formato rectangular, y admite giro."}
+              : "Puedes arrastrar cada mesa para colocarla como estará en el salón real. La mesa de novios siempre aparece arriba, con 2 asientos colocados en el mismo lado largo, y admite giro."}
           </p>
         </div>
         <div className="plan-legend">

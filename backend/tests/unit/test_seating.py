@@ -29,6 +29,7 @@ def test_create_tables_generates_expected_layout() -> None:
 
     assert len(tables) == 5
     assert event.tables[Event.COUPLE_TABLE_ID].kind is TableKind.COUPLE
+    assert event.tables[Event.COUPLE_TABLE_ID].capacity == Event.COUPLE_TABLE_CAPACITY
     assert event.tables[Event.COUPLE_TABLE_ID].position_y == Event.COUPLE_TABLE_POSITION_Y
     assert tables[0].position_x == 180.0
     assert tables[0].position_y == 180.0
@@ -105,6 +106,14 @@ def test_update_table_transform_stores_rotation() -> None:
     assert updated_table.position_x == 420.0
     assert updated_table.position_y == 72.0
     assert updated_table.rotation_degrees == 45.0
+
+
+def test_couple_table_capacity_is_fixed_to_two_seats() -> None:
+    event = Event(id="event-1", name="Evento", default_table_capacity=8)
+    event.create_tables(2)
+
+    with pytest.raises(DomainError, match="exactamente 2 asientos"):
+        event.update_table_capacity(Event.COUPLE_TABLE_ID, 4)
 
 
 def test_add_guest_rejects_duplicate_ids(event: Event) -> None:

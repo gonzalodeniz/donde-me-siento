@@ -70,6 +70,7 @@ async def test_workspace_endpoint_returns_default_singleton(client: AsyncClient)
     assert len(payload["tables"]) == 9
     assert payload["tables"][0]["id"] == "table-couple"
     assert payload["tables"][0]["table_kind"] == "couple"
+    assert payload["tables"][0]["capacity"] == 2
 
 
 @pytest.mark.anyio
@@ -273,10 +274,15 @@ async def test_couple_table_cannot_be_removed_and_can_rotate(client: AsyncClient
     assert updated_table["position_y"] == 64
     assert updated_table["rotation_degrees"] == 30
     assert updated_table["table_kind"] == "couple"
+    assert updated_table["capacity"] == 2
 
     delete_response = await client.delete("/api/tables/table-couple")
     assert delete_response.status_code == 400
     assert "mesa de novios" in delete_response.json()["detail"]
+
+    capacity_response = await client.put("/api/tables/table-couple", json={"capacity": 4})
+    assert capacity_response.status_code == 400
+    assert "exactamente 2 asientos" in capacity_response.json()["detail"]
 
 
 @pytest.mark.anyio
@@ -369,6 +375,7 @@ async def test_reset_workspace_clears_tables_and_guests(client: AsyncClient) -> 
     workspace_response = await client.get("/api/workspace")
     assert workspace_response.status_code == 200
     assert [table["id"] for table in workspace_response.json()["tables"]] == ["table-couple"]
+    assert workspace_response.json()["tables"][0]["capacity"] == 2
     assert workspace_response.json()["guests"]["assigned"] == []
     assert workspace_response.json()["guests"]["unassigned"] == []
 
@@ -458,6 +465,7 @@ async def test_workspace_endpoint_returns_aggregated_state_for_frontend(client: 
     second_table = workspace["tables"][2]
     assert couple_table["id"] == "table-couple"
     assert couple_table["table_kind"] == "couple"
+    assert couple_table["capacity"] == 2
     assert first_table["id"] == "table-1"
     assert first_table["occupied"] == 1
     assert [guest["id"] for guest in first_table["guests"]] == ["guest-1"]
