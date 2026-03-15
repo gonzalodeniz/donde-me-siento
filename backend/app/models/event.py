@@ -46,6 +46,8 @@ class TableModel(Base):
     capacity: Mapped[int] = mapped_column(Integer, nullable=False)
     position_x: Mapped[float] = mapped_column(Float, nullable=False)
     position_y: Mapped[float] = mapped_column(Float, nullable=False)
+    table_kind: Mapped[str] = mapped_column(String(32), nullable=False, default="round")
+    rotation_degrees: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
 
     event: Mapped[EventModel] = relationship(back_populates="tables")
 

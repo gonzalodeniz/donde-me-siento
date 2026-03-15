@@ -39,6 +39,8 @@ class TableResponse(BaseModel):
     capacity: int
     position_x: float
     position_y: float
+    table_kind: str
+    rotation_degrees: float
 
 
 class GuestResponse(BaseModel):
@@ -98,6 +100,7 @@ class TablePositionUpdate(BaseModel):
 
     position_x: float
     position_y: float
+    rotation_degrees: float | None = None
 
 
 class TableBatchCreateRequest(BaseModel):
@@ -169,6 +172,8 @@ class WorkspaceTableResponse(BaseModel):
     capacity: int
     position_x: float
     position_y: float
+    table_kind: str
+    rotation_degrees: float
     occupied: int
     available: int
     guests: list[GuestResponse]
@@ -201,6 +206,8 @@ def build_event_response(event: Event) -> EventResponse:
                 capacity=table.capacity,
                 position_x=table.position_x,
                 position_y=table.position_y,
+                table_kind=table.kind.value,
+                rotation_degrees=table.rotation_degrees,
             )
             for table in sorted(event.tables.values(), key=lambda current: current.number)
         ],
@@ -303,6 +310,8 @@ def build_workspace_response(event: Event) -> WorkspaceResponse:
                 capacity=table.capacity,
                 position_x=table.position_x,
                 position_y=table.position_y,
+                table_kind=table.kind.value,
+                rotation_degrees=table.rotation_degrees,
                 occupied=table_validation.occupied,
                 available=table_validation.available,
                 guests=seated_guests,

@@ -31,11 +31,24 @@ def init_db(current_engine=engine) -> None:
     Base.metadata.create_all(bind=current_engine)
     inspector = inspect(current_engine)
     table_names = inspector.get_table_names()
+    if "tables" in table_names:
+        table_columns = {column["name"] for column in inspector.get_columns("tables")}
+    else:
+        table_columns = set()
     if "guests" not in table_names:
-        return
+        guest_columns = set()
+    else:
+        guest_columns = {column["name"] for column in inspector.get_columns("guests")}
 
-    guest_columns = {column["name"] for column in inspector.get_columns("guests")}
     with current_engine.begin() as connection:
+        if "tables" in table_names:
+            if "table_kind" not in table_columns:
+                connection.execute(text("ALTER TABLE tables ADD COLUMN table_kind VARCHAR(32) NOT NULL DEFAULT 'round'"))
+            if "rotation_degrees" not in table_columns:
+                connection.execute(text("ALTER TABLE tables ADD COLUMN rotation_degrees FLOAT NOT NULL DEFAULT 0"))
+
+        if "guests" not in table_names:
+            return
         if "seat_index" not in guest_columns:
             connection.execute(text("ALTER TABLE guests ADD COLUMN seat_index INTEGER"))
         if "confirmed" not in guest_columns:

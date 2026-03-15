@@ -16,6 +16,8 @@ export type WorkspaceTable = {
   capacity: number;
   position_x: number;
   position_y: number;
+  table_kind: "round" | "couple";
+  rotation_degrees: number;
   occupied: number;
   available: number;
   guests: Guest[];

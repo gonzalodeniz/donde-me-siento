@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent, PointerEvent as ReactPointerEvent } from "react";
 
-import type { Guest, Workspace } from "../types";
+import type { Guest, Workspace, WorkspaceTable } from "../types";
 
 type SeatTarget = {
   tableId: string;
@@ -17,7 +17,12 @@ type SeatingPlanProps = {
   isSearchActive: boolean;
   onGuestDragEnd: () => void;
   onGuestDragStart: (event: DragEvent<Element>, guestId: string) => void;
-  onMoveTable: (tableId: string, positionX: number, positionY: number) => Promise<void>;
+  onMoveTable: (
+    tableId: string,
+    positionX: number,
+    positionY: number,
+    rotationDegrees: number | null,
+  ) => Promise<void>;
   onSelectTable: (tableId: string) => void;
   onSeatDragEnter: (tableId: string, seatIndex: number) => void;
   onSeatDragLeave: (tableId: string, seatIndex: number) => void;
@@ -34,6 +39,22 @@ type SeatDescriptor = {
   guest: Guest | null;
   hasConflict: boolean;
 };
+
+type TableRenderState = {
+  positionX: number;
+  positionY: number;
+  rotationDegrees: number;
+};
+
+const ROUND_TABLE_RADIUS = 52;
+const ROUND_HALO_RADIUS = 74;
+const ROUND_SEAT_RADIUS = 98;
+const COUPLE_TABLE_WIDTH = 176;
+const COUPLE_TABLE_HEIGHT = 74;
+const COUPLE_HALO_WIDTH = 214;
+const COUPLE_HALO_HEIGHT = 108;
+const COUPLE_SEAT_SIDE_OFFSET_X = 38;
+const COUPLE_SEAT_SIDE_OFFSET_Y = -74;
 
 function truncateName(name: string) {
   return name.length > 12 ? `${name.slice(0, 12)}…` : name;
@@ -81,6 +102,89 @@ function getSeatVisualMetrics(name: string) {
   return { seatLabel, seatRadius, seatLabelFontSize };
 }
 
+function clampZoom(nextZoom: number) {
+  return Math.min(Math.max(nextZoom, 0.65), 1.9);
+}
+
+function normalizeRotation(rotationDegrees: number) {
+  const normalized = rotationDegrees % 360;
+  if (normalized > 180) {
+    return normalized - 360;
+  }
+  if (normalized <= -180) {
+    return normalized + 360;
+  }
+  return normalized;
+}
+
+function rotateOffset(offsetX: number, offsetY: number, rotationDegrees: number) {
+  const angle = (rotationDegrees * Math.PI) / 180;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  return {
+    x: (offsetX * cos) - (offsetY * sin),
+    y: (offsetX * sin) + (offsetY * cos),
+  };
+}
+
+function isCoupleTable(table: WorkspaceTable) {
+  return table.table_kind === "couple";
+}
+
+function getTableLabel(table: WorkspaceTable) {
+  return isCoupleTable(table) ? "Mesa de novios" : `Mesa ${table.number}`;
+}
+
+function getTableReference(table: WorkspaceTable) {
+  return isCoupleTable(table) ? "mesa de novios" : `mesa ${table.number}`;
+}
+
+function getTableBounds(table: WorkspaceTable, transform: TableRenderState) {
+  const paddingX = isCoupleTable(table) ? 220 : 160;
+  const paddingY = isCoupleTable(table) ? 170 : 160;
+  return {
+    minX: transform.positionX - paddingX,
+    maxX: transform.positionX + paddingX,
+    minY: transform.positionY - paddingY,
+    maxY: transform.positionY + paddingY,
+  };
+}
+
+function getSeatPosition(
+  table: WorkspaceTable,
+  transform: TableRenderState,
+  seatIndex: number,
+  seatCount: number,
+) {
+  if (!isCoupleTable(table)) {
+    const angle = (Math.PI * 2 * seatIndex) / seatCount - Math.PI / 2;
+    return {
+      x: transform.positionX + Math.cos(angle) * ROUND_SEAT_RADIUS,
+      y: transform.positionY + Math.sin(angle) * ROUND_SEAT_RADIUS,
+    };
+  }
+
+  const seatSpacing = seatCount === 1 ? 0 : ((seatIndex / (seatCount - 1)) * 2 - 1) * COUPLE_SEAT_SIDE_OFFSET_X;
+  const rotated = rotateOffset(seatSpacing, COUPLE_SEAT_SIDE_OFFSET_Y, transform.rotationDegrees);
+  return {
+    x: transform.positionX + rotated.x,
+    y: transform.positionY + rotated.y,
+  };
+}
+
+function getCoupleRotateHandle(transform: TableRenderState) {
+  const stemStart = rotateOffset(0, -(COUPLE_TABLE_HEIGHT / 2) - 4, transform.rotationDegrees);
+  const handle = rotateOffset(0, -(COUPLE_TABLE_HEIGHT / 2) - 28, transform.rotationDegrees);
+  return {
+    lineX1: transform.positionX + stemStart.x,
+    lineY1: transform.positionY + stemStart.y,
+    lineX2: transform.positionX + handle.x,
+    lineY2: transform.positionY + handle.y,
+    handleX: transform.positionX + handle.x,
+    handleY: transform.positionY + handle.y,
+  };
+}
+
 export function SeatingPlan({
   workspace,
   selectedTableId,
@@ -113,6 +217,13 @@ export function SeatingPlan({
     offsetY: number;
     positionX: number;
     positionY: number;
+    rotationDegrees: number;
+  } | null>(null);
+  const [rotatingTable, setRotatingTable] = useState<{
+    tableId: string;
+    positionX: number;
+    positionY: number;
+    rotationDegrees: number;
   } | null>(null);
   const [hoveredGuestCard, setHoveredGuestCard] = useState<{
     guestId: string;
@@ -120,6 +231,9 @@ export function SeatingPlan({
     guestType: string;
     family: string;
     confirmedLabel: string;
+    seatLabel: string;
+    intoleranceLabel: string;
+    menuLabel: string;
     x: number;
     y: number;
   } | null>(null);
@@ -151,29 +265,50 @@ export function SeatingPlan({
 
     return tooltips;
   }, [guestById, workspace.validation.grouping_conflicts]);
-  const renderedPositions = useMemo(
+  const renderedTables = useMemo(
     () =>
       new Map(
         workspace.tables.map((table) => [
           table.id,
           draggedTable?.tableId === table.id
-            ? { positionX: draggedTable.positionX, positionY: draggedTable.positionY }
-            : { positionX: table.position_x, positionY: table.position_y },
+            ? {
+                positionX: draggedTable.positionX,
+                positionY: draggedTable.positionY,
+                rotationDegrees: draggedTable.rotationDegrees,
+              }
+            : rotatingTable?.tableId === table.id
+              ? {
+                  positionX: rotatingTable.positionX,
+                  positionY: rotatingTable.positionY,
+                  rotationDegrees: rotatingTable.rotationDegrees,
+                }
+              : {
+                  positionX: table.position_x,
+                  positionY: table.position_y,
+                  rotationDegrees: table.rotation_degrees,
+                },
         ]),
       ),
-    [draggedTable, workspace.tables],
+    [draggedTable, rotatingTable, workspace.tables],
   );
 
-  const minX = Math.min(...Array.from(renderedPositions.values(), (table) => table.positionX)) - 160;
-  const minY = Math.min(...Array.from(renderedPositions.values(), (table) => table.positionY)) - 160;
-  const maxX = Math.max(...Array.from(renderedPositions.values(), (table) => table.positionX)) + 180;
-  const maxY = Math.max(...Array.from(renderedPositions.values(), (table) => table.positionY)) + 180;
-  const width = maxX - minX;
-  const height = maxY - minY;
+  const tableBounds = workspace.tables.map((table) =>
+    getTableBounds(table, renderedTables.get(table.id) ?? {
+      positionX: table.position_x,
+      positionY: table.position_y,
+      rotationDegrees: table.rotation_degrees,
+    }),
+  );
+  const minX = Math.min(...tableBounds.map((bounds) => bounds.minX));
+  const minY = Math.min(...tableBounds.map((bounds) => bounds.minY));
+  const maxX = Math.max(...tableBounds.map((bounds) => bounds.maxX));
+  const maxY = Math.max(...tableBounds.map((bounds) => bounds.maxY));
+  const width = Math.max(maxX - minX, 1);
+  const height = Math.max(maxY - minY, 1);
   const zoomedWidth = Math.max(width * zoomLevel, 640);
   const zoomedHeight = Math.max(height * zoomLevel, 420);
   const isDraggingGuest = Boolean(draggedGuestName);
-  const isDraggingTable = Boolean(draggedTable);
+  const isDraggingTable = Boolean(draggedTable || rotatingTable);
   const zoomPercent = Math.round(zoomLevel * 100);
 
   useEffect(() => {
@@ -193,7 +328,7 @@ export function SeatingPlan({
     return () => {
       stageElement.removeEventListener("wheel", handleNativeWheel);
     };
-  }, [height, width]);
+  }, []);
 
   useEffect(() => {
     if (!draggedTable) {
@@ -220,7 +355,12 @@ export function SeatingPlan({
     const handlePointerUp = () => {
       const activeDrag = draggedTable;
       setDraggedTable(null);
-      void onMoveTable(activeDrag.tableId, activeDrag.positionX, activeDrag.positionY);
+      void onMoveTable(
+        activeDrag.tableId,
+        activeDrag.positionX,
+        activeDrag.positionY,
+        activeDrag.rotationDegrees,
+      );
     };
 
     window.addEventListener("pointermove", handlePointerMove);
@@ -233,6 +373,45 @@ export function SeatingPlan({
       window.removeEventListener("pointercancel", handlePointerUp);
     };
   }, [draggedTable, onMoveTable]);
+
+  useEffect(() => {
+    if (!rotatingTable) {
+      return undefined;
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const point = getSvgCoordinates(event.clientX, event.clientY);
+      if (!point) {
+        return;
+      }
+
+      const nextRotation = normalizeRotation(
+        (Math.atan2(point.y - rotatingTable.positionY, point.x - rotatingTable.positionX) * 180) / Math.PI + 90,
+      );
+      setRotatingTable((current) => (current ? { ...current, rotationDegrees: nextRotation } : current));
+    };
+
+    const handlePointerUp = () => {
+      const activeRotation = rotatingTable;
+      setRotatingTable(null);
+      void onMoveTable(
+        activeRotation.tableId,
+        activeRotation.positionX,
+        activeRotation.positionY,
+        activeRotation.rotationDegrees,
+      );
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp, { once: true });
+    window.addEventListener("pointercancel", handlePointerUp, { once: true });
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+  }, [onMoveTable, rotatingTable]);
 
   useEffect(() => {
     if (!stagePanStart) {
@@ -276,12 +455,12 @@ export function SeatingPlan({
     }
 
     const matchingSeats = workspace.tables.flatMap((table) => {
-      const position = renderedPositions.get(table.id) ?? {
+      const transform = renderedTables.get(table.id) ?? {
         positionX: table.position_x,
         positionY: table.position_y,
+        rotationDegrees: table.rotation_degrees,
       };
       const seatCount = Math.max(table.capacity, 1);
-      const labelRadius = 98;
       const guestsBySeat = buildSeatGuests(table.guests, seatCount);
 
       return Array.from({ length: seatCount }, (_, seatIndex) => {
@@ -290,16 +469,14 @@ export function SeatingPlan({
           return null;
         }
 
-        const angle = (Math.PI * 2 * seatIndex) / seatCount - Math.PI / 2;
-        const seatX = position.positionX + Math.cos(angle) * labelRadius;
-        const seatY = position.positionY + Math.sin(angle) * labelRadius;
+        const seatPosition = getSeatPosition(table, transform, seatIndex, seatCount);
         const { seatRadius } = getSeatVisualMetrics(guest.name);
 
         return {
-          minX: seatX - seatRadius - 22,
-          maxX: seatX + seatRadius + 22,
-          minY: seatY - seatRadius - 22,
-          maxY: seatY + seatRadius + 22,
+          minX: seatPosition.x - seatRadius - 22,
+          maxX: seatPosition.x + seatRadius + 22,
+          minY: seatPosition.y - seatRadius - 22,
+          maxY: seatPosition.y + seatRadius + 22,
         };
       }).filter((seat): seat is { minX: number; maxX: number; minY: number; maxY: number } => seat !== null);
     });
@@ -315,7 +492,12 @@ export function SeatingPlan({
         minY: Math.min(current.minY, seat.minY),
         maxY: Math.max(current.maxY, seat.maxY),
       }),
-      { minX: Number.POSITIVE_INFINITY, maxX: Number.NEGATIVE_INFINITY, minY: Number.POSITIVE_INFINITY, maxY: Number.NEGATIVE_INFINITY },
+      {
+        minX: Number.POSITIVE_INFINITY,
+        maxX: Number.NEGATIVE_INFINITY,
+        minY: Number.POSITIVE_INFINITY,
+        maxY: Number.NEGATIVE_INFINITY,
+      },
     );
 
     const targetWidth = Math.max(bounds.maxX - bounds.minX, 1);
@@ -333,7 +515,7 @@ export function SeatingPlan({
       viewport.scrollLeft = Math.max(((centerX - minX) * nextZoom) - viewport.clientWidth / 2, 0);
       viewport.scrollTop = Math.max(((centerY - minY) * nextZoom) - viewport.clientHeight / 2, 0);
     });
-  }, [highlightedGuestIdSet, isSearchActive, minX, minY, renderedPositions, workspace.tables]);
+  }, [highlightedGuestIdSet, isSearchActive, minX, minY, renderedTables, workspace.tables]);
 
   function getSvgCoordinates(clientX: number, clientY: number) {
     const svgElement = svgRef.current;
@@ -355,10 +537,9 @@ export function SeatingPlan({
   function handleTablePointerDown(
     event: ReactPointerEvent<SVGGElement>,
     tableId: string,
-    positionX: number,
-    positionY: number,
+    transform: TableRenderState,
   ) {
-    if (isDraggingGuest || event.button !== 0) {
+    if (isDraggingGuest || event.button !== 0 || rotatingTable) {
       return;
     }
 
@@ -370,15 +551,31 @@ export function SeatingPlan({
     event.preventDefault();
     setDraggedTable({
       tableId,
-      offsetX: point.x - positionX,
-      offsetY: point.y - positionY,
-      positionX,
-      positionY,
+      offsetX: point.x - transform.positionX,
+      offsetY: point.y - transform.positionY,
+      positionX: transform.positionX,
+      positionY: transform.positionY,
+      rotationDegrees: transform.rotationDegrees,
     });
   }
 
-  function clampZoom(nextZoom: number) {
-    return Math.min(Math.max(nextZoom, 0.65), 1.9);
+  function handleRotatePointerDown(
+    event: ReactPointerEvent<SVGCircleElement>,
+    tableId: string,
+    transform: TableRenderState,
+  ) {
+    if (isDraggingGuest || event.button !== 0 || draggedTable) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    setRotatingTable({
+      tableId,
+      positionX: transform.positionX,
+      positionY: transform.positionY,
+      rotationDegrees: transform.rotationDegrees,
+    });
   }
 
   function applyZoom(nextZoom: number) {
@@ -417,7 +614,11 @@ export function SeatingPlan({
     }
 
     const target = event.target as HTMLElement;
-    if (target.closest(".plan-table") || target.closest(".plan-seat-hit") || target.closest(".plan-stage__zoom-controls")) {
+    if (
+      target.closest(".plan-table") ||
+      target.closest(".plan-seat-hit") ||
+      target.closest(".plan-stage__zoom-controls")
+    ) {
       return;
     }
 
@@ -449,6 +650,20 @@ export function SeatingPlan({
     }
   }
 
+  function formatMenuLabel(menu: Guest["menu"]) {
+    switch (menu) {
+      case "carne":
+        return "Carne";
+      case "pescado":
+        return "Pescado";
+      case "vegano":
+        return "Vegano";
+      case "desconocido":
+      default:
+        return "Desconocido";
+    }
+  }
+
   function updateHoveredGuestCardPosition(clientX: number, clientY: number, guest: Guest) {
     const stageElement = stageRef.current;
     if (!stageElement) {
@@ -462,6 +677,9 @@ export function SeatingPlan({
       guestType: formatGuestTypeLabel(guest.guest_type),
       family: guest.group_id ?? "Sin familia",
       confirmedLabel: guest.confirmed ? "Confirmado" : "No confirmado",
+      seatLabel: guest.seat_index !== null ? `Silla ${guest.seat_index + 1}` : "Sin asiento",
+      intoleranceLabel: guest.intolerance || "Sin intolerancia",
+      menuLabel: formatMenuLabel(guest.menu),
       x: clientX - rect.left + 16,
       y: clientY - rect.top + 16,
     });
@@ -476,7 +694,7 @@ export function SeatingPlan({
           <p className="plan-card__lead">
             {isDraggingGuest
               ? `Desliza a ${draggedGuestName} y suéltalo directamente sobre una silla libre.`
-              : "Puedes arrastrar cada mesa para colocarla como estará en el salón real. Las sillas se recolocan con ella automáticamente."}
+              : "Puedes arrastrar cada mesa para colocarla como estará en el salón real. La mesa de novios siempre aparece arriba, con 2 asientos colocados en el mismo lado largo, y admite giro."}
           </p>
         </div>
         <div className="plan-legend">
@@ -537,217 +755,290 @@ export function SeatingPlan({
           className="plan-stage__scroll"
           onPointerDown={handleStagePointerDown}
         >
-        <div
-          className="plan-stage__viewport"
-          style={{ width: `${zoomedWidth}px`, height: `${zoomedHeight}px` }}
-        >
-          <svg
-            aria-label="Plano del salón"
-            className="plan-stage__svg"
-            ref={svgRef}
-            viewBox={`${minX} ${minY} ${width} ${height}`}
-            role="img"
+          <div
+            className="plan-stage__viewport"
             style={{ width: `${zoomedWidth}px`, height: `${zoomedHeight}px` }}
           >
-            <defs>
-              <filter id="tableShadow" x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="0" dy="10" stdDeviation="12" floodColor="rgba(87, 49, 24, 0.18)" />
-              </filter>
-            </defs>
+            <svg
+              aria-label="Plano del salón"
+              className="plan-stage__svg"
+              ref={svgRef}
+              role="img"
+              style={{ width: `${zoomedWidth}px`, height: `${zoomedHeight}px` }}
+              viewBox={`${minX} ${minY} ${width} ${height}`}
+            >
+              <defs>
+                <filter id="tableShadow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="10" floodColor="rgba(87, 49, 24, 0.18)" stdDeviation="12" />
+                </filter>
+              </defs>
 
-            {workspace.tables.map((table) => {
-            const position = renderedPositions.get(table.id) ?? {
-              positionX: table.position_x,
-              positionY: table.position_y,
-            };
-            const seatCount = Math.max(table.capacity, 1);
-            const isSelected = table.id === selectedTableId;
-            const isFull = table.available === 0;
-            const radius = 52;
-            const labelRadius = 98;
-            const guestsBySeat = buildSeatGuests(table.guests, seatCount);
-            const seats: SeatDescriptor[] = Array.from({ length: seatCount }, (_, index) => {
-              const angle = (Math.PI * 2 * index) / seatCount - Math.PI / 2;
-              const seatX = position.positionX + Math.cos(angle) * labelRadius;
-              const seatY = position.positionY + Math.sin(angle) * labelRadius;
-              const guest = guestsBySeat.get(index) ?? null;
-              const hasConflict = guest ? conflictGuestIds.has(guest.id) : false;
-              const { seatLabel, seatRadius, seatLabelFontSize } = guest
-                ? getSeatVisualMetrics(guest.name)
-                : { seatLabel: "", seatRadius: 18, seatLabelFontSize: 10 };
+              {workspace.tables.map((table) => {
+                const transform = renderedTables.get(table.id) ?? {
+                  positionX: table.position_x,
+                  positionY: table.position_y,
+                  rotationDegrees: table.rotation_degrees,
+                };
+                const seatCount = Math.max(table.capacity, 1);
+                const isSelected = table.id === selectedTableId;
+                const isFull = table.available === 0;
+                const isCouple = isCoupleTable(table);
+                const guestsBySeat = buildSeatGuests(table.guests, seatCount);
+                const seats: SeatDescriptor[] = Array.from({ length: seatCount }, (_, index) => {
+                  const seatPosition = getSeatPosition(table, transform, index, seatCount);
+                  const guest = guestsBySeat.get(index) ?? null;
+                  const hasConflict = guest ? conflictGuestIds.has(guest.id) : false;
+                  const { seatLabel, seatRadius, seatLabelFontSize } = guest
+                    ? getSeatVisualMetrics(guest.name)
+                    : { seatLabel: "", seatRadius: 18, seatLabelFontSize: 10 };
 
-              return { seatIndex: index, seatX, seatY, seatRadius, seatLabel, seatLabelFontSize, guest, hasConflict };
-            });
-
-              return (
-                <g
-                  className={`plan-table ${isSelected ? "plan-table--selected" : ""} ${draggedTable?.tableId === table.id ? "plan-table--moving" : ""}`}
-                  data-testid={`plan-table-${table.id}`}
-                  key={table.id}
-                  onClick={() => onSelectTable(table.id)}
-                  onPointerDown={(event) => handleTablePointerDown(event, table.id, position.positionX, position.positionY)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      onSelectTable(table.id);
-                    }
-                  }}
-                >
-                <circle
-                  className={`plan-table__halo ${isFull ? "plan-table__halo--full" : ""}`}
-                  cx={position.positionX}
-                  cy={position.positionY}
-                  r={74}
-                />
-                <circle
-                  className={`plan-table__disc ${isFull ? "plan-table__disc--full" : ""}`}
-                  cx={position.positionX}
-                  cy={position.positionY}
-                  filter="url(#tableShadow)"
-                  r={radius}
-                />
-                <text
-                  className="plan-table__number"
-                  textAnchor="middle"
-                  x={position.positionX}
-                  y={position.positionY - 6}
-                >
-                  {table.number}
-                </text>
-                <text
-                  className="plan-table__capacity"
-                  textAnchor="middle"
-                  x={position.positionX}
-                  y={position.positionY + 16}
-                >
-                  {table.occupied}/{table.capacity}
-                </text>
-
-                {seats.map(({ seatIndex, seatX, seatY, seatRadius, seatLabel, seatLabelFontSize, guest, hasConflict }) => {
-                  const isDropTarget =
-                    activeDropSeat?.tableId === table.id && activeDropSeat.seatIndex === seatIndex;
-                  const conflictTooltip = guest ? conflictTooltipByGuestId.get(guest.id) : null;
-                  const isSearchMatch = guest ? highlightedGuestIdSet.has(guest.id) : false;
-
-                  return (
-                    <g key={`${table.id}-seat-${seatIndex}`}>
-                      <circle
-                        className={`plan-seat ${guest ? "plan-seat--occupied" : ""} ${guest?.guest_type === "adolescente" ? "plan-seat--teen" : ""} ${guest?.guest_type === "nino" ? "plan-seat--child" : ""} ${hasConflict ? "plan-seat--conflict" : ""} ${isSearchMatch ? "plan-seat--search-match" : ""} ${isDropTarget ? "plan-seat--drop" : ""} ${isDraggingGuest && !guest ? "plan-seat--available" : ""}`}
-                        cx={seatX}
-                        cy={seatY}
-                        r={guest ? seatRadius : 18}
-                      />
-                      {guest ? (
-                        <>
-                          <title>{conflictTooltip ? `${guest.name}\n${conflictTooltip}` : guest.name}</title>
-                          <text
-                            className={`plan-seat__label ${guest.guest_type === "adolescente" ? "plan-seat__label--teen" : ""} ${guest.guest_type === "nino" ? "plan-seat__label--child" : ""} ${hasConflict ? "plan-seat__label--conflict" : ""}`}
-                            fontSize={seatLabelFontSize}
-                            textAnchor="middle"
-                            x={seatX}
-                            y={seatY + 4}
-                          >
-                            {seatLabel}
-                          </text>
-                        </>
-                      ) : null}
-                    </g>
-                  );
-                })}
-                </g>
-              );
-            })}
-          </svg>
-
-          <div className="plan-stage__drops" style={{ width: `${zoomedWidth}px`, height: `${zoomedHeight}px` }}>
-            {workspace.tables.flatMap((table) => {
-            const position = renderedPositions.get(table.id) ?? {
-              positionX: table.position_x,
-              positionY: table.position_y,
-            };
-            const seatCount = Math.max(table.capacity, 1);
-            const labelRadius = 98;
-            const guestsBySeat = buildSeatGuests(table.guests, seatCount);
-
-              return Array.from({ length: seatCount }, (_, seatIndex) => {
-              const angle = (Math.PI * 2 * seatIndex) / seatCount - Math.PI / 2;
-              const seatX = position.positionX + Math.cos(angle) * labelRadius;
-              const seatY = position.positionY + Math.sin(angle) * labelRadius;
-              const left = ((seatX - minX) / width) * 100;
-              const top = ((seatY - minY) / height) * 100;
-              const guest = guestsBySeat.get(seatIndex) ?? null;
-              const isDropTarget =
-                activeDropSeat?.tableId === table.id && activeDropSeat.seatIndex === seatIndex;
-
-                if (guest) {
-                  const { seatRadius } = getSeatVisualMetrics(guest.name);
-                  const hitSize = Math.max(seatRadius * 2 + 16, 84);
-                  return (
-                    <button
-                      aria-label={`${guest.name} en mesa ${table.number}, silla ${seatIndex + 1}`}
-                      className="plan-seat-hit plan-seat-hit--occupied"
-                      draggable
-                      key={`seat-hit-${table.id}-${seatIndex}`}
-                      onClick={() => onSelectTable(table.id)}
-                      onDragEnd={onGuestDragEnd}
-                      onDragStart={(event) => onGuestDragStart(event, guest.id)}
-                      onMouseEnter={(event) => updateHoveredGuestCardPosition(event.clientX, event.clientY, guest)}
-                      onMouseLeave={() => setHoveredGuestCard(null)}
-                      onMouseMove={(event) => updateHoveredGuestCardPosition(event.clientX, event.clientY, guest)}
-                      style={{ left: `${left}%`, top: `${top}%`, width: `${hitSize}px`, height: `${hitSize}px` }}
-                      type="button"
-                    />
-                  );
-                }
+                  return {
+                    seatIndex: index,
+                    seatX: seatPosition.x,
+                    seatY: seatPosition.y,
+                    seatRadius,
+                    seatLabel,
+                    seatLabelFontSize,
+                    guest,
+                    hasConflict,
+                  };
+                });
+                const rotateHandle = isCouple ? getCoupleRotateHandle(transform) : null;
+                const rotateTransform = `rotate(${transform.rotationDegrees} ${transform.positionX} ${transform.positionY})`;
 
                 return (
-                  <button
-                    aria-label={`Silla ${seatIndex + 1} libre en mesa ${table.number}`}
-                    className={`plan-seat-hit plan-seat-hit--empty ${isDraggingGuest ? "plan-seat-hit--visible" : ""} ${isDropTarget ? "plan-seat-hit--active" : ""}`}
-                    key={`seat-hit-${table.id}-${seatIndex}`}
+                  <g
+                    className={`plan-table ${isSelected ? "plan-table--selected" : ""} ${isDraggingTable && (draggedTable?.tableId === table.id || rotatingTable?.tableId === table.id) ? "plan-table--moving" : ""} ${isCouple ? "plan-table--couple" : ""}`}
+                    data-testid={`plan-table-${table.id}`}
+                    key={table.id}
                     onClick={() => onSelectTable(table.id)}
-                    onDragEnter={(event) => {
-                      event.preventDefault();
-                      onSeatDragEnter(table.id, seatIndex);
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        onSelectTable(table.id);
+                      }
                     }}
-                    onDragLeave={(event) => {
-                      event.preventDefault();
-                      onSeatDragLeave(table.id, seatIndex);
-                    }}
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      onSeatDragEnter(table.id, seatIndex);
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      onSeatDrop(table.id, seatIndex, event.dataTransfer.getData("text/plain") || null);
-                    }}
-                    style={{ left: `${left}%`, top: `${top}%` }}
-                    type="button"
+                    onPointerDown={(event) => handleTablePointerDown(event, table.id, transform)}
+                    role="button"
+                    tabIndex={0}
                   >
-                    {isDraggingGuest ? (
-                      <span className="plan-seat-hit__label">
-                        {isDropTarget ? "Soltar aquí" : `Mesa ${table.number}`}
-                      </span>
-                    ) : null}
-                  </button>
+                    {isCouple ? (
+                      <>
+                        <rect
+                          className={`plan-table__halo ${isFull ? "plan-table__halo--full" : ""}`}
+                          filter="url(#tableShadow)"
+                          height={COUPLE_HALO_HEIGHT}
+                          rx={32}
+                          transform={rotateTransform}
+                          width={COUPLE_HALO_WIDTH}
+                          x={transform.positionX - (COUPLE_HALO_WIDTH / 2)}
+                          y={transform.positionY - (COUPLE_HALO_HEIGHT / 2)}
+                        />
+                        <rect
+                          className={`plan-table__disc ${isFull ? "plan-table__disc--full" : ""} plan-table__disc--couple`}
+                          height={COUPLE_TABLE_HEIGHT}
+                          rx={24}
+                          transform={rotateTransform}
+                          width={COUPLE_TABLE_WIDTH}
+                          x={transform.positionX - (COUPLE_TABLE_WIDTH / 2)}
+                          y={transform.positionY - (COUPLE_TABLE_HEIGHT / 2)}
+                        />
+                        <text
+                          className="plan-table__number"
+                          textAnchor="middle"
+                          transform={rotateTransform}
+                          x={transform.positionX}
+                          y={transform.positionY - 6}
+                        >
+                          Novios
+                        </text>
+                        <text
+                          className="plan-table__capacity"
+                          textAnchor="middle"
+                          transform={rotateTransform}
+                          x={transform.positionX}
+                          y={transform.positionY + 16}
+                        >
+                          {table.occupied}/{table.capacity}
+                        </text>
+                        {isSelected && rotateHandle ? (
+                          <>
+                            <line
+                              className="plan-table__rotate-stem"
+                              x1={rotateHandle.lineX1}
+                              x2={rotateHandle.lineX2}
+                              y1={rotateHandle.lineY1}
+                              y2={rotateHandle.lineY2}
+                            />
+                            <circle
+                              aria-label="Girar mesa de novios"
+                              className="plan-table__rotate-handle"
+                              cx={rotateHandle.handleX}
+                              cy={rotateHandle.handleY}
+                              onPointerDown={(event) => handleRotatePointerDown(event, table.id, transform)}
+                              r={11}
+                            />
+                          </>
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        <circle
+                          className={`plan-table__halo ${isFull ? "plan-table__halo--full" : ""}`}
+                          cx={transform.positionX}
+                          cy={transform.positionY}
+                          r={ROUND_HALO_RADIUS}
+                        />
+                        <circle
+                          className={`plan-table__disc ${isFull ? "plan-table__disc--full" : ""}`}
+                          cx={transform.positionX}
+                          cy={transform.positionY}
+                          filter="url(#tableShadow)"
+                          r={ROUND_TABLE_RADIUS}
+                        />
+                        <text
+                          className="plan-table__number"
+                          textAnchor="middle"
+                          x={transform.positionX}
+                          y={transform.positionY - 6}
+                        >
+                          {table.number}
+                        </text>
+                        <text
+                          className="plan-table__capacity"
+                          textAnchor="middle"
+                          x={transform.positionX}
+                          y={transform.positionY + 16}
+                        >
+                          {table.occupied}/{table.capacity}
+                        </text>
+                      </>
+                    )}
+
+                    {seats.map(({ seatIndex, seatX, seatY, seatRadius, seatLabel, seatLabelFontSize, guest, hasConflict }) => {
+                      const isDropTarget =
+                        activeDropSeat?.tableId === table.id && activeDropSeat.seatIndex === seatIndex;
+                      const conflictTooltip = guest ? conflictTooltipByGuestId.get(guest.id) : null;
+                      const isSearchMatch = guest ? highlightedGuestIdSet.has(guest.id) : false;
+
+                      return (
+                        <g key={`${table.id}-seat-${seatIndex}`}>
+                          <circle
+                            className={`plan-seat ${guest ? "plan-seat--occupied" : ""} ${guest?.guest_type === "adolescente" ? "plan-seat--teen" : ""} ${guest?.guest_type === "nino" ? "plan-seat--child" : ""} ${hasConflict ? "plan-seat--conflict" : ""} ${isSearchMatch ? "plan-seat--search-match" : ""} ${isDropTarget ? "plan-seat--drop" : ""} ${isDraggingGuest && !guest ? "plan-seat--available" : ""}`}
+                            cx={seatX}
+                            cy={seatY}
+                            r={guest ? seatRadius : 18}
+                          />
+                          {guest ? (
+                            <>
+                              <title>{conflictTooltip ? `${guest.name}\n${conflictTooltip}` : guest.name}</title>
+                              <text
+                                className={`plan-seat__label ${guest.guest_type === "adolescente" ? "plan-seat__label--teen" : ""} ${guest.guest_type === "nino" ? "plan-seat__label--child" : ""} ${hasConflict ? "plan-seat__label--conflict" : ""}`}
+                                fontSize={seatLabelFontSize}
+                                textAnchor="middle"
+                                x={seatX}
+                                y={seatY + 4}
+                              >
+                                {seatLabel}
+                              </text>
+                            </>
+                          ) : null}
+                        </g>
+                      );
+                    })}
+                  </g>
                 );
-              });
-            })}
-          </div>
-          {hoveredGuestCard ? (
-            <div
-              className="plan-guest-tooltip"
-              style={{ left: `${hoveredGuestCard.x}px`, top: `${hoveredGuestCard.y}px` }}
-            >
-              <strong>{hoveredGuestCard.name}</strong>
-              <span>Tipo: {hoveredGuestCard.guestType}</span>
-              <span>Familia: {hoveredGuestCard.family}</span>
-              <span>Estado: {hoveredGuestCard.confirmedLabel}</span>
+              })}
+            </svg>
+
+            <div className="plan-stage__drops" style={{ width: `${zoomedWidth}px`, height: `${zoomedHeight}px` }}>
+              {workspace.tables.flatMap((table) => {
+                const transform = renderedTables.get(table.id) ?? {
+                  positionX: table.position_x,
+                  positionY: table.position_y,
+                  rotationDegrees: table.rotation_degrees,
+                };
+                const seatCount = Math.max(table.capacity, 1);
+                const guestsBySeat = buildSeatGuests(table.guests, seatCount);
+
+                return Array.from({ length: seatCount }, (_, seatIndex) => {
+                  const seatPosition = getSeatPosition(table, transform, seatIndex, seatCount);
+                  const left = ((seatPosition.x - minX) / width) * 100;
+                  const top = ((seatPosition.y - minY) / height) * 100;
+                  const guest = guestsBySeat.get(seatIndex) ?? null;
+                  const isDropTarget =
+                    activeDropSeat?.tableId === table.id && activeDropSeat.seatIndex === seatIndex;
+
+                  if (guest) {
+                    const { seatRadius } = getSeatVisualMetrics(guest.name);
+                    const hitSize = Math.max(seatRadius * 2 + 16, 84);
+                    return (
+                      <button
+                        aria-label={`${guest.name} en ${getTableReference(table)}, silla ${seatIndex + 1}`}
+                        className="plan-seat-hit plan-seat-hit--occupied"
+                        draggable
+                        key={`seat-hit-${table.id}-${seatIndex}`}
+                        onClick={() => onSelectTable(table.id)}
+                        onDragEnd={onGuestDragEnd}
+                        onDragStart={(event) => onGuestDragStart(event, guest.id)}
+                        onMouseEnter={(event) => updateHoveredGuestCardPosition(event.clientX, event.clientY, guest)}
+                        onMouseLeave={() => setHoveredGuestCard(null)}
+                        onMouseMove={(event) => updateHoveredGuestCardPosition(event.clientX, event.clientY, guest)}
+                        style={{ left: `${left}%`, top: `${top}%`, width: `${hitSize}px`, height: `${hitSize}px` }}
+                        type="button"
+                      />
+                    );
+                  }
+
+                  return (
+                    <button
+                      aria-label={`Silla ${seatIndex + 1} libre en ${getTableReference(table)}`}
+                      className={`plan-seat-hit plan-seat-hit--empty ${isDraggingGuest ? "plan-seat-hit--visible" : ""} ${isDropTarget ? "plan-seat-hit--active" : ""}`}
+                      key={`seat-hit-${table.id}-${seatIndex}`}
+                      onClick={() => onSelectTable(table.id)}
+                      onDragEnter={(event) => {
+                        event.preventDefault();
+                        onSeatDragEnter(table.id, seatIndex);
+                      }}
+                      onDragLeave={(event) => {
+                        event.preventDefault();
+                        onSeatDragLeave(table.id, seatIndex);
+                      }}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        onSeatDragEnter(table.id, seatIndex);
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        onSeatDrop(table.id, seatIndex, event.dataTransfer.getData("text/plain") || null);
+                      }}
+                      style={{ left: `${left}%`, top: `${top}%` }}
+                      type="button"
+                    >
+                      {isDraggingGuest ? (
+                        <span className="plan-seat-hit__label">
+                          {isDropTarget ? "Soltar aquí" : getTableLabel(table)}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                });
+              })}
             </div>
-          ) : null}
-        </div>
+            {hoveredGuestCard ? (
+              <div
+                className="plan-guest-tooltip"
+                style={{ left: `${hoveredGuestCard.x}px`, top: `${hoveredGuestCard.y}px` }}
+              >
+                <strong>{hoveredGuestCard.name}</strong>
+                <span>Asiento: {hoveredGuestCard.seatLabel}</span>
+                <span>Tipo: {hoveredGuestCard.guestType}</span>
+                <span>Intolerancias: {hoveredGuestCard.intoleranceLabel}</span>
+                <span>Menú: {hoveredGuestCard.menuLabel}</span>
+                <span>Familia: {hoveredGuestCard.family}</span>
+                <span>Estado: {hoveredGuestCard.confirmedLabel}</span>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     </section>

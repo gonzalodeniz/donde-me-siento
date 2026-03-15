@@ -18,6 +18,12 @@ LINE_COLOR = (0.45, 0.31, 0.22)
 TEXT_COLOR = (0.16, 0.12, 0.1)
 MUTED_COLOR = (0.41, 0.34, 0.29)
 ACCENT_COLOR = (0.60, 0.31, 0.14)
+ROUND_TABLE_RADIUS = 52.0
+ROUND_SEAT_RADIUS = 98.0
+COUPLE_TABLE_WIDTH = 176.0
+COUPLE_TABLE_HEIGHT = 74.0
+COUPLE_SEAT_SIDE_OFFSET_X = 38.0
+COUPLE_SEAT_SIDE_OFFSET_Y = -74.0
 
 
 def _escape_pdf_text(value: str) -> str:
@@ -28,21 +34,36 @@ def _estimated_text_width(value: str, font_size: float) -> float:
     return len(value) * font_size * 0.5
 
 
+def _split_word_to_fit(value: str, max_width: float, font_size: float) -> list[str]:
+    if not value:
+        return [""]
+    max_chars = max(1, math.floor(max_width / max(font_size * 0.5, 0.1)))
+    return [value[index : index + max_chars] for index in range(0, len(value), max_chars)]
+
+
 def _wrap_text(value: str, max_width: float, font_size: float) -> list[str]:
     words = value.split()
     if not words:
         return [""]
 
     lines: list[str] = []
-    current = words[0]
-    for word in words[1:]:
-        candidate = f"{current} {word}"
-        if _estimated_text_width(candidate, font_size) <= max_width:
-            current = candidate
-            continue
+    current = ""
+    for word in words:
+        word_parts = [word]
+        if _estimated_text_width(word, font_size) > max_width:
+            word_parts = _split_word_to_fit(word, max_width, font_size)
+        for part in word_parts:
+            if not current:
+                current = part
+                continue
+            candidate = f"{current} {part}"
+            if _estimated_text_width(candidate, font_size) <= max_width:
+                current = candidate
+                continue
+            lines.append(current)
+            current = part
+    if current:
         lines.append(current)
-        current = word
-    lines.append(current)
     return lines
 
 
@@ -96,6 +117,28 @@ class PdfDocument:
                 f"{cx - radius:.2f} {cy - kappa:.2f} {cx - kappa:.2f} {cy - radius:.2f} {cx:.2f} {cy - radius:.2f} c "
                 f"{cx + kappa:.2f} {cy - radius:.2f} {cx + radius:.2f} {cy - kappa:.2f} {cx + radius:.2f} {cy:.2f} c {operator}"
             )
+        )
+
+    def polygon(
+        self,
+        points: list[tuple[float, float]],
+        stroke: tuple[float, float, float] = LINE_COLOR,
+        fill: tuple[float, float, float] | None = None,
+    ) -> None:
+        if len(points) < 3:
+            return
+        commands = [f"{points[0][0]:.2f} {points[0][1]:.2f} m"]
+        commands.extend(f"{x:.2f} {y:.2f} l" for x, y in points[1:])
+        commands.append("h")
+        if fill is None:
+            self._current.append(
+                f"{stroke[0]:.3f} {stroke[1]:.3f} {stroke[2]:.3f} RG {' '.join(commands)} S"
+            )
+            return
+        self._current.append(
+            f"{stroke[0]:.3f} {stroke[1]:.3f} {stroke[2]:.3f} RG "
+            f"{fill[0]:.3f} {fill[1]:.3f} {fill[2]:.3f} rg "
+            f"{' '.join(commands)} B"
         )
 
     def render(self, *, repeating_header: str | None = None) -> bytes:
@@ -226,6 +269,82 @@ def _format_guest_menu(menu: GuestMenu) -> str:
     return "Desconocido"
 
 
+def _truncate_guest_name(name: str) -> str:
+    return name if len(name) <= 10 else f"{name[:9]}…"
+
+
+def _rotate_offset(offset_x: float, offset_y: float, rotation_degrees: float) -> tuple[float, float]:
+    angle = math.radians(rotation_degrees)
+    cos_value = math.cos(angle)
+    sin_value = math.sin(angle)
+    return (
+        (offset_x * cos_value) - (offset_y * sin_value),
+        (offset_x * sin_value) + (offset_y * cos_value),
+    )
+
+
+def _build_table_guest_map(event: Event, table: Table) -> dict[int, Guest]:
+    ordered_guests = sorted(
+        (guest for guest in event.guests.values() if guest.table_id == table.id),
+        key=lambda current: (
+            current.seat_index if current.seat_index is not None else 10_000,
+            current.name.casefold(),
+        ),
+    )
+    guests_by_seat: dict[int, Guest] = {}
+    for guest in ordered_guests:
+        if guest.seat_index is not None and 0 <= guest.seat_index < table.capacity and guest.seat_index not in guests_by_seat:
+            guests_by_seat[guest.seat_index] = guest
+            continue
+        for seat_index in range(table.capacity):
+            if seat_index not in guests_by_seat:
+                guests_by_seat[seat_index] = guest
+                break
+    return guests_by_seat
+
+
+def _table_seat_position(table: Table, seat_index: int, seat_count: int) -> tuple[float, float]:
+    if table.is_couple:
+        seat_spacing = 0.0 if seat_count == 1 else (((seat_index / (seat_count - 1)) * 2) - 1) * COUPLE_SEAT_SIDE_OFFSET_X
+        rotated_x, rotated_y = _rotate_offset(seat_spacing, COUPLE_SEAT_SIDE_OFFSET_Y, table.rotation_degrees)
+        return table.position_x + rotated_x, table.position_y + rotated_y
+
+    angle = (math.tau * seat_index / seat_count) - (math.pi / 2)
+    return (
+        table.position_x + math.cos(angle) * ROUND_SEAT_RADIUS,
+        table.position_y + math.sin(angle) * ROUND_SEAT_RADIUS,
+    )
+
+
+def _table_diagram_bounds(tables: list[Table]) -> tuple[float, float, float, float]:
+    points: list[tuple[float, float]] = []
+    for table in tables:
+        if table.is_couple:
+            points.extend(
+                [
+                    (table.position_x - 220.0, table.position_y - 170.0),
+                    (table.position_x + 220.0, table.position_y + 170.0),
+                ]
+            )
+        else:
+            points.extend(
+                [
+                    (table.position_x - 160.0, table.position_y - 160.0),
+                    (table.position_x + 180.0, table.position_y + 180.0),
+                ]
+            )
+
+        for seat_index in range(max(table.capacity, 1)):
+            seat_x, seat_y = _table_seat_position(table, seat_index, max(table.capacity, 1))
+            points.extend([(seat_x - 40.0, seat_y - 40.0), (seat_x + 40.0, seat_y + 40.0)])
+
+    min_x = min(point[0] for point in points)
+    max_x = max(point[0] for point in points)
+    min_y = min(point[1] for point in points)
+    max_y = max(point[1] for point in points)
+    return min_x, max_x, min_y, max_y
+
+
 def _sorted_assigned_guests(event: Event, table_by_id: dict[str, Table]) -> list[Guest]:
     return sorted(
         (guest for guest in event.guests.values() if guest.table_id is not None),
@@ -254,10 +373,7 @@ def _draw_table_diagram(pdf: PdfDocument, top: float, height: float, tables: lis
         pdf.text(box_x + 16, box_y + height - 26, "No hay mesas para representar.", size=11, color=MUTED_COLOR)
         return top + height + 12
 
-    min_x = min(table.position_x for table in tables) - 160.0
-    max_x = max(table.position_x for table in tables) + 180.0
-    min_y = min(table.position_y for table in tables) - 160.0
-    max_y = max(table.position_y for table in tables) + 180.0
+    min_x, max_x, min_y, max_y = _table_diagram_bounds(tables)
     span_x = max(max_x - min_x, 1.0)
     span_y = max(max_y - min_y, 1.0)
     padding = 24.0
@@ -271,48 +387,199 @@ def _draw_table_diagram(pdf: PdfDocument, top: float, height: float, tables: lis
         center_x = offset_x + (table.position_x - min_x) * scale
         center_y = offset_y + (max_y - table.position_y) * scale
         occupied = event.table_occupancy(table.id)
-        pdf.circle(center_x, center_y, 24, stroke=ACCENT_COLOR, fill=(1.0, 0.976, 0.945))
-        number_text = str(table.number)
+        if table.is_couple:
+            half_width = (COUPLE_TABLE_WIDTH * scale) / 2
+            half_height = (COUPLE_TABLE_HEIGHT * scale) / 2
+            corners = [
+                _rotate_offset(-half_width, -half_height, table.rotation_degrees),
+                _rotate_offset(half_width, -half_height, table.rotation_degrees),
+                _rotate_offset(half_width, half_height, table.rotation_degrees),
+                _rotate_offset(-half_width, half_height, table.rotation_degrees),
+            ]
+            pdf.polygon(
+                [(center_x + offset_x, center_y - offset_y) for offset_x, offset_y in corners],
+                stroke=ACCENT_COLOR,
+                fill=(1.0, 0.976, 0.945),
+            )
+            number_text = "Novios"
+        else:
+            pdf.circle(center_x, center_y, ROUND_TABLE_RADIUS * scale, stroke=ACCENT_COLOR, fill=(1.0, 0.976, 0.945))
+            number_text = str(table.number)
         occupancy_text = f"{occupied}/{table.capacity}"
-        pdf.text(center_x - _estimated_text_width(number_text, 11) / 2, center_y + 5, number_text, size=11, bold=True, color=ACCENT_COLOR)
+        number_size = max(9.0, min(14.0, 11.0 * scale * 1.2))
+        occupancy_size = max(6.8, min(9.0, 7.5 * scale * 1.1))
+        pdf.text(center_x - _estimated_text_width(number_text, number_size) / 2, center_y + 5, number_text, size=number_size, bold=True, color=ACCENT_COLOR)
         pdf.text(
-            center_x - _estimated_text_width(occupancy_text, 7.5) / 2,
+            center_x - _estimated_text_width(occupancy_text, occupancy_size) / 2,
             center_y - 8,
             occupancy_text,
-            size=7.5,
+            size=occupancy_size,
             color=MUTED_COLOR,
         )
+
+        guests_by_seat = _build_table_guest_map(event, table)
+        for seat_index in range(max(table.capacity, 1)):
+            seat_x, seat_y = _table_seat_position(table, seat_index, max(table.capacity, 1))
+            rendered_x = offset_x + (seat_x - min_x) * scale
+            rendered_y = offset_y + (max_y - seat_y) * scale
+            guest = guests_by_seat.get(seat_index)
+            is_conflict = guest is not None and guest.id in {
+                guest_id
+                for conflict_guest_ids in event.grouping_conflicts().values()
+                for guest_id in conflict_guest_ids
+            }
+            fill = (1.0, 0.983, 0.962)
+            stroke = (0.84, 0.76, 0.69)
+            if guest is not None:
+                if is_conflict:
+                    fill = (0.976, 0.856, 0.824)
+                    stroke = (0.72, 0.33, 0.18)
+                elif guest.guest_type is GuestType.TEEN:
+                    fill = (0.878, 0.949, 0.988)
+                    stroke = (0.33, 0.57, 0.71)
+                elif guest.guest_type is GuestType.CHILD:
+                    fill = (0.890, 0.969, 0.902)
+                    stroke = (0.36, 0.62, 0.40)
+                else:
+                    fill = (0.952, 0.916, 0.878)
+                    stroke = (0.64, 0.50, 0.40)
+
+            seat_radius = max(11.0, min(18.0, 18.0 * scale))
+            pdf.circle(rendered_x, rendered_y, seat_radius, stroke=stroke, fill=fill)
+            if guest is not None:
+                guest_label = _truncate_guest_name(guest.name)
+                label_size = max(5.6, min(8.2, 7.2 * scale))
+                pdf.text(
+                    rendered_x - _estimated_text_width(guest_label, label_size) / 2,
+                    rendered_y - (label_size / 3),
+                    guest_label,
+                    size=label_size,
+                    bold=True,
+                    color=TEXT_COLOR,
+                )
 
     return top + height + 12
 
 
-def _draw_summary_cards(pdf: PdfDocument, top: float, items: list[tuple[str, str, tuple[float, float, float]]]) -> float:
-    columns = 3
-    gap = 12.0
-    card_height = 68.0
-    card_width = (PAGE_WIDTH - PAGE_MARGIN * 2 - gap * (columns - 1)) / columns
-
-    for index, (label, value, fill) in enumerate(items):
-        row = index // columns
-        column = index % columns
-        x = PAGE_MARGIN + column * (card_width + gap)
-        y_top = top + row * (card_height + gap)
-        y = PAGE_HEIGHT - y_top - card_height
-
-        pdf.rect(x, y, card_width, card_height, stroke=(0.78, 0.69, 0.61), fill=fill)
-        pdf.text(x + 14, y + card_height - 22, label, size=9.2, color=MUTED_COLOR)
-        pdf.text(x + 14, y + 18, value, size=21, bold=True, color=ACCENT_COLOR)
-
-    rows = math.ceil(len(items) / columns)
-    return top + rows * card_height + max(0, rows - 1) * gap + 10
+def _draw_progress_bar(
+    pdf: PdfDocument,
+    *,
+    x: float,
+    y_top: float,
+    width: float,
+    height: float,
+    progress: float,
+    fill: tuple[float, float, float],
+) -> None:
+    y = PAGE_HEIGHT - y_top - height
+    pdf.rect(x, y, width, height, stroke=(0.88, 0.83, 0.78), fill=(0.962, 0.949, 0.936))
+    if progress <= 0:
+        return
+    pdf.rect(x, y, width * min(max(progress, 0.0), 1.0), height, stroke=fill, fill=fill)
 
 
-def _estimate_summary_cards_height(item_count: int) -> float:
-    columns = 3
-    gap = 12.0
-    card_height = 68.0
-    rows = math.ceil(item_count / columns)
-    return rows * card_height + max(0, rows - 1) * gap + 10
+def _draw_summary_dashboard(
+    pdf: PdfDocument,
+    top: float,
+    *,
+    total_guests: int,
+    seated_guests: int,
+    confirmed_guests: int,
+    unconfirmed_guests: int,
+    adult_guests: int,
+    teen_guests: int,
+    child_guests: int,
+    meat_menu_guests: int,
+    fish_menu_guests: int,
+    vegetarian_menu_guests: int,
+    unknown_menu_guests: int,
+    full_tables: int,
+    conflict_count: int,
+    occupancy_average: int,
+) -> float:
+    panel_x = PAGE_MARGIN
+    panel_width = PAGE_WIDTH - PAGE_MARGIN * 2
+    panel_height = 412.0
+    panel_y = PAGE_HEIGHT - top - panel_height
+    pdf.rect(panel_x, panel_y, panel_width, panel_height, stroke=(0.81, 0.72, 0.65), fill=(0.992, 0.986, 0.979))
+
+    section_gap = 16.0
+    section_padding_x = 16.0
+    inner_x = panel_x + section_padding_x
+    inner_width = panel_width - section_padding_x * 2
+    current_top = top + 18.0
+
+    def draw_section_header(title: str) -> None:
+        nonlocal current_top
+        pdf.text(inner_x, PAGE_HEIGHT - current_top, title.upper(), size=8.1, bold=True, color=MUTED_COLOR)
+        current_top += 16.0
+
+    def draw_separator() -> None:
+        nonlocal current_top
+        line_y = PAGE_HEIGHT - current_top
+        pdf.line(inner_x, line_y, inner_x + inner_width, line_y, width=0.8, color=(0.87, 0.80, 0.74))
+        current_top += section_gap
+
+    draw_section_header("Ubicación y asistencia")
+    seating_progress = seated_guests / max(total_guests, 1)
+    confirmation_progress = confirmed_guests / max(total_guests, 1)
+    pdf.text(inner_x, PAGE_HEIGHT - current_top, f"{seated_guests} de {total_guests} invitados sentados", size=12.2, bold=True, color=TEXT_COLOR)
+    current_top += 20.0
+    _draw_progress_bar(pdf, x=inner_x, y_top=current_top, width=inner_width, height=10.0, progress=seating_progress, fill=(0.20, 0.35, 0.32))
+    current_top += 21.0
+    pdf.text(inner_x, PAGE_HEIGHT - current_top, f"{round(seating_progress * 100)}% del salón ubicado", size=8.8, color=MUTED_COLOR)
+    current_top += 20.0
+    pdf.text(inner_x, PAGE_HEIGHT - current_top, f"{confirmed_guests} confirmados · {unconfirmed_guests} pendientes", size=10.6, bold=True, color=TEXT_COLOR)
+    current_top += 17.0
+    _draw_progress_bar(pdf, x=inner_x, y_top=current_top, width=inner_width, height=6.0, progress=confirmation_progress, fill=(0.42, 0.58, 0.53))
+    current_top += 22.0
+
+    draw_separator()
+    draw_section_header("Composición de invitados")
+    pill_y = PAGE_HEIGHT - current_top - 20.0
+    pill_width = (inner_width - 12.0) / 3
+    compositions = [
+        ("Adultos", adult_guests, (0.87, 0.80, 0.73)),
+        ("Adolescentes", teen_guests, (0.52, 0.74, 0.84)),
+        ("Niños", child_guests, (0.58, 0.83, 0.62)),
+    ]
+    for index, (label, value, fill) in enumerate(compositions):
+        x = inner_x + index * (pill_width + 6.0)
+        pdf.rect(x, pill_y, pill_width, 20.0, stroke=fill, fill=(0.992, 0.986, 0.979))
+        pdf.circle(x + 9.0, pill_y + 10.0, 3.1, stroke=fill, fill=fill)
+        pdf.text(x + 17.0, pill_y + 6.0, f"{value} {label}", size=9.0, bold=True, color=TEXT_COLOR)
+    current_top += 34.0
+
+    draw_separator()
+    draw_section_header("Menús y dietas")
+    menu_rows = [
+        ("Carnes", meat_menu_guests, False),
+        ("Pescados", fish_menu_guests, False),
+        ("Vegetarianos", vegetarian_menu_guests, False),
+        ("Por definir", unknown_menu_guests, True),
+    ]
+    for label, value, is_alert in menu_rows:
+        color = (0.63, 0.29, 0.16) if is_alert else TEXT_COLOR
+        pdf.text(inner_x, PAGE_HEIGHT - current_top, label, size=9.5, color=MUTED_COLOR if not is_alert else color)
+        value_text = str(value)
+        pdf.text(inner_x + inner_width - _estimated_text_width(value_text, 9.8), PAGE_HEIGHT - current_top, value_text, size=9.8, bold=True, color=color)
+        current_top += 16.0
+
+    draw_separator()
+    draw_section_header("Estado de las mesas")
+    table_rows = [
+        ("Mesas completas", full_tables, False),
+        ("Ubicaciones por revisar", conflict_count, True),
+        ("Ocupación media", f"{occupancy_average}%", False),
+    ]
+    for label, value, is_alert in table_rows:
+        color = (0.63, 0.29, 0.16) if is_alert else TEXT_COLOR
+        pdf.text(inner_x, PAGE_HEIGHT - current_top, label, size=9.5, color=MUTED_COLOR if not is_alert else color)
+        value_text = str(value)
+        pdf.text(inner_x + inner_width - _estimated_text_width(value_text, 9.8), PAGE_HEIGHT - current_top, value_text, size=9.8, bold=True, color=color)
+        current_top += 16.0
+
+    return top + panel_height + 10.0
 
 
 def _draw_data_table(
@@ -428,32 +695,37 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
     layout.cursor_top = TOP_CONTENT_MARGIN + 52
 
     layout.section_title("Resumen del banquete", underline=False)
-    summary_cards = [
-        ("Total invitados", str(len(event.guests)), (0.995, 0.987, 0.975)),
-        ("Invitados sentados", str(validation["assigned_guests"]), (0.967, 0.986, 0.972)),
-        ("Invitados sin sentar", str(validation["unassigned_guests"]), (0.994, 0.973, 0.952)),
-        ("Total mesas", str(len(tables)), (0.984, 0.979, 0.996)),
-        ("Mesas completas", str(full_tables), (0.976, 0.956, 0.935)),
-        ("Ubicaciones por revisar", str(len(conflict_groups)), (0.998, 0.947, 0.937)),
-        ("Ocupación media", f"{occupancy_average}%", (0.949, 0.971, 0.991)),
-        ("Confirmados", str(confirmed_guests), (0.958, 0.985, 0.969)),
-        ("Sin confirmar", str(unconfirmed_guests), (0.995, 0.967, 0.949)),
-        ("Adultos", str(adult_guests), (0.986, 0.975, 0.954)),
-        ("Adolescentes", str(teen_guests), (0.942, 0.972, 0.991)),
-        ("Niños", str(child_guests), (0.947, 0.984, 0.952)),
-        ("Comen pescado", str(fish_menu_guests), (0.943, 0.974, 0.992)),
-        ("Comen carne", str(meat_menu_guests), (0.988, 0.965, 0.941)),
-        ("Vegetarianos", str(vegetarian_menu_guests), (0.949, 0.984, 0.952)),
-        ("Menú desconocido", str(unknown_menu_guests), (0.978, 0.975, 0.949)),
-    ]
-    layout.ensure_space(_estimate_summary_cards_height(len(summary_cards)))
-    layout.cursor_top = _draw_summary_cards(pdf, layout.cursor_top, summary_cards)
-    layout.cursor_top += 20
+    layout.ensure_space(440)
+    layout.cursor_top = _draw_summary_dashboard(
+        pdf,
+        layout.cursor_top,
+        total_guests=len(event.guests),
+        seated_guests=validation["assigned_guests"],
+        confirmed_guests=confirmed_guests,
+        unconfirmed_guests=unconfirmed_guests,
+        adult_guests=adult_guests,
+        teen_guests=teen_guests,
+        child_guests=child_guests,
+        meat_menu_guests=meat_menu_guests,
+        fish_menu_guests=fish_menu_guests,
+        vegetarian_menu_guests=vegetarian_menu_guests,
+        unknown_menu_guests=unknown_menu_guests,
+        full_tables=full_tables,
+        conflict_count=len(conflict_groups),
+        occupancy_average=occupancy_average,
+    )
+    layout.pdf.new_page()
+    layout.cursor_top = TOP_CONTENT_MARGIN
 
-    layout.section_title("Diagrama de mesas", underline=False)
-    layout.ensure_space(255)
-    layout.cursor_top = _draw_table_diagram(pdf, layout.cursor_top, 240, tables, event)
-    layout.cursor_top += 18
+    layout.section_title("Plano completo del salón", underline=False)
+    layout.text_block(
+        "Distribución completa de mesas, sillas e invitados según el panel interactivo.",
+        size=10,
+        color=MUTED_COLOR,
+        gap_after=8,
+    )
+    full_diagram_height = PAGE_HEIGHT - layout.cursor_top - BOTTOM_MARGIN
+    layout.cursor_top = _draw_table_diagram(pdf, layout.cursor_top, full_diagram_height, tables, event)
     layout.pdf.new_page()
     layout.cursor_top = TOP_CONTENT_MARGIN
 
@@ -475,7 +747,7 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
         layout,
         ["Invitado", "Familia", "Mesa", "Tipo", "Asistencia", "Intolerancia", "Menú"],
         assigned_rows,
-        [0.19, 0.16, 0.10, 0.12, 0.13, 0.18, 0.12],
+        [0.18, 0.15, 0.10, 0.11, 0.13, 0.17, 0.16],
         "No hay invitados ubicados.",
     )
 
@@ -508,14 +780,14 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
         for group_id, guest_ids in sorted(conflict_groups.items(), key=lambda item: item[0].casefold()):
             for guest_id in sorted(guest_ids, key=lambda current_id: guest_by_id[current_id].name.casefold()):
                 guest = guest_by_id[guest_id]
-                table_number = table_by_id[guest.table_id].number if guest.table_id else "-"
+                table_label = table_by_id[guest.table_id].display_name if guest.table_id else "-"
                 conflict_rows.append(
                     [
                         guest.name,
                         guest.intolerance or "-",
                         _format_guest_menu(guest.menu),
                         group_id,
-                        f"Mesa {table_number}",
+                        table_label.title() if table_label != "-" else "-",
                     ]
                 )
     _draw_data_table(

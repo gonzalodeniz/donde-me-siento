@@ -27,6 +27,13 @@ class GuestMenu(StrEnum):
     VEGAN = "vegano"
 
 
+class TableKind(StrEnum):
+    """Tipos de mesa soportados en el salón."""
+
+    ROUND = "round"
+    COUPLE = "couple"
+
+
 @dataclass(slots=True)
 class Table:
     """Mesa del evento."""
@@ -36,10 +43,30 @@ class Table:
     capacity: int
     position_x: float
     position_y: float
+    kind: TableKind = TableKind.ROUND
+    rotation_degrees: float = 0.0
 
     def __post_init__(self) -> None:
         if self.capacity <= 0:
             raise DomainError("La capacidad de una mesa debe ser mayor que cero.")
+        self.rotation_degrees = self._normalize_rotation(self.rotation_degrees)
+
+    @property
+    def is_couple(self) -> bool:
+        return self.kind is TableKind.COUPLE
+
+    @property
+    def display_name(self) -> str:
+        return "mesa de novios" if self.is_couple else f"mesa {self.number}"
+
+    @staticmethod
+    def _normalize_rotation(rotation_degrees: float) -> float:
+        normalized = float(rotation_degrees) % 360.0
+        if normalized > 180.0:
+            normalized -= 360.0
+        if normalized <= -180.0:
+            normalized += 360.0
+        return normalized
 
 
 @dataclass(slots=True)
@@ -80,6 +107,11 @@ class Event:
     GRID_SPACING_X = 280.0
     GRID_SPACING_Y = 280.0
     DUPLICATE_OFFSET = 120.0
+    COUPLE_TABLE_ID = "table-couple"
+    COUPLE_TABLE_NUMBER = 0
+    COUPLE_TABLE_CAPACITY = 2
+    COUPLE_TABLE_POSITION_X = 600.0
+    COUPLE_TABLE_POSITION_Y = 90.0
 
     def __post_init__(self) -> None:
         normalized_name = self.name.strip()
@@ -94,6 +126,7 @@ class Event:
             raise DomainError("El numero de mesas debe ser mayor que cero.")
 
         self.tables.clear()
+        self._ensure_couple_table()
         created_tables: list[Table] = []
 
         for index in range(count):
@@ -110,13 +143,15 @@ class Event:
         return created_tables
 
     def add_table(self) -> Table:
-        next_number = max((table.number for table in self.tables.values()), default=0) + 1
+        self._ensure_couple_table()
+        next_number = self._next_round_table_number()
+        next_index = len(self._round_tables())
         table = Table(
             id=f"table-{next_number}",
             number=next_number,
             capacity=self.default_table_capacity,
-            position_x=self._table_position_x(next_number - 1, next_number),
-            position_y=self._table_position_y(next_number - 1, next_number),
+            position_x=self._table_position_x(next_index, next_index + 1),
+            position_y=self._table_position_y(next_index, next_index + 1),
         )
         self.tables[table.id] = table
         return table
@@ -125,8 +160,9 @@ class Event:
         if count <= 0:
             raise DomainError("El numero de mesas debe ser mayor que cero.")
 
-        next_number = max((table.number for table in self.tables.values()), default=0) + 1
-        total_count = len(self.tables) + count
+        self._ensure_couple_table()
+        next_number = self._next_round_table_number()
+        total_count = len(self._round_tables()) + count
         normalized_capacity = capacity if capacity is not None else self.default_table_capacity
         if normalized_capacity <= 0:
             raise DomainError("La capacidad de las mesas debe ser mayor que cero.")
@@ -151,6 +187,8 @@ class Event:
 
     def duplicate_table(self, table_id: str) -> Table:
         source_table = self._get_table(table_id)
+        if source_table.is_couple:
+            raise DomainError("La mesa de novios no se puede duplicar.")
         duplicated = self.add_tables(1, source_table.capacity)[0]
         duplicated.position_x = source_table.position_x + self.DUPLICATE_OFFSET
         duplicated.position_y = source_table.position_y + self.DUPLICATE_OFFSET
@@ -158,28 +196,31 @@ class Event:
 
     def remove_table(self, table_id: str) -> None:
         table = self._get_table(table_id)
-        if len(self.tables) == 1:
-            raise DomainError("El salón debe conservar al menos una mesa.")
+        if table.is_couple:
+            raise DomainError("La mesa de novios siempre debe permanecer en el salón.")
         if self.table_occupancy(table.id) > 0:
             raise DomainError("No se puede retirar una mesa con invitados asignados.")
 
-        remaining_tables = [
+        couple_table = self._ensure_couple_table()
+        remaining_round_tables = [
             current_table
-            for current_table in sorted(self.tables.values(), key=lambda current: current.number)
-            if current_table.id != table_id
+            for current_table in self._round_tables()
+            if current_table.id != table.id
         ]
 
         id_map: dict[str, str] = {}
-        rebuilt_tables: dict[str, Table] = {}
-        for index, current_table in enumerate(remaining_tables):
+        rebuilt_tables: dict[str, Table] = {couple_table.id: couple_table}
+        for index, current_table in enumerate(remaining_round_tables):
             new_id = f"table-{index + 1}"
             id_map[current_table.id] = new_id
             rebuilt_tables[new_id] = Table(
                 id=new_id,
                 number=index + 1,
                 capacity=current_table.capacity,
-                position_x=self._table_position_x(index, len(remaining_tables)),
-                position_y=self._table_position_y(index, len(remaining_tables)),
+                position_x=current_table.position_x,
+                position_y=current_table.position_y,
+                kind=current_table.kind,
+                rotation_degrees=current_table.rotation_degrees,
             )
 
         for guest in self.guests.values():
@@ -251,6 +292,8 @@ class Event:
 
     def update_table_capacity(self, table_id: str, capacity: int) -> Table:
         table = self._get_table(table_id)
+        if table.is_couple:
+            raise DomainError("La mesa de novios siempre tiene exactamente 2 asientos.")
         if capacity <= 0:
             raise DomainError("La capacidad de la mesa debe ser mayor que cero.")
         if self.table_occupancy(table.id) > capacity:
@@ -262,6 +305,18 @@ class Event:
         table = self._get_table(table_id)
         table.position_x = position_x
         table.position_y = position_y
+        return table
+
+    def update_table_transform(
+        self,
+        table_id: str,
+        position_x: float,
+        position_y: float,
+        rotation_degrees: float | None = None,
+    ) -> Table:
+        table = self.update_table_position(table_id, position_x, position_y)
+        if rotation_degrees is not None:
+            table.rotation_degrees = Table._normalize_rotation(rotation_degrees)
         return table
 
     def guests_with_table(self) -> list[Guest]:
@@ -316,6 +371,7 @@ class Event:
         return conflicts
 
     def validate_state(self) -> dict[str, object]:
+        self._ensure_couple_table()
         return {
             "grouping_conflicts": self.grouping_conflicts(),
             "tables": self.table_summary(),
@@ -342,12 +398,12 @@ class Event:
             for candidate in range(table.capacity):
                 if candidate not in occupied_seats:
                     return candidate
-            raise DomainError(f"La mesa {table.number} no tiene asientos libres.")
+            raise DomainError(f"La {table.display_name} no tiene asientos libres.")
 
         if seat_index < 0 or seat_index >= table.capacity:
-            raise DomainError(f"La silla seleccionada no existe en la mesa {table.number}.")
+            raise DomainError(f"La silla seleccionada no existe en la {table.display_name}.")
         if seat_index in occupied_seats:
-            raise DomainError(f"La silla seleccionada de la mesa {table.number} ya está ocupada.")
+            raise DomainError(f"La silla seleccionada de la {table.display_name} ya está ocupada.")
 
         return seat_index
 
@@ -356,6 +412,43 @@ class Event:
             return self.tables[table_id]
         except KeyError as exc:
             raise DomainError(f"No existe la mesa '{table_id}'.") from exc
+
+    def _next_round_table_number(self) -> int:
+        return max((table.number for table in self._round_tables()), default=0) + 1
+
+    def _round_tables(self) -> list[Table]:
+        return sorted(
+            (table for table in self.tables.values() if not table.is_couple),
+            key=lambda current: current.number,
+        )
+
+    def _ensure_couple_table(self) -> Table:
+        couple_tables = [table for table in self.tables.values() if table.is_couple or table.id == self.COUPLE_TABLE_ID]
+        if len(couple_tables) > 1:
+            raise DomainError("Solo puede existir una mesa de novios en el salón.")
+        if couple_tables:
+            couple_table = couple_tables[0]
+            couple_table.id = self.COUPLE_TABLE_ID
+            couple_table.number = self.COUPLE_TABLE_NUMBER
+            couple_table.capacity = self.COUPLE_TABLE_CAPACITY
+            couple_table.kind = TableKind.COUPLE
+            couple_table.rotation_degrees = Table._normalize_rotation(couple_table.rotation_degrees)
+            self.tables = {
+                table.id: table
+                for table in [couple_table, *self._round_tables()]
+            }
+            return couple_table
+
+        couple_table = Table(
+            id=self.COUPLE_TABLE_ID,
+            number=self.COUPLE_TABLE_NUMBER,
+            capacity=self.COUPLE_TABLE_CAPACITY,
+            position_x=self.COUPLE_TABLE_POSITION_X,
+            position_y=self.COUPLE_TABLE_POSITION_Y,
+            kind=TableKind.COUPLE,
+        )
+        self.tables[couple_table.id] = couple_table
+        return couple_table
 
     @staticmethod
     def _table_position_x(index: int, count: int) -> float:

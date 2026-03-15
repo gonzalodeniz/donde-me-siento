@@ -67,7 +67,10 @@ async def test_workspace_endpoint_returns_default_singleton(client: AsyncClient)
     payload = response.json()
     assert payload["event_id"] == "workspace-main"
     assert payload["name"] == "Workspace principal"
-    assert len(payload["tables"]) == 8
+    assert len(payload["tables"]) == 9
+    assert payload["tables"][0]["id"] == "table-couple"
+    assert payload["tables"][0]["table_kind"] == "couple"
+    assert payload["tables"][0]["capacity"] == 2
 
 
 @pytest.mark.anyio
@@ -213,8 +216,8 @@ async def test_tables_summary_and_capacity_update_flow(client: AsyncClient) -> N
     summary_response = await client.get("/api/tables/summary")
     assert summary_response.status_code == 200
     summary = summary_response.json()
-    assert summary[0]["table_id"] == "table-1"
-    assert summary[0]["occupied"] == 2
+    assert summary[1]["table_id"] == "table-1"
+    assert summary[1]["occupied"] == 2
 
     update_capacity_response = await client.put(
         "/api/tables/table-1",
@@ -226,7 +229,7 @@ async def test_tables_summary_and_capacity_update_flow(client: AsyncClient) -> N
 
     validation_response = await client.get("/api/validation")
     assert validation_response.status_code == 200
-    updated_summary = validation_response.json()["tables"][0]
+    updated_summary = validation_response.json()["tables"][1]
     assert updated_summary["capacity"] == 6
     assert updated_summary["occupied"] == 2
     assert updated_summary["available"] == 4
@@ -244,7 +247,7 @@ async def test_create_table_and_update_default_capacity_flow(client: AsyncClient
     create_table_response = await client.post("/api/tables")
     assert create_table_response.status_code == 201
     payload = create_table_response.json()
-    assert len(payload["tables"]) == 9
+    assert len(payload["tables"]) == 10
 
     created_table = next(table for table in payload["tables"] if table["id"] == "table-9")
     assert created_table["number"] == 9
@@ -259,6 +262,30 @@ async def test_create_table_and_update_default_capacity_flow(client: AsyncClient
 
 
 @pytest.mark.anyio
+async def test_couple_table_cannot_be_removed_and_can_rotate(client: AsyncClient) -> None:
+    rotate_response = await client.put(
+        "/api/tables/table-couple/position",
+        json={"position_x": 520, "position_y": 64, "rotation_degrees": 30},
+    )
+
+    assert rotate_response.status_code == 200
+    updated_table = next(table for table in rotate_response.json()["tables"] if table["id"] == "table-couple")
+    assert updated_table["position_x"] == 520
+    assert updated_table["position_y"] == 64
+    assert updated_table["rotation_degrees"] == 30
+    assert updated_table["table_kind"] == "couple"
+    assert updated_table["capacity"] == 2
+
+    delete_response = await client.delete("/api/tables/table-couple")
+    assert delete_response.status_code == 400
+    assert "mesa de novios" in delete_response.json()["detail"]
+
+    capacity_response = await client.put("/api/tables/table-couple", json={"capacity": 4})
+    assert capacity_response.status_code == 400
+    assert "exactamente 2 asientos" in capacity_response.json()["detail"]
+
+
+@pytest.mark.anyio
 async def test_batch_create_and_duplicate_table_flow(client: AsyncClient) -> None:
     batch_response = await client.post(
         "/api/tables/batch",
@@ -267,7 +294,7 @@ async def test_batch_create_and_duplicate_table_flow(client: AsyncClient) -> Non
     assert batch_response.status_code == 201
     batch_payload = batch_response.json()
     assert batch_payload["default_table_capacity"] == 9
-    assert len(batch_payload["tables"]) == 10
+    assert len(batch_payload["tables"]) == 11
     assert batch_payload["tables"][-1]["id"] == "table-10"
     assert batch_payload["tables"][-1]["capacity"] == 9
 
@@ -342,12 +369,13 @@ async def test_reset_workspace_clears_tables_and_guests(client: AsyncClient) -> 
 
     reset_response = await client.post("/api/workspace/reset")
     assert reset_response.status_code == 200
-    assert reset_response.json()["tables"] == []
+    assert [table["id"] for table in reset_response.json()["tables"]] == ["table-couple"]
     assert reset_response.json()["guests"] == []
 
     workspace_response = await client.get("/api/workspace")
     assert workspace_response.status_code == 200
-    assert workspace_response.json()["tables"] == []
+    assert [table["id"] for table in workspace_response.json()["tables"]] == ["table-couple"]
+    assert workspace_response.json()["tables"][0]["capacity"] == 2
     assert workspace_response.json()["guests"]["assigned"] == []
     assert workspace_response.json()["guests"]["unassigned"] == []
 
@@ -377,8 +405,9 @@ async def test_delete_table_rejects_occupied_and_reorders_empty_tables(client: A
     empty_delete_response = await client.delete("/api/tables/table-3")
     assert empty_delete_response.status_code == 200
     payload = empty_delete_response.json()
-    assert len(payload["tables"]) == 7
+    assert len(payload["tables"]) == 8
     assert [table["id"] for table in payload["tables"]] == [
+        "table-couple",
         "table-1",
         "table-2",
         "table-3",
@@ -431,8 +460,12 @@ async def test_workspace_endpoint_returns_aggregated_state_for_frontend(client: 
     assert [guest["id"] for guest in workspace["guests"]["assigned"]] == ["guest-1", "guest-2"]
     assert [guest["id"] for guest in workspace["guests"]["unassigned"]] == ["guest-3"]
 
-    first_table = workspace["tables"][0]
-    second_table = workspace["tables"][1]
+    couple_table = workspace["tables"][0]
+    first_table = workspace["tables"][1]
+    second_table = workspace["tables"][2]
+    assert couple_table["id"] == "table-couple"
+    assert couple_table["table_kind"] == "couple"
+    assert couple_table["capacity"] == 2
     assert first_table["id"] == "table-1"
     assert first_table["occupied"] == 1
     assert [guest["id"] for guest in first_table["guests"]] == ["guest-1"]
