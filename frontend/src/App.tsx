@@ -54,7 +54,7 @@ type TablePosition = {
 type GuestEditableField = "name" | "confirmed" | "type" | "intolerance" | "menu" | "group" | "table" | "seat";
 type PanelKey = "salon" | "summary" | "sessions" | "unassigned" | "assigned" | "conflicts" | "guestImport";
 type GuestTablePageKey = "unassigned" | "assigned" | "conflicts";
-type UnassignedGuestColumnKey = "confirmed" | "type" | "group";
+type UnassignedGuestColumnKey = "confirmed" | "type" | "group" | "food";
 type SortDirection = "asc" | "desc";
 type SortTableKey = "sessions" | "unassigned" | "assigned" | "conflicts" | "guestImport";
 type SortState = {
@@ -445,6 +445,7 @@ export function App() {
     confirmed: true,
     type: true,
     group: true,
+    food: true,
   });
   const [tableSorts, setTableSorts] = useState<Record<SortTableKey, SortState>>({
     sessions: { column: "created_at", direction: "desc" },
@@ -2570,6 +2571,14 @@ export function App() {
                     >
                       Familia
                     </button>
+                    <button
+                      aria-pressed={visibleUnassignedColumns.food}
+                      className={`guest-table-visibility__toggle ${visibleUnassignedColumns.food ? "guest-table-visibility__toggle--active" : ""}`}
+                      onClick={() => toggleUnassignedColumn("food")}
+                      type="button"
+                    >
+                      Comida
+                    </button>
                   </div>
                   <div
                     className={`guest-table-shell ${isUnassignedDropActive ? "guest-table-shell--drop-active" : ""}`}
@@ -2587,8 +2596,8 @@ export function App() {
                               {visibleUnassignedColumns.confirmed ? <th>{renderSortableHeader("unassigned", "confirmed", "Asistencia")}</th> : null}
                               {visibleUnassignedColumns.type ? <th>{renderSortableHeader("unassigned", "type", "Tipo")}</th> : null}
                               {visibleUnassignedColumns.group ? <th>{renderSortableHeader("unassigned", "group", "Familia")}</th> : null}
-                              <th>{renderSortableHeader("unassigned", "intolerance", "Intolerancia")}</th>
-                              <th>{renderSortableHeader("unassigned", "menu", "Menú")}</th>
+                              {visibleUnassignedColumns.food ? <th>{renderSortableHeader("unassigned", "intolerance", "Intolerancia")}</th> : null}
+                              {visibleUnassignedColumns.food ? <th>{renderSortableHeader("unassigned", "menu", "Menú")}</th> : null}
                               <th>{renderSortableHeader("unassigned", "table", "Mesa")}</th>
                               <th>{renderSortableHeader("unassigned", "seat", "Asiento")}</th>
                               <th aria-label="Eliminar invitado" className="guest-table__action-column" />
@@ -2683,43 +2692,47 @@ export function App() {
                                       )}
                                     </td>
                                   ) : null}
-                                  <td>
-                                    {editingGuestId === guest.id && editingGuestField === "intolerance" ? (
-                                      <input
-                                        autoFocus
-                                        className="guest-table__input"
-                                        onBlur={handleGuestEditBlur}
-                                        onChange={(event) => setEditingGuestIntolerance(event.target.value)}
-                                        onKeyDown={handleGuestEditKeyDown}
-                                        value={editingGuestIntolerance}
-                                      />
-                                    ) : (
-                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "intolerance")} type="button">
-                                        {guest.intolerance || "Sin intolerancia"}
-                                      </button>
-                                    )}
-                                  </td>
-                                  <td>
-                                    {editingGuestId === guest.id && editingGuestField === "menu" ? (
-                                      <select
-                                        autoFocus
-                                        className="guest-table__select"
-                                        onBlur={handleGuestEditBlur}
-                                        onChange={(event) => setEditingGuestMenu(event.target.value)}
-                                        onKeyDown={handleGuestEditKeyDown}
-                                        value={editingGuestMenu}
-                                      >
-                                        <option value="desconocido">Desconocido</option>
-                                        <option value="carne">Carne</option>
-                                        <option value="pescado">Pescado</option>
-                                        <option value="vegano">Vegano</option>
-                                      </select>
-                                    ) : (
-                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "menu")} type="button">
-                                        {formatMenuLabel(guest.menu)}
-                                      </button>
-                                    )}
-                                  </td>
+                                  {visibleUnassignedColumns.food ? (
+                                    <td>
+                                      {editingGuestId === guest.id && editingGuestField === "intolerance" ? (
+                                        <input
+                                          autoFocus
+                                          className="guest-table__input"
+                                          onBlur={handleGuestEditBlur}
+                                          onChange={(event) => setEditingGuestIntolerance(event.target.value)}
+                                          onKeyDown={handleGuestEditKeyDown}
+                                          value={editingGuestIntolerance}
+                                        />
+                                      ) : (
+                                        <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "intolerance")} type="button">
+                                          {guest.intolerance || "Sin intolerancia"}
+                                        </button>
+                                      )}
+                                    </td>
+                                  ) : null}
+                                  {visibleUnassignedColumns.food ? (
+                                    <td>
+                                      {editingGuestId === guest.id && editingGuestField === "menu" ? (
+                                        <select
+                                          autoFocus
+                                          className="guest-table__select"
+                                          onBlur={handleGuestEditBlur}
+                                          onChange={(event) => setEditingGuestMenu(event.target.value)}
+                                          onKeyDown={handleGuestEditKeyDown}
+                                          value={editingGuestMenu}
+                                        >
+                                          <option value="desconocido">Desconocido</option>
+                                          <option value="carne">Carne</option>
+                                          <option value="pescado">Pescado</option>
+                                          <option value="vegano">Vegano</option>
+                                        </select>
+                                      ) : (
+                                        <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "menu")} type="button">
+                                          {formatMenuLabel(guest.menu)}
+                                        </button>
+                                      )}
+                                    </td>
+                                  ) : null}
                                   <td>
                                     {editingGuestId === guest.id && editingGuestField === "table" ? (
                                       <select
