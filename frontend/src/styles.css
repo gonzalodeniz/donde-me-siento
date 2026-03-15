@@ -1536,13 +1536,19 @@ select {
   stroke: rgba(154, 79, 36, 0.7);
   stroke-width: 3.4;
   opacity: 1;
-  transform: scale(1.04);
 }
 
 .plan-table--selected .plan-table__disc {
   fill: rgba(255, 248, 237, 0.98);
   stroke: rgba(154, 79, 36, 0.92);
   stroke-width: 3;
+}
+
+.plan-table--selected:not(.plan-table--couple) .plan-table__halo {
+  transform: scale(1.04);
+}
+
+.plan-table--selected:not(.plan-table--couple) .plan-table__disc {
   transform: translateY(-1px);
 }
 
