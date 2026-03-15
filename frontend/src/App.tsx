@@ -55,6 +55,7 @@ type GuestEditableField = "name" | "confirmed" | "type" | "intolerance" | "menu"
 type PanelKey = "salon" | "summary" | "sessions" | "unassigned" | "assigned" | "conflicts" | "guestImport";
 type GuestTablePageKey = "unassigned" | "assigned" | "conflicts";
 type UnassignedGuestColumnKey = "confirmed" | "type" | "group" | "food" | "table";
+type AssignedGuestColumnKey = "confirmed" | "type" | "group" | "food" | "table";
 type SortDirection = "asc" | "desc";
 type SortTableKey = "sessions" | "unassigned" | "assigned" | "conflicts" | "guestImport";
 type SortState = {
@@ -442,6 +443,13 @@ export function App() {
     conflicts: 1,
   });
   const [visibleUnassignedColumns, setVisibleUnassignedColumns] = useState<Record<UnassignedGuestColumnKey, boolean>>({
+    confirmed: true,
+    type: true,
+    group: true,
+    food: false,
+    table: false,
+  });
+  const [visibleAssignedColumns, setVisibleAssignedColumns] = useState<Record<AssignedGuestColumnKey, boolean>>({
     confirmed: true,
     type: true,
     group: true,
@@ -1501,6 +1509,10 @@ export function App() {
 
   function toggleUnassignedColumn(column: UnassignedGuestColumnKey) {
     setVisibleUnassignedColumns((current) => ({ ...current, [column]: !current[column] }));
+  }
+
+  function toggleAssignedColumn(column: AssignedGuestColumnKey) {
+    setVisibleAssignedColumns((current) => ({ ...current, [column]: !current[column] }));
   }
 
   function setGuestTablePage(panel: GuestTablePageKey, page: number) {
@@ -2991,8 +3003,49 @@ export function App() {
                 <div className="guest-salon__section-header">
                   <div>
                     <h4>Ya ubicados</h4>
-                    <p>Vista densa para revisar rápidamente mesa, familia y acciones.</p>
                   </div>
+                </div>
+                <div className="guest-table-visibility" role="group" aria-label="Mostrar columnas en invitados ubicados">
+                  <button
+                    aria-pressed={visibleAssignedColumns.confirmed}
+                    className={`guest-table-visibility__toggle ${visibleAssignedColumns.confirmed ? "guest-table-visibility__toggle--active" : ""}`}
+                    onClick={() => toggleAssignedColumn("confirmed")}
+                    type="button"
+                  >
+                    Asistencia
+                  </button>
+                  <button
+                    aria-pressed={visibleAssignedColumns.type}
+                    className={`guest-table-visibility__toggle ${visibleAssignedColumns.type ? "guest-table-visibility__toggle--active" : ""}`}
+                    onClick={() => toggleAssignedColumn("type")}
+                    type="button"
+                  >
+                    Tipo
+                  </button>
+                  <button
+                    aria-pressed={visibleAssignedColumns.group}
+                    className={`guest-table-visibility__toggle ${visibleAssignedColumns.group ? "guest-table-visibility__toggle--active" : ""}`}
+                    onClick={() => toggleAssignedColumn("group")}
+                    type="button"
+                  >
+                    Familia
+                  </button>
+                  <button
+                    aria-pressed={visibleAssignedColumns.food}
+                    className={`guest-table-visibility__toggle ${visibleAssignedColumns.food ? "guest-table-visibility__toggle--active" : ""}`}
+                    onClick={() => toggleAssignedColumn("food")}
+                    type="button"
+                  >
+                    Comida
+                  </button>
+                  <button
+                    aria-pressed={visibleAssignedColumns.table}
+                    className={`guest-table-visibility__toggle ${visibleAssignedColumns.table ? "guest-table-visibility__toggle--active" : ""}`}
+                    onClick={() => toggleAssignedColumn("table")}
+                    type="button"
+                  >
+                    Mesa
+                  </button>
                 </div>
                 <div className="guest-table-shell guest-table-shell--compact">
                   {filteredAssignedGuests.length > 0 ? (
@@ -3001,13 +3054,13 @@ export function App() {
                       <thead>
                         <tr>
                           <th>{renderSortableHeader("assigned", "name", "Invitado")}</th>
-                          <th>{renderSortableHeader("assigned", "confirmed", "Asistencia")}</th>
-                          <th>{renderSortableHeader("assigned", "type", "Tipo")}</th>
-                          <th>{renderSortableHeader("assigned", "group", "Familia")}</th>
-                          <th>{renderSortableHeader("assigned", "intolerance", "Intolerancia")}</th>
-                          <th>{renderSortableHeader("assigned", "menu", "Menú")}</th>
-                          <th>{renderSortableHeader("assigned", "table", "Mesa")}</th>
-                          <th>{renderSortableHeader("assigned", "seat", "Asiento")}</th>
+                          {visibleAssignedColumns.confirmed ? <th>{renderSortableHeader("assigned", "confirmed", "Asistencia")}</th> : null}
+                          {visibleAssignedColumns.type ? <th>{renderSortableHeader("assigned", "type", "Tipo")}</th> : null}
+                          {visibleAssignedColumns.group ? <th>{renderSortableHeader("assigned", "group", "Familia")}</th> : null}
+                          {visibleAssignedColumns.food ? <th>{renderSortableHeader("assigned", "intolerance", "Intolerancia")}</th> : null}
+                          {visibleAssignedColumns.food ? <th>{renderSortableHeader("assigned", "menu", "Menú")}</th> : null}
+                          {visibleAssignedColumns.table ? <th>{renderSortableHeader("assigned", "table", "Mesa")}</th> : null}
+                          {visibleAssignedColumns.table ? <th>{renderSortableHeader("assigned", "seat", "Asiento")}</th> : null}
                           <th aria-label="Eliminar invitado" className="guest-table__action-column" />
                         </tr>
                       </thead>
@@ -3040,141 +3093,155 @@ export function App() {
                                     </button>
                                   )}
                                 </td>
-                                <td>
-                                  {editingGuestId === guest.id && editingGuestField === "confirmed" ? (
-                                    <select
-                                      autoFocus
-                                      className="guest-table__select"
-                                      onBlur={handleGuestEditBlur}
-                                      onChange={(event) => setEditingGuestConfirmed(event.target.value === "true")}
-                                      onKeyDown={handleGuestEditKeyDown}
-                                      value={String(editingGuestConfirmed)}
-                                    >
-                                      <option value="true">Confirmado</option>
-                                      <option value="false">Pendiente</option>
-                                    </select>
-                                  ) : (
-                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "confirmed")} type="button">
-                                      {formatConfirmedLabel(guest.confirmed)}
-                                    </button>
-                                  )}
-                                </td>
-                                <td>
-                                  {editingGuestId === guest.id && editingGuestField === "type" ? (
-                                    <select
-                                      className="guest-table__select"
-                                      onBlur={handleGuestEditBlur}
-                                      onChange={(event) => setEditingGuestType(event.target.value)}
-                                      onKeyDown={handleGuestEditKeyDown}
-                                      value={editingGuestType}
-                                    >
-                                      <option value="adulto">adulto</option>
-                                      <option value="adolescente">adolescente</option>
-                                      <option value="nino">nino</option>
-                                    </select>
-                                  ) : (
-                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "type")} type="button">
-                                      {formatGuestTypeLabel(guest.guest_type)}
-                                    </button>
-                                  )}
-                                </td>
-                                <td>
-                                  {editingGuestId === guest.id && editingGuestField === "group" ? (
-                                    <input
-                                      className="guest-table__input"
-                                      onBlur={handleGuestEditBlur}
-                                      onChange={(event) => setEditingGuestGroupId(event.target.value)}
-                                      onKeyDown={handleGuestEditKeyDown}
-                                      value={editingGuestGroupId}
-                                    />
-                                  ) : (
-                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
-                                      {guest.group_id ? guest.group_id : "Sin agrupación"}
-                                    </button>
-                                  )}
-                                </td>
-                                <td>
-                                  {editingGuestId === guest.id && editingGuestField === "intolerance" ? (
-                                    <input
-                                      autoFocus
-                                      className="guest-table__input"
-                                      onBlur={handleGuestEditBlur}
-                                      onChange={(event) => setEditingGuestIntolerance(event.target.value)}
-                                      onKeyDown={handleGuestEditKeyDown}
-                                      value={editingGuestIntolerance}
-                                    />
-                                  ) : (
-                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "intolerance")} type="button">
-                                      {guest.intolerance || "Sin intolerancia"}
-                                    </button>
-                                  )}
-                                </td>
-                                <td>
-                                  {editingGuestId === guest.id && editingGuestField === "menu" ? (
-                                    <select
-                                      autoFocus
-                                      className="guest-table__select"
-                                      onBlur={handleGuestEditBlur}
-                                      onChange={(event) => setEditingGuestMenu(event.target.value)}
-                                      onKeyDown={handleGuestEditKeyDown}
-                                      value={editingGuestMenu}
-                                    >
-                                      <option value="desconocido">Desconocido</option>
-                                      <option value="carne">Carne</option>
-                                      <option value="pescado">Pescado</option>
-                                      <option value="vegano">Vegano</option>
-                                    </select>
-                                  ) : (
-                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "menu")} type="button">
-                                      {formatMenuLabel(guest.menu)}
-                                    </button>
-                                  )}
-                                </td>
-                                <td>
-                                  {editingGuestId === guest.id && editingGuestField === "table" ? (
-                                    <select
-                                      autoFocus
-                                      className="guest-table__select"
-                                      onBlur={handleGuestEditBlur}
-                                      onChange={(event) => handleAssignedGuestTableSelection(guest, event.target.value)}
-                                      onKeyDown={handleGuestEditKeyDown}
-                                      value={assignmentValues[guest.id] ?? guest.table_id ?? ""}
-                                    >
-                                      <option value="">Elegir mesa</option>
-                                      {workspace?.tables.map((table) => (
-                                        <option key={table.id} value={table.id}>
-                                          Mesa {table.number}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  ) : (
-                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "table")} type="button">
-                                      <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
-                                    </button>
-                                  )}
-                                </td>
-                                <td>
-                                  {editingGuestId === guest.id && editingGuestField === "seat" && guest.table_id ? (
-                                    <select
-                                      autoFocus
-                                      className="guest-table__select"
-                                      onBlur={handleGuestEditBlur}
-                                      onChange={(event) => handleGuestSeatSelection(guest, event.target.value)}
-                                      onKeyDown={handleGuestEditKeyDown}
-                                      value={editingGuestSeatIndex}
-                                    >
-                                      {getSelectableSeatIndexes(guest.table_id, guest.id).map((seatIndex) => (
-                                        <option key={`${guest.id}-seat-${seatIndex}`} value={seatIndex}>
-                                          {formatSeatLabel(seatIndex)}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  ) : (
-                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "seat")} type="button">
-                                      <span className="guest-row__table">{formatSeatLabel(guest.seat_index)}</span>
-                                    </button>
-                                  )}
-                                </td>
+                                {visibleAssignedColumns.confirmed ? (
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "confirmed" ? (
+                                      <select
+                                        autoFocus
+                                        className="guest-table__select"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => setEditingGuestConfirmed(event.target.value === "true")}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={String(editingGuestConfirmed)}
+                                      >
+                                        <option value="true">Confirmado</option>
+                                        <option value="false">Pendiente</option>
+                                      </select>
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "confirmed")} type="button">
+                                        {formatConfirmedLabel(guest.confirmed)}
+                                      </button>
+                                    )}
+                                  </td>
+                                ) : null}
+                                {visibleAssignedColumns.type ? (
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "type" ? (
+                                      <select
+                                        className="guest-table__select"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => setEditingGuestType(event.target.value)}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={editingGuestType}
+                                      >
+                                        <option value="adulto">adulto</option>
+                                        <option value="adolescente">adolescente</option>
+                                        <option value="nino">nino</option>
+                                      </select>
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "type")} type="button">
+                                        {formatGuestTypeLabel(guest.guest_type)}
+                                      </button>
+                                    )}
+                                  </td>
+                                ) : null}
+                                {visibleAssignedColumns.group ? (
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "group" ? (
+                                      <input
+                                        className="guest-table__input"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => setEditingGuestGroupId(event.target.value)}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={editingGuestGroupId}
+                                      />
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
+                                        {guest.group_id ? guest.group_id : "Sin agrupación"}
+                                      </button>
+                                    )}
+                                  </td>
+                                ) : null}
+                                {visibleAssignedColumns.food ? (
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "intolerance" ? (
+                                      <input
+                                        autoFocus
+                                        className="guest-table__input"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => setEditingGuestIntolerance(event.target.value)}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={editingGuestIntolerance}
+                                      />
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "intolerance")} type="button">
+                                        {guest.intolerance || "Sin intolerancia"}
+                                      </button>
+                                    )}
+                                  </td>
+                                ) : null}
+                                {visibleAssignedColumns.food ? (
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "menu" ? (
+                                      <select
+                                        autoFocus
+                                        className="guest-table__select"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => setEditingGuestMenu(event.target.value)}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={editingGuestMenu}
+                                      >
+                                        <option value="desconocido">Desconocido</option>
+                                        <option value="carne">Carne</option>
+                                        <option value="pescado">Pescado</option>
+                                        <option value="vegano">Vegano</option>
+                                      </select>
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "menu")} type="button">
+                                        {formatMenuLabel(guest.menu)}
+                                      </button>
+                                    )}
+                                  </td>
+                                ) : null}
+                                {visibleAssignedColumns.table ? (
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "table" ? (
+                                      <select
+                                        autoFocus
+                                        className="guest-table__select"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => handleAssignedGuestTableSelection(guest, event.target.value)}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={assignmentValues[guest.id] ?? guest.table_id ?? ""}
+                                      >
+                                        <option value="">Elegir mesa</option>
+                                        {workspace?.tables.map((table) => (
+                                          <option key={table.id} value={table.id}>
+                                            Mesa {table.number}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "table")} type="button">
+                                        <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
+                                      </button>
+                                    )}
+                                  </td>
+                                ) : null}
+                                {visibleAssignedColumns.table ? (
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "seat" && guest.table_id ? (
+                                      <select
+                                        autoFocus
+                                        className="guest-table__select"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => handleGuestSeatSelection(guest, event.target.value)}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={editingGuestSeatIndex}
+                                      >
+                                        {getSelectableSeatIndexes(guest.table_id, guest.id).map((seatIndex) => (
+                                          <option key={`${guest.id}-seat-${seatIndex}`} value={seatIndex}>
+                                            {formatSeatLabel(seatIndex)}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "seat")} type="button">
+                                        <span className="guest-row__table">{formatSeatLabel(guest.seat_index)}</span>
+                                      </button>
+                                    )}
+                                  </td>
+                                ) : null}
                                 <td className="guest-table__action-column">
                                   {pendingGuestRemovalId === guest.id ? (
                                     <div className="guest-table__confirm guest-table__confirm--inline">
