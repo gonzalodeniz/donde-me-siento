@@ -742,6 +742,173 @@ select {
   font-size: 0.95rem;
 }
 
+.summary-panel {
+  display: grid;
+  gap: 0.2rem;
+  border-radius: 1.25rem;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 250, 0.98), rgba(247, 239, 231, 0.94)),
+    var(--paper);
+  border: 1px solid rgba(36, 24, 20, 0.08);
+  overflow: hidden;
+}
+
+.summary-panel__section + .summary-panel__section {
+  border-top: 1px solid rgba(119, 84, 64, 0.12);
+}
+
+.summary-panel__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.95rem 1rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.summary-panel__summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary-panel__summary span {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.summary-panel__summary::after {
+  content: "▾";
+  color: rgba(107, 87, 75, 0.78);
+  transition: transform 180ms ease;
+}
+
+.summary-panel__section[open] .summary-panel__summary::after {
+  transform: rotate(180deg);
+}
+
+.summary-panel__body {
+  display: grid;
+  gap: 0.9rem;
+  padding: 0 1rem 1rem;
+}
+
+.summary-progress {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.summary-progress__head {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.summary-progress__head span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.summary-progress__head strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.summary-progress__bar {
+  height: 0.7rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(36, 24, 20, 0.08);
+}
+
+.summary-progress__bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #325851, #9a4f24);
+}
+
+.summary-progress__bar--fine {
+  height: 0.42rem;
+}
+
+.summary-progress--fine .summary-progress__bar i {
+  background: linear-gradient(90deg, rgba(50, 88, 81, 0.75), rgba(50, 88, 81, 0.35));
+}
+
+.summary-progress__meta {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.summary-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 0.8rem;
+}
+
+.summary-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--ink);
+  font-size: 0.88rem;
+}
+
+.summary-pill__dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(36, 24, 20, 0.12);
+}
+
+.summary-pill__dot--adult {
+  background: rgba(223, 205, 188, 0.92);
+}
+
+.summary-pill__dot--teen {
+  background: rgba(132, 189, 214, 0.9);
+}
+
+.summary-pill__dot--child {
+  background: rgba(149, 212, 157, 0.94);
+}
+
+.summary-list {
+  margin: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.summary-list__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+}
+
+.summary-list__row dt,
+.summary-list__row dd {
+  margin: 0;
+}
+
+.summary-list__row dt {
+  color: var(--muted);
+  font-size: 0.87rem;
+}
+
+.summary-list__row dd {
+  font-size: 0.96rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.summary-list__row--alert dt,
+.summary-list__row--alert dd {
+  color: #a04a29;
+}
+
 .banquet-summary {
   margin: 0;
   display: grid;

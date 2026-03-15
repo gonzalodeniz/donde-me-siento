@@ -526,10 +526,6 @@ export function App() {
     () => workspace?.tables.filter((table) => table.available === 0).length ?? 0,
     [workspace],
   );
-  const pendingGuestsCount = useMemo(
-    () => workspace?.guests.unassigned.length ?? 0,
-    [workspace],
-  );
   const conflictTableIds = useMemo(
     () =>
       new Set(
@@ -579,6 +575,17 @@ export function App() {
     () => allGuests.filter((guest) => guest.menu === "desconocido").length,
     [allGuests],
   );
+  const totalGuestsCount = allGuests.length;
+  const seatedGuestsCount = workspace?.guests.assigned.length ?? 0;
+  const seatingProgress = totalGuestsCount === 0 ? 0 : Math.round((seatedGuestsCount / totalGuestsCount) * 100);
+  const confirmationProgress = totalGuestsCount === 0 ? 0 : Math.round((confirmedGuestsCount / totalGuestsCount) * 100);
+  const occupancyAverage = workspace
+    ? Math.round(
+        (workspace.tables.reduce((total, table) => total + table.occupied, 0) /
+          Math.max(workspace.tables.reduce((total, table) => total + table.capacity, 0), 1)) *
+          100,
+      )
+    : 0;
   const tableLabelById = useMemo(
     () => new Map((workspace?.tables ?? []).map((table) => [table.id, getTableLabel(table)])),
     [workspace],
@@ -2155,86 +2162,105 @@ export function App() {
                 </button>
               </div>
               {!collapsedPanels.summary ? (
-              <>
-              <div className="control-metrics control-metrics--summary">
-                <article className="control-metric">
-                  <span>Total invitados</span>
-                  <strong>{(workspace?.guests.unassigned.length ?? 0) + (workspace?.guests.assigned.length ?? 0)}</strong>
-                </article>
-                <article className="control-metric">
-                  <span>Total sentados</span>
-                  <strong>{workspace?.guests.assigned.length ?? 0}</strong>
-                </article>
-                <article className="control-metric">
-                  <span>Total sin sentar</span>
-                  <strong>{pendingGuestsCount}</strong>
-                </article>
-              </div>
-              <div className="control-metrics">
-                <article className="control-metric">
-                  <span>Mesas completas</span>
-                  <strong>{fullTablesCount}</strong>
-                </article>
-                <article className="control-metric control-metric--alert">
-                  <span>Ubicaciones por revisar</span>
-                  <strong>{conflictTableIds.size}</strong>
-                </article>
-                <article className="control-metric">
-                  <span>Ocupacion media</span>
-                  <strong>
-                    {workspace
-                      ? `${Math.round(
-                          (workspace.tables.reduce((total, table) => total + table.occupied, 0) /
-                            Math.max(workspace.tables.reduce((total, table) => total + table.capacity, 0), 1)) *
-                            100,
-                        )}%`
-                      : "0%"}
-                  </strong>
-                </article>
-              </div>
-              <div className="control-metrics">
-                <article className="control-metric">
-                  <span>Confirmados</span>
-                  <strong>{confirmedGuestsCount}</strong>
-                </article>
-                <article className="control-metric">
-                  <span>Sin confirmar</span>
-                  <strong>{unconfirmedGuestsCount}</strong>
-                </article>
-              </div>
-              <div className="control-metrics">
-                <article className="control-metric">
-                  <span>Adultos</span>
-                  <strong>{adultGuestsCount}</strong>
-                </article>
-                <article className="control-metric">
-                  <span>Adolescentes</span>
-                  <strong>{teenGuestsCount}</strong>
-                </article>
-                <article className="control-metric">
-                  <span>Niños</span>
-                  <strong>{childGuestsCount}</strong>
-                </article>
-              </div>
-              <div className="control-metrics">
-                <article className="control-metric">
-                  <span>Comen pescado</span>
-                  <strong>{fishMenuGuestsCount}</strong>
-                </article>
-                <article className="control-metric">
-                  <span>Comen carne</span>
-                  <strong>{meatMenuGuestsCount}</strong>
-                </article>
-                <article className="control-metric">
-                  <span>Vegetarianos</span>
-                  <strong>{vegetarianMenuGuestsCount}</strong>
-                </article>
-                <article className="control-metric">
-                  <span>Menú desconocido</span>
-                  <strong>{unknownMenuGuestsCount}</strong>
-                </article>
-              </div>
-              </>
+                <div className="summary-panel">
+                  <details className="summary-panel__section" open>
+                    <summary className="summary-panel__summary">
+                      <span>Ubicación y asistencia</span>
+                    </summary>
+                    <div className="summary-panel__body">
+                      <div className="summary-progress">
+                        <div className="summary-progress__head">
+                          <span>Asignación de asientos</span>
+                          <strong>{seatedGuestsCount} de {totalGuestsCount} invitados sentados</strong>
+                        </div>
+                        <div aria-hidden="true" className="summary-progress__bar">
+                          <i style={{ width: `${seatingProgress}%` }} />
+                        </div>
+                        <span className="summary-progress__meta">{seatingProgress}% del salón ubicado</span>
+                      </div>
+
+                      <div className="summary-progress summary-progress--fine">
+                        <div className="summary-progress__head">
+                          <span>Confirmación</span>
+                          <strong>{confirmedGuestsCount} confirmados · {unconfirmedGuestsCount} pendientes</strong>
+                        </div>
+                        <div aria-hidden="true" className="summary-progress__bar summary-progress__bar--fine">
+                          <i style={{ width: `${confirmationProgress}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  </details>
+
+                  <details className="summary-panel__section" open>
+                    <summary className="summary-panel__summary">
+                      <span>Composición de invitados</span>
+                    </summary>
+                    <div className="summary-panel__body">
+                      <div className="summary-pills">
+                        <span className="summary-pill">
+                          <i className="summary-pill__dot summary-pill__dot--adult" />
+                          {adultGuestsCount} Adultos
+                        </span>
+                        <span className="summary-pill">
+                          <i className="summary-pill__dot summary-pill__dot--teen" />
+                          {teenGuestsCount} Adolescentes
+                        </span>
+                        <span className="summary-pill">
+                          <i className="summary-pill__dot summary-pill__dot--child" />
+                          {childGuestsCount} Niños
+                        </span>
+                      </div>
+                    </div>
+                  </details>
+
+                  <details className="summary-panel__section">
+                    <summary className="summary-panel__summary">
+                      <span>Menús y dietas</span>
+                    </summary>
+                    <div className="summary-panel__body">
+                      <dl className="summary-list">
+                        <div className="summary-list__row">
+                          <dt>Carnes</dt>
+                          <dd>{meatMenuGuestsCount}</dd>
+                        </div>
+                        <div className="summary-list__row">
+                          <dt>Pescados</dt>
+                          <dd>{fishMenuGuestsCount}</dd>
+                        </div>
+                        <div className="summary-list__row">
+                          <dt>Vegetarianos</dt>
+                          <dd>{vegetarianMenuGuestsCount}</dd>
+                        </div>
+                        <div className="summary-list__row summary-list__row--alert">
+                          <dt>Por definir</dt>
+                          <dd>{unknownMenuGuestsCount}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </details>
+
+                  <details className="summary-panel__section" open>
+                    <summary className="summary-panel__summary">
+                      <span>Estado de las mesas</span>
+                    </summary>
+                    <div className="summary-panel__body">
+                      <dl className="summary-list">
+                        <div className="summary-list__row">
+                          <dt>Mesas completas</dt>
+                          <dd>{fullTablesCount}</dd>
+                        </div>
+                        <div className="summary-list__row summary-list__row--alert">
+                          <dt>Ubicaciones por revisar</dt>
+                          <dd>{conflictTableIds.size}</dd>
+                        </div>
+                        <div className="summary-list__row">
+                          <dt>Ocupación media</dt>
+                          <dd>{occupancyAverage}%</dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </details>
+                </div>
               ) : null}
             </section>
 
