@@ -11,7 +11,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import select
 
-from backend.app.domains.seating import Event, Guest, GuestType, Table
+from backend.app.domains.seating import Event, Guest, GuestMenu, GuestType, Table
 from backend.app.models.event import EventModel, GuestModel, SavedSessionModel, TableModel
 
 
@@ -94,6 +94,8 @@ class EventRepository:
                     name=guest.name,
                     guest_type=guest.guest_type.value,
                     confirmed=guest.confirmed,
+                    intolerance=guest.intolerance,
+                    menu=guest.menu.value,
                     group_id=guest.group_id,
                     table_id=guest.table_id,
                     seat_index=guest.seat_index,
@@ -251,6 +253,8 @@ class EventRepository:
                     name=guest.name,
                     guest_type=guest.guest_type.value,
                     confirmed=guest.confirmed,
+                    intolerance=guest.intolerance,
+                    menu=guest.menu.value,
                     group_id=guest.group_id,
                     table_id=guest.table_id,
                     seat_index=guest.seat_index,
@@ -283,6 +287,8 @@ class EventRepository:
                 name=guest.name,
                 guest_type=GuestType(guest.guest_type),
                 confirmed=guest.confirmed,
+                intolerance=guest.intolerance,
+                menu=GuestMenu(guest.menu),
                 group_id=guest.group_id,
                 table_id=guest.table_id,
                 seat_index=guest.seat_index,
@@ -325,6 +331,8 @@ class EventRepository:
                     "name": guest.name,
                     "guest_type": guest.guest_type.value,
                     "confirmed": guest.confirmed,
+                    "intolerance": guest.intolerance,
+                    "menu": guest.menu.value,
                     "group_id": guest.group_id,
                     "table_id": guest.table_id,
                     "seat_index": guest.seat_index,
@@ -357,6 +365,8 @@ class EventRepository:
                 name=str(guest["name"]),
                 guest_type=GuestType(str(guest["guest_type"])),
                 confirmed=bool(guest.get("confirmed", False)),
+                intolerance=str(guest.get("intolerance", "")),
+                menu=GuestMenu(str(guest.get("menu", "desconocido"))),
                 group_id=guest.get("group_id"),
                 table_id=guest.get("table_id"),
                 seat_index=guest.get("seat_index"),

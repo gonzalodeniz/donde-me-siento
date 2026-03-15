@@ -60,6 +60,8 @@ class GuestModel(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     guest_type: Mapped[str] = mapped_column(String(32), nullable=False)
     confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    intolerance: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    menu: Mapped[str] = mapped_column(String(32), nullable=False, default="desconocido")
     group_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     table_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     seat_index: Mapped[int | None] = mapped_column(Integer, nullable=True)

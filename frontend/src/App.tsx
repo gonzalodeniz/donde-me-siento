@@ -30,13 +30,12 @@ const TOKEN_STORAGE_KEY = "dms.auth.token";
 const LISTS_PANEL_WIDTH_STORAGE_KEY = "dms.ui.listsPanelWidth";
 const RAIL_PANEL_WIDTH_STORAGE_KEY = "dms.ui.railPanelWidth";
 const LISTS_PANEL_OPEN_STORAGE_KEY = "dms.ui.listsPanelOpen";
+const CENTER_PANEL_OPEN_STORAGE_KEY = "dms.ui.centerPanelOpen";
 const LOGIN_NAMES = ["raquel", "héctor"] as const;
 const LISTS_PANEL_MIN_WIDTH = 280;
-const LISTS_PANEL_MAX_WIDTH = 760;
 const CANVAS_MIN_MAIN_WIDTH = 260;
 const RAIL_PANEL_MIN_WIDTH = 360;
-const RAIL_PANEL_MAX_WIDTH = 760;
-const SHELL_MIN_MAIN_WIDTH = 720;
+const SHELL_MIN_MAIN_WIDTH = 0;
 const GUEST_TABLE_PAGE_SIZE = 20;
 type SectionTone = "success" | "error" | "info";
 type SectionKey = "guests" | "tables";
@@ -52,18 +51,30 @@ type TablePosition = {
   position_x: number;
   position_y: number;
 };
-type GuestEditableField = "name" | "confirmed" | "type" | "group" | "table";
+type GuestEditableField = "name" | "confirmed" | "type" | "intolerance" | "menu" | "group" | "table" | "seat";
 type PanelKey = "salon" | "summary" | "sessions" | "unassigned" | "assigned" | "conflicts" | "guestImport";
 type GuestTablePageKey = "unassigned" | "assigned" | "conflicts";
+type UnassignedGuestColumnKey = "confirmed" | "type" | "group" | "food" | "table";
+type AssignedGuestColumnKey = "confirmed" | "type" | "group" | "food" | "table";
+type SortDirection = "asc" | "desc";
+type SortTableKey = "sessions" | "unassigned" | "assigned" | "conflicts" | "guestImport";
+type SortState = {
+  column: string;
+  direction: SortDirection;
+};
 type GuestDraft = {
   name: string;
   guest_type: string;
   confirmed: boolean;
+  intolerance: string;
+  menu: string;
 };
 type ImportedGuestDraft = {
   name: string;
   guest_type: string;
   confirmed: boolean;
+  intolerance: string;
+  menu: string;
   group_id: string | null;
 };
 type GuestImportPreview = {
@@ -78,6 +89,8 @@ function createEmptyGuestDraft(): GuestDraft {
     name: "",
     guest_type: "adulto",
     confirmed: true,
+    intolerance: "",
+    menu: "desconocido",
   };
 }
 
@@ -111,6 +124,33 @@ function paginateGuestTableRows<T>(items: T[], page: number) {
     endItem: Math.min(startIndex + GUEST_TABLE_PAGE_SIZE, totalItems),
     totalItems,
   };
+}
+
+function getRailPanelMaxWidth(shellWidth: number) {
+  return Math.max(RAIL_PANEL_MIN_WIDTH, shellWidth - 24 - SHELL_MIN_MAIN_WIDTH);
+}
+
+function getListsPanelMaxWidth(canvasWidth: number) {
+  return Math.max(LISTS_PANEL_MIN_WIDTH, canvasWidth - CANVAS_MIN_MAIN_WIDTH);
+}
+
+function compareValues(left: string | number | boolean, right: string | number | boolean) {
+  if (typeof left === "boolean" && typeof right === "boolean") {
+    return Number(left) - Number(right);
+  }
+
+  if (typeof left === "number" && typeof right === "number") {
+    return left - right;
+  }
+
+  return String(left).localeCompare(String(right), "es", { numeric: true, sensitivity: "base" });
+}
+
+function sortRows<T>(items: T[], sort: SortState, getValue: (item: T, column: string) => string | number | boolean) {
+  return [...items].sort((left, right) => {
+    const comparison = compareValues(getValue(left, sort.column), getValue(right, sort.column));
+    return sort.direction === "asc" ? comparison : -comparison;
+  });
 }
 
 function parseCsvLine(line: string) {
@@ -170,6 +210,24 @@ function parseGuestCsvType(rawValue: string, lineNumber: number) {
   throw new Error(`Línea ${lineNumber}: tipo de invitado no válido: "${rawValue || "vacío"}".`);
 }
 
+function parseGuestCsvMenu(rawValue: string, lineNumber: number) {
+  const normalizedValue = normalizeSearchText(rawValue);
+  if (!normalizedValue) {
+    return "desconocido";
+  }
+
+  if (
+    normalizedValue === "desconocido" ||
+    normalizedValue === "carne" ||
+    normalizedValue === "pescado" ||
+    normalizedValue === "vegano"
+  ) {
+    return normalizedValue;
+  }
+
+  throw new Error(`Línea ${lineNumber}: valor de menú no válido: "${rawValue}".`);
+}
+
 function parseGuestImportCsv(fileName: string, content: string): GuestImportPreview {
   const rows = content
     .replace(/^\uFEFF/, "")
@@ -190,6 +248,8 @@ function parseGuestImportCsv(fileName: string, content: string): GuestImportPrev
   const headerIndexes = Object.fromEntries(
     REQUIRED_GUEST_CSV_COLUMNS.map((column) => [column, headerCells.indexOf(column)]),
   ) as Record<(typeof REQUIRED_GUEST_CSV_COLUMNS)[number], number>;
+  const intoleranceColumnIndex = headerCells.indexOf("intolerancia");
+  const menuColumnIndex = headerCells.indexOf("menu");
 
   const guests = rows.slice(1).map(({ line, lineNumber }) => {
     const cells = parseCsvLine(line);
@@ -204,6 +264,8 @@ function parseGuestImportCsv(fileName: string, content: string): GuestImportPrev
       name,
       confirmed: parseGuestCsvAttendance(cells[headerIndexes.asistencia] ?? "", lineNumber),
       guest_type: parseGuestCsvType(cells[headerIndexes.tipo] ?? "", lineNumber),
+      intolerance: normalizeText(intoleranceColumnIndex >= 0 ? (cells[intoleranceColumnIndex] ?? "") : ""),
+      menu: parseGuestCsvMenu(menuColumnIndex >= 0 ? (cells[menuColumnIndex] ?? "") : "", lineNumber),
       group_id: groupId,
     };
   });
@@ -254,6 +316,24 @@ function formatConfirmedLabel(confirmed: boolean) {
   return confirmed ? "Confirmado" : "Pendiente";
 }
 
+function formatMenuLabel(menu: string) {
+  switch (menu) {
+    case "carne":
+      return "Carne";
+    case "pescado":
+      return "Pescado";
+    case "vegano":
+      return "Vegano";
+    case "desconocido":
+    default:
+      return "Desconocido";
+  }
+}
+
+function formatSeatLabel(seatIndex: number | null) {
+  return seatIndex === null ? "Sin asiento" : `Asiento ${seatIndex + 1}`;
+}
+
 function matchesGuestSearch(guest: Guest, rawQuery: string) {
   const query = normalizeSearchText(rawQuery);
   if (!query) {
@@ -264,8 +344,11 @@ function matchesGuestSearch(guest: Guest, rawQuery: string) {
     guest.name,
     guest.group_id ?? "",
     guest.guest_type,
+    guest.intolerance,
+    guest.menu,
     guest.table_id ?? "",
     formatGuestTypeLabel(guest.guest_type),
+    formatMenuLabel(guest.menu),
   ];
 
   return searchableFields.some((field) => normalizeSearchText(field).includes(query));
@@ -304,7 +387,10 @@ export function App() {
   const [editingGuestName, setEditingGuestName] = useState("");
   const [editingGuestType, setEditingGuestType] = useState("adulto");
   const [editingGuestConfirmed, setEditingGuestConfirmed] = useState(false);
+  const [editingGuestIntolerance, setEditingGuestIntolerance] = useState("");
+  const [editingGuestMenu, setEditingGuestMenu] = useState("desconocido");
   const [editingGuestGroupId, setEditingGuestGroupId] = useState("");
+  const [editingGuestSeatIndex, setEditingGuestSeatIndex] = useState("");
   const [editingGuestError, setEditingGuestError] = useState<string | null>(null);
   const [assignmentValues, setAssignmentValues] = useState<Record<string, string>>({});
   const [selectedTableId, setSelectedTableId] = useState<string | null | undefined>(undefined);
@@ -317,7 +403,7 @@ export function App() {
   const [railPanelWidth, setRailPanelWidth] = useState<number>(() => {
     const storedWidth = Number(localStorage.getItem(RAIL_PANEL_WIDTH_STORAGE_KEY));
 
-    if (Number.isFinite(storedWidth) && storedWidth >= RAIL_PANEL_MIN_WIDTH && storedWidth <= RAIL_PANEL_MAX_WIDTH) {
+    if (Number.isFinite(storedWidth) && storedWidth >= RAIL_PANEL_MIN_WIDTH) {
       return storedWidth;
     }
 
@@ -328,7 +414,7 @@ export function App() {
   const [listsPanelWidth, setListsPanelWidth] = useState<number>(() => {
     const storedWidth = Number(localStorage.getItem(LISTS_PANEL_WIDTH_STORAGE_KEY));
 
-    if (Number.isFinite(storedWidth) && storedWidth >= LISTS_PANEL_MIN_WIDTH && storedWidth <= LISTS_PANEL_MAX_WIDTH) {
+    if (Number.isFinite(storedWidth) && storedWidth >= LISTS_PANEL_MIN_WIDTH) {
       return storedWidth;
     }
 
@@ -336,6 +422,10 @@ export function App() {
   });
   const [isListsPanelOpen, setIsListsPanelOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem(LISTS_PANEL_OPEN_STORAGE_KEY);
+    return stored === null ? true : stored === "true";
+  });
+  const [isCenterPanelOpen, setIsCenterPanelOpen] = useState<boolean>(() => {
+    const stored = localStorage.getItem(CENTER_PANEL_OPEN_STORAGE_KEY);
     return stored === null ? true : stored === "true";
   });
   const [isResizingListsPanel, setIsResizingListsPanel] = useState(false);
@@ -351,6 +441,27 @@ export function App() {
     unassigned: 1,
     assigned: 1,
     conflicts: 1,
+  });
+  const [visibleUnassignedColumns, setVisibleUnassignedColumns] = useState<Record<UnassignedGuestColumnKey, boolean>>({
+    confirmed: true,
+    type: true,
+    group: true,
+    food: false,
+    table: false,
+  });
+  const [visibleAssignedColumns, setVisibleAssignedColumns] = useState<Record<AssignedGuestColumnKey, boolean>>({
+    confirmed: true,
+    type: true,
+    group: true,
+    food: false,
+    table: false,
+  });
+  const [tableSorts, setTableSorts] = useState<Record<SortTableKey, SortState>>({
+    sessions: { column: "created_at", direction: "desc" },
+    unassigned: { column: "name", direction: "asc" },
+    assigned: { column: "name", direction: "asc" },
+    conflicts: { column: "name", direction: "asc" },
+    guestImport: { column: "name", direction: "asc" },
   });
   const [collapsedPanels, setCollapsedPanels] = useState<Record<PanelKey, boolean>>({
     salon: false,
@@ -433,8 +544,28 @@ export function App() {
     () => allGuests.filter((guest) => guest.guest_type === "nino").length,
     [allGuests],
   );
+  const fishMenuGuestsCount = useMemo(
+    () => allGuests.filter((guest) => guest.menu === "pescado").length,
+    [allGuests],
+  );
+  const meatMenuGuestsCount = useMemo(
+    () => allGuests.filter((guest) => guest.menu === "carne").length,
+    [allGuests],
+  );
+  const vegetarianMenuGuestsCount = useMemo(
+    () => allGuests.filter((guest) => guest.menu === "vegano").length,
+    [allGuests],
+  );
+  const unknownMenuGuestsCount = useMemo(
+    () => allGuests.filter((guest) => guest.menu === "desconocido").length,
+    [allGuests],
+  );
   const tableNumberById = useMemo(
     () => new Map((workspace?.tables ?? []).map((table) => [table.id, table.number])),
+    [workspace],
+  );
+  const tableById = useMemo(
+    () => new Map((workspace?.tables ?? []).map((table) => [table.id, table])),
     [workspace],
   );
   const guestById = useMemo(
@@ -476,7 +607,9 @@ export function App() {
 
             return {
               rowId: `${groupId}-${guestId}`,
+              guestId,
               groupId,
+              guest: guest ?? null,
               guestName: guest?.name ?? guestId,
               tableLabel: tableNumber ? `Mesa ${tableNumber}` : "Sin mesa",
             };
@@ -511,17 +644,117 @@ export function App() {
       previewRows: guestImportPreview.guests.slice(0, 8),
     };
   }, [guestImportPreview]);
+  const sortedSessions = useMemo(
+    () =>
+      sortRows(savedSessions, tableSorts.sessions, (session, column) => {
+        if (column === "created_at") {
+          return new Date(session.created_at).getTime();
+        }
+        return session.name;
+      }),
+    [savedSessions, tableSorts.sessions],
+  );
+  const sortedUnassignedGuests = useMemo(
+    () =>
+      sortRows(filteredUnassignedGuests, tableSorts.unassigned, (guest, column) => {
+        switch (column) {
+          case "confirmed":
+            return guest.confirmed;
+          case "type":
+            return formatGuestTypeLabel(guest.guest_type);
+          case "intolerance":
+            return guest.intolerance || "zzz";
+          case "menu":
+            return formatMenuLabel(guest.menu);
+          case "group":
+            return guest.group_id ?? "zzz";
+          case "table":
+            return guest.table_id ? (tableNumberById.get(guest.table_id) ?? 0) : -1;
+          case "seat":
+            return guest.seat_index ?? Number.MAX_SAFE_INTEGER;
+          case "name":
+          default:
+            return guest.name;
+        }
+      }),
+    [filteredUnassignedGuests, tableNumberById, tableSorts.unassigned],
+  );
+  const sortedAssignedGuests = useMemo(
+    () =>
+      sortRows(filteredAssignedGuests, tableSorts.assigned, (guest, column) => {
+        switch (column) {
+          case "confirmed":
+            return guest.confirmed;
+          case "type":
+            return formatGuestTypeLabel(guest.guest_type);
+          case "intolerance":
+            return guest.intolerance || "zzz";
+          case "menu":
+            return formatMenuLabel(guest.menu);
+          case "group":
+            return guest.group_id ?? "zzz";
+          case "table":
+            return guest.table_id ? (tableNumberById.get(guest.table_id) ?? 0) : -1;
+          case "seat":
+            return guest.seat_index ?? Number.MAX_SAFE_INTEGER;
+          case "name":
+          default:
+            return guest.name;
+        }
+      }),
+    [filteredAssignedGuests, tableNumberById, tableSorts.assigned],
+  );
+  const sortedConflictRows = useMemo(
+    () =>
+      sortRows(conflictReviewRows, tableSorts.conflicts, (row, column) => {
+        switch (column) {
+          case "intolerance":
+            return row.guest?.intolerance || "zzz";
+          case "menu":
+            return row.guest ? formatMenuLabel(row.guest.menu) : "desconocido";
+          case "group":
+            return row.groupId;
+          case "table":
+            return row.tableLabel;
+          case "name":
+          default:
+            return row.guestName;
+        }
+      }),
+    [conflictReviewRows, tableSorts.conflicts],
+  );
+  const sortedGuestImportPreviewRows = useMemo(
+    () =>
+      sortRows(guestImportPreview?.guests ?? [], tableSorts.guestImport, (guest, column) => {
+        switch (column) {
+          case "confirmed":
+            return guest.confirmed;
+          case "type":
+            return formatGuestTypeLabel(guest.guest_type);
+          case "intolerance":
+            return guest.intolerance || "zzz";
+          case "menu":
+            return formatMenuLabel(guest.menu);
+          case "group":
+            return guest.group_id ?? "zzz";
+          case "name":
+          default:
+            return guest.name;
+        }
+      }).slice(0, 8),
+    [guestImportPreview, tableSorts.guestImport],
+  );
   const paginatedUnassignedGuests = useMemo(
-    () => paginateGuestTableRows(filteredUnassignedGuests, guestTablePages.unassigned),
-    [filteredUnassignedGuests, guestTablePages.unassigned],
+    () => paginateGuestTableRows(sortedUnassignedGuests, guestTablePages.unassigned),
+    [guestTablePages.unassigned, sortedUnassignedGuests],
   );
   const paginatedAssignedGuests = useMemo(
-    () => paginateGuestTableRows(filteredAssignedGuests, guestTablePages.assigned),
-    [filteredAssignedGuests, guestTablePages.assigned],
+    () => paginateGuestTableRows(sortedAssignedGuests, guestTablePages.assigned),
+    [guestTablePages.assigned, sortedAssignedGuests],
   );
   const paginatedConflictRows = useMemo(
-    () => paginateGuestTableRows(conflictReviewRows, guestTablePages.conflicts),
-    [conflictReviewRows, guestTablePages.conflicts],
+    () => paginateGuestTableRows(sortedConflictRows, guestTablePages.conflicts),
+    [guestTablePages.conflicts, sortedConflictRows],
   );
   const guestSectionBusy =
     loadingWorkspace ||
@@ -547,6 +780,10 @@ export function App() {
   useEffect(() => {
     localStorage.setItem(LISTS_PANEL_OPEN_STORAGE_KEY, String(isListsPanelOpen));
   }, [isListsPanelOpen]);
+
+  useEffect(() => {
+    localStorage.setItem(CENTER_PANEL_OPEN_STORAGE_KEY, String(isCenterPanelOpen));
+  }, [isCenterPanelOpen]);
 
   useEffect(() => {
     localStorage.setItem(LISTS_PANEL_WIDTH_STORAGE_KEY, String(listsPanelWidth));
@@ -608,7 +845,7 @@ export function App() {
         return;
       }
 
-      const maxWidth = Math.min(RAIL_PANEL_MAX_WIDTH, Math.max(RAIL_PANEL_MIN_WIDTH, shellRect.width - SHELL_MIN_MAIN_WIDTH));
+      const maxWidth = getRailPanelMaxWidth(shellRect.width);
       const nextWidth = event.clientX - shellRect.left;
       const clampedWidth = Math.min(Math.max(nextWidth, RAIL_PANEL_MIN_WIDTH), maxWidth);
       setRailPanelWidth(clampedWidth);
@@ -638,7 +875,7 @@ export function App() {
         return;
       }
 
-      const maxWidth = Math.min(LISTS_PANEL_MAX_WIDTH, Math.max(LISTS_PANEL_MIN_WIDTH, canvasRect.width - CANVAS_MIN_MAIN_WIDTH));
+      const maxWidth = getListsPanelMaxWidth(canvasRect.width);
       const nextWidth = canvasRect.right - event.clientX;
       const clampedWidth = Math.min(Math.max(nextWidth, LISTS_PANEL_MIN_WIDTH), maxWidth);
       setListsPanelWidth(clampedWidth);
@@ -770,18 +1007,14 @@ export function App() {
 
   function clampListsPanelWidth(nextWidth: number) {
     const canvasRect = canvasRef.current?.getBoundingClientRect();
-    const maxWidth = canvasRect
-      ? Math.min(LISTS_PANEL_MAX_WIDTH, Math.max(LISTS_PANEL_MIN_WIDTH, canvasRect.width - CANVAS_MIN_MAIN_WIDTH))
-      : LISTS_PANEL_MAX_WIDTH;
+    const maxWidth = canvasRect ? getListsPanelMaxWidth(canvasRect.width) : nextWidth;
 
     return Math.min(Math.max(nextWidth, LISTS_PANEL_MIN_WIDTH), maxWidth);
   }
 
   function clampRailPanelWidth(nextWidth: number) {
     const shellRect = shellRef.current?.getBoundingClientRect();
-    const maxWidth = shellRect
-      ? Math.min(RAIL_PANEL_MAX_WIDTH, Math.max(RAIL_PANEL_MIN_WIDTH, shellRect.width - SHELL_MIN_MAIN_WIDTH))
-      : RAIL_PANEL_MAX_WIDTH;
+    const maxWidth = shellRect ? getRailPanelMaxWidth(shellRect.width) : nextWidth;
 
     return Math.min(Math.max(nextWidth, RAIL_PANEL_MIN_WIDTH), maxWidth);
   }
@@ -807,7 +1040,8 @@ export function App() {
     }
 
     if (event.key === "End") {
-      setRailPanelWidth(clampRailPanelWidth(RAIL_PANEL_MAX_WIDTH));
+      const shellRect = shellRef.current?.getBoundingClientRect();
+      setRailPanelWidth(clampRailPanelWidth(shellRect ? getRailPanelMaxWidth(shellRect.width) : railPanelWidth));
       return;
     }
 
@@ -836,7 +1070,8 @@ export function App() {
     }
 
     if (event.key === "End") {
-      setListsPanelWidth(clampListsPanelWidth(LISTS_PANEL_MAX_WIDTH));
+      const canvasRect = canvasRef.current?.getBoundingClientRect();
+      setListsPanelWidth(clampListsPanelWidth(canvasRect ? getListsPanelMaxWidth(canvasRect.width) : listsPanelWidth));
       return;
     }
 
@@ -851,7 +1086,10 @@ export function App() {
     setEditingGuestName(guest.name);
     setEditingGuestType(guest.guest_type);
     setEditingGuestConfirmed(guest.confirmed);
+    setEditingGuestIntolerance(guest.intolerance);
+    setEditingGuestMenu(guest.menu);
     setEditingGuestGroupId(guest.group_id ?? "");
+    setEditingGuestSeatIndex(guest.seat_index === null ? "" : String(guest.seat_index));
   }
 
   function cancelGuestEdit() {
@@ -859,7 +1097,10 @@ export function App() {
     setEditingGuestName("");
     setEditingGuestType("adulto");
     setEditingGuestConfirmed(false);
+    setEditingGuestIntolerance("");
+    setEditingGuestMenu("desconocido");
     setEditingGuestGroupId("");
+    setEditingGuestSeatIndex("");
     setEditingGuestError(null);
   }
 
@@ -892,10 +1133,13 @@ export function App() {
     }
 
     const normalizedGroupId = normalizeText(editingGuestGroupId) || null;
+    const normalizedIntolerance = normalizeText(editingGuestIntolerance);
     const hasChanges =
       normalizedGuestName !== currentGuest.name ||
       editingGuestType !== currentGuest.guest_type ||
       editingGuestConfirmed !== currentGuest.confirmed ||
+      normalizedIntolerance !== currentGuest.intolerance ||
+      editingGuestMenu !== currentGuest.menu ||
       normalizedGroupId !== currentGuest.group_id;
 
     if (!hasChanges) {
@@ -913,6 +1157,8 @@ export function App() {
           name: normalizedGuestName,
           guest_type: editingGuestType,
           confirmed: editingGuestConfirmed,
+          intolerance: normalizedIntolerance,
+          menu: editingGuestMenu,
           group_id: normalizedGroupId,
         }),
       "Invitado actualizado.",
@@ -924,7 +1170,7 @@ export function App() {
   }
 
   function handleGuestEditBlur() {
-    if (editingGuestField === "table") {
+    if (editingGuestField === "table" || editingGuestField === "seat") {
       cancelGuestEdit();
       return;
     }
@@ -1035,6 +1281,8 @@ export function App() {
         name: normalizeText(draft.name),
         guest_type: draft.guest_type,
         confirmed: draft.confirmed,
+        intolerance: normalizeText(draft.intolerance),
+        menu: draft.menu,
       }))
       .filter((draft) => draft.name);
 
@@ -1053,6 +1301,8 @@ export function App() {
             name: guest.name,
             guest_type: guest.guest_type,
             confirmed: guest.confirmed,
+            intolerance: guest.intolerance,
+            menu: guest.menu,
             group_id: normalizeText(guestGroupId) || null,
           });
         }
@@ -1257,8 +1507,58 @@ export function App() {
     setCollapsedPanels((current) => ({ ...current, [panel]: !current[panel] }));
   }
 
+  function toggleUnassignedColumn(column: UnassignedGuestColumnKey) {
+    setVisibleUnassignedColumns((current) => ({ ...current, [column]: !current[column] }));
+  }
+
+  function toggleAssignedColumn(column: AssignedGuestColumnKey) {
+    setVisibleAssignedColumns((current) => ({ ...current, [column]: !current[column] }));
+  }
+
   function setGuestTablePage(panel: GuestTablePageKey, page: number) {
     setGuestTablePages((current) => ({ ...current, [panel]: page }));
+  }
+
+  function toggleTableSort(table: SortTableKey, column: string) {
+    setTableSorts((current) => {
+      const activeSort = current[table];
+      if (activeSort.column === column) {
+        return {
+          ...current,
+          [table]: {
+            column,
+            direction: activeSort.direction === "asc" ? "desc" : "asc",
+          },
+        };
+      }
+
+      return {
+        ...current,
+        [table]: {
+          column,
+          direction: "asc",
+        },
+      };
+    });
+  }
+
+  function renderSortableHeader(table: SortTableKey, column: string, label: string) {
+    const isActive = tableSorts[table].column === column;
+    const direction = tableSorts[table].direction === "asc" ? "↑" : "↓";
+
+    return (
+      <button
+        aria-label={`Ordenar por ${label}`}
+        className={`guest-table__sort-button ${isActive ? "guest-table__sort-button--active" : ""}`}
+        onClick={() => toggleTableSort(table, column)}
+        type="button"
+      >
+        <span>{label}</span>
+        <span aria-hidden="true" className="guest-table__sort-indicator">
+          {isActive ? direction : "↕"}
+        </span>
+      </button>
+    );
   }
 
   function updateGuestDraft(index: number, nextDraft: GuestDraft) {
@@ -1280,6 +1580,23 @@ export function App() {
 
       return nextDrafts;
     });
+  }
+
+  function getSelectableSeatIndexes(tableId: string, guestId: string | null = null) {
+    const table = tableById.get(tableId);
+    if (!table) {
+      return [];
+    }
+
+    const occupiedSeats = new Set(
+      table.guests
+        .filter((guest) => guest.id !== guestId && guest.seat_index !== null)
+        .map((guest) => guest.seat_index as number),
+    );
+
+    return Array.from({ length: table.capacity }, (_, seatIndex) => seatIndex).filter(
+      (seatIndex) => !occupiedSeats.has(seatIndex),
+    );
   }
 
   function handleGuestDragStart(event: DragEvent<Element>, guestId: string) {
@@ -1472,6 +1789,32 @@ export function App() {
       () => assignGuest(guest.id, nextTableId, null, token ?? ""),
         `${guest.name} asignado correctamente.`,
     );
+  }
+
+  function handleGuestSeatSelection(guest: Guest, nextSeatValue: string) {
+    if (!guest.table_id) {
+      cancelGuestEdit();
+      return;
+    }
+
+    const nextSeatIndex = Number(nextSeatValue);
+    if (!Number.isInteger(nextSeatIndex)) {
+      cancelGuestEdit();
+      return;
+    }
+
+    if (guest.seat_index === nextSeatIndex) {
+      cancelGuestEdit();
+      return;
+    }
+
+    void runWorkspaceAction(
+      `assign-seat-${guest.id}`,
+      "guests",
+      () => assignGuest(guest.id, guest.table_id!, nextSeatIndex, token ?? ""),
+      `${guest.name} movido a ${formatSeatLabel(nextSeatIndex).toLowerCase()}.`,
+    );
+    cancelGuestEdit();
   }
 
   function handleAssignedGuestTableSelection(guest: Guest, nextTableId: string) {
@@ -1794,6 +2137,24 @@ export function App() {
                   <strong>{childGuestsCount}</strong>
                 </article>
               </div>
+              <div className="control-metrics">
+                <article className="control-metric">
+                  <span>Comen pescado</span>
+                  <strong>{fishMenuGuestsCount}</strong>
+                </article>
+                <article className="control-metric">
+                  <span>Comen carne</span>
+                  <strong>{meatMenuGuestsCount}</strong>
+                </article>
+                <article className="control-metric">
+                  <span>Vegetarianos</span>
+                  <strong>{vegetarianMenuGuestsCount}</strong>
+                </article>
+                <article className="control-metric">
+                  <span>Menú desconocido</span>
+                  <strong>{unknownMenuGuestsCount}</strong>
+                </article>
+              </div>
               </>
               ) : null}
             </section>
@@ -1836,15 +2197,15 @@ export function App() {
                   <table className="guest-table session-table">
                     <thead>
                       <tr>
-                        <th>Sesión</th>
-                        <th>Creada</th>
+                        <th>{renderSortableHeader("sessions", "name", "Sesión")}</th>
+                        <th>{renderSortableHeader("sessions", "created_at", "Creada")}</th>
                         <th aria-label="Descargar sesión" className="guest-table__action-column" />
                         <th aria-label="Cargar sesión" className="guest-table__action-column" />
                         <th aria-label="Eliminar sesión" className="guest-table__action-column" />
                       </tr>
                     </thead>
                     <tbody>
-                      {savedSessions.map((session) => (
+                      {sortedSessions.map((session) => (
                         <tr className="guest-table__row" key={session.id}>
                           <td>
                             <strong>{session.name}</strong>
@@ -1969,7 +2330,7 @@ export function App() {
         <div
           aria-label="Ajustar ancho de la columna izquierda"
           aria-orientation="vertical"
-          aria-valuemax={RAIL_PANEL_MAX_WIDTH}
+          aria-valuemax={Math.round(getRailPanelMaxWidth(shellRef.current?.getBoundingClientRect().width ?? railPanelWidth))}
           aria-valuemin={RAIL_PANEL_MIN_WIDTH}
           aria-valuenow={Math.round(railPanelWidth)}
           className="shell__resizer"
@@ -1986,106 +2347,143 @@ export function App() {
 
         <section
           ref={canvasRef}
-          className={`canvas ${isResizingListsPanel ? "canvas--resizing" : ""}`}
+          className={`canvas ${isResizingListsPanel ? "canvas--resizing" : ""} ${isCenterPanelOpen ? "" : "canvas--center-collapsed"}`}
           style={{
-            gridTemplateColumns: isListsPanelOpen
-              ? `minmax(0, 1fr) 0.85rem minmax(${LISTS_PANEL_MIN_WIDTH}px, ${listsPanelWidth}px)`
-              : `minmax(0, 1fr) 0.85rem 2.75rem`,
+            gridTemplateColumns: isCenterPanelOpen
+              ? (
+                  isListsPanelOpen
+                    ? `minmax(0, 1fr) 0.85rem minmax(${LISTS_PANEL_MIN_WIDTH}px, ${listsPanelWidth}px)`
+                    : `minmax(0, 1fr) 0.85rem 2.75rem`
+                )
+              : (
+                  isListsPanelOpen
+                    ? `2.75rem 0 minmax(${LISTS_PANEL_MIN_WIDTH}px, 1fr)`
+                    : `2.75rem 0 2.75rem`
+                ),
           }}
         >
-          <div className={`canvas__tables ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
-            {workspace ? (
-              <SeatingPlan
-                activeDropSeat={activeDropSeat}
-                draggedGuestName={draggedGuest?.name ?? null}
-                highlightedGuestIds={guestSearchQuery.trim() ? filteredAssignedGuests.map((guest) => guest.id) : []}
-                isSearchActive={Boolean(guestSearchQuery.trim()) && Boolean(deferredGuestSearchQuery.trim())}
-                onGuestDragEnd={handleGuestDragEnd}
-                onGuestDragStart={handleGuestDragStart}
-                onMoveTable={handleTableMove}
-                onSelectTable={selectTable}
-                onSeatDragEnter={handleSeatDragEnter}
-                onSeatDragLeave={handleSeatDragLeave}
-                onSeatDrop={handleSeatDrop}
-                selectedTableId={selectedTableId ?? null}
-                workspace={workspaceForPlan ?? workspace}
-              />
-            ) : null}
-            {workspace?.tables.map((table) => {
-              const ratio = table.capacity === 0 ? 0 : Math.round((table.occupied / table.capacity) * 100);
-
-              return (
-                <article
-                  className={`table-card ${selectedTableId === table.id ? "table-card--selected" : ""} ${table.available === 0 ? "table-card--full" : ""} ${conflictTableIds.has(table.id) ? "table-card--conflict" : ""} ${activeCardDropTableId === table.id ? "table-card--drop-target" : ""}`}
-                  data-testid={`table-card-${table.id}`}
-                  key={table.id}
-                  onClick={() => selectTable(table.id)}
-                  onDragLeave={(event) => handleTableCardDragLeave(event, table.id)}
-                  onDragOver={(event) => handleTableCardDragOver(event, table.id)}
-                  onDrop={(event) => handleTableCardDrop(event, table.id)}
+          {isCenterPanelOpen ? (
+            <div className={`canvas__tables ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
+              <div className="canvas__tables-header">
+                <button
+                  aria-expanded={isCenterPanelOpen}
+                  aria-label="Cerrar paneles centrales"
+                  className="canvas__toggle"
+                  onClick={() => setIsCenterPanelOpen(false)}
+                  type="button"
                 >
-                  <div className="table-card__header">
-                    <div>
-                      <span className="table-card__label">Mesa {table.number}</span>
-                      <h3>{table.occupied}/{table.capacity} asientos</h3>
+                  <span aria-hidden="true" className="canvas__toggle-triangle">
+                    ◀
+                  </span>
+                </button>
+              </div>
+              {workspace ? (
+                <SeatingPlan
+                  activeDropSeat={activeDropSeat}
+                  draggedGuestName={draggedGuest?.name ?? null}
+                  highlightedGuestIds={guestSearchQuery.trim() ? filteredAssignedGuests.map((guest) => guest.id) : []}
+                  isSearchActive={Boolean(guestSearchQuery.trim()) && Boolean(deferredGuestSearchQuery.trim())}
+                  onGuestDragEnd={handleGuestDragEnd}
+                  onGuestDragStart={handleGuestDragStart}
+                  onMoveTable={handleTableMove}
+                  onSelectTable={selectTable}
+                  onSeatDragEnter={handleSeatDragEnter}
+                  onSeatDragLeave={handleSeatDragLeave}
+                  onSeatDrop={handleSeatDrop}
+                  selectedTableId={selectedTableId ?? null}
+                  workspace={workspaceForPlan ?? workspace}
+                />
+              ) : null}
+              {workspace?.tables.map((table) => {
+                const ratio = table.capacity === 0 ? 0 : Math.round((table.occupied / table.capacity) * 100);
+
+                return (
+                  <article
+                    className={`table-card ${selectedTableId === table.id ? "table-card--selected" : ""} ${table.available === 0 ? "table-card--full" : ""} ${conflictTableIds.has(table.id) ? "table-card--conflict" : ""} ${activeCardDropTableId === table.id ? "table-card--drop-target" : ""}`}
+                    data-testid={`table-card-${table.id}`}
+                    key={table.id}
+                    onClick={() => selectTable(table.id)}
+                    onDragLeave={(event) => handleTableCardDragLeave(event, table.id)}
+                    onDragOver={(event) => handleTableCardDragOver(event, table.id)}
+                    onDrop={(event) => handleTableCardDrop(event, table.id)}
+                  >
+                    <div className="table-card__header">
+                      <div>
+                        <span className="table-card__label">Mesa {table.number}</span>
+                        <h3>{table.occupied}/{table.capacity} asientos</h3>
+                      </div>
+                      <span className={`table-card__pill ${table.available === 0 ? "table-card__pill--full" : ""}`}>
+                        {table.available} libres
+                      </span>
                     </div>
-                    <span className={`table-card__pill ${table.available === 0 ? "table-card__pill--full" : ""}`}>
-                      {table.available} libres
-                    </span>
-                  </div>
-                  <div className="table-card__meter" aria-hidden="true">
-                    <i style={{ width: `${ratio}%` }} />
-                  </div>
-                  <div className="table-card__flags">
-                    {conflictTableIds.has(table.id) ? <span className="status-flag status-flag--conflict">Por revisar</span> : null}
-                    {table.available === 0 ? <span className="status-flag status-flag--full">Completa</span> : null}
-                    {table.available > 0 && table.available <= 2 ? <span className="status-flag status-flag--tight">Poco margen</span> : null}
-                  </div>
-                  <div className="seat-ring">
-                    {table.guests.length === 0 ? (
-                      <p className="empty-state">Sin invitados asignados.</p>
-                    ) : (
-                      table.guests.map((guest) => (
-                        <div
-                          className={`guest-chip ${guest.guest_type === "adolescente" ? "guest-chip--teen" : ""} ${guest.guest_type === "nino" ? "guest-chip--child" : "guest-chip--adult"} ${conflictGuestIds.has(guest.id) ? "guest-chip--conflict" : ""}`}
-                          draggable
-                          key={guest.id}
-                          onDragEnd={handleGuestDragEnd}
-                          onDragStart={(event) => handleGuestDragStart(event, guest.id)}
-                          onMouseEnter={(event) => updateHoveredCardGuest(event, table.id, guest)}
-                          onMouseLeave={() => setHoveredCardGuest((current) => (current?.tableId === table.id ? null : current))}
-                          onMouseMove={(event) => updateHoveredCardGuest(event, table.id, guest)}
-                        >
-                          <span>{guest.name}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  {hoveredCardGuest?.tableId === table.id ? (
-                    <div className="table-card__tooltip" style={{ left: `${hoveredCardGuest.x}px`, top: `${hoveredCardGuest.y}px` }}>
-                      <strong>{hoveredCardGuest.name}</strong>
-                      <span>Tipo: {hoveredCardGuest.guestType}</span>
-                      <span>Familia: {hoveredCardGuest.family}</span>
-                      <span>Estado: {hoveredCardGuest.confirmedLabel}</span>
+                    <div className="table-card__meter" aria-hidden="true">
+                      <i style={{ width: `${ratio}%` }} />
                     </div>
-                  ) : null}
-                </article>
-              );
-            }) ?? <p className="empty-state">Aun no hay workspace cargado.</p>}
-          </div>
+                    <div className="table-card__flags">
+                      {conflictTableIds.has(table.id) ? <span className="status-flag status-flag--conflict">Por revisar</span> : null}
+                      {table.available === 0 ? <span className="status-flag status-flag--full">Completa</span> : null}
+                      {table.available > 0 && table.available <= 2 ? <span className="status-flag status-flag--tight">Poco margen</span> : null}
+                    </div>
+                    <div className="seat-ring">
+                      {table.guests.length === 0 ? (
+                        <p className="empty-state">Sin invitados asignados.</p>
+                      ) : (
+                        table.guests.map((guest) => (
+                          <div
+                            className={`guest-chip ${guest.guest_type === "adolescente" ? "guest-chip--teen" : ""} ${guest.guest_type === "nino" ? "guest-chip--child" : "guest-chip--adult"} ${conflictGuestIds.has(guest.id) ? "guest-chip--conflict" : ""}`}
+                            draggable
+                            key={guest.id}
+                            onDragEnd={handleGuestDragEnd}
+                            onDragStart={(event) => handleGuestDragStart(event, guest.id)}
+                            onMouseEnter={(event) => updateHoveredCardGuest(event, table.id, guest)}
+                            onMouseLeave={() => setHoveredCardGuest((current) => (current?.tableId === table.id ? null : current))}
+                            onMouseMove={(event) => updateHoveredCardGuest(event, table.id, guest)}
+                          >
+                            <span>{guest.name}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    {hoveredCardGuest?.tableId === table.id ? (
+                      <div className="table-card__tooltip" style={{ left: `${hoveredCardGuest.x}px`, top: `${hoveredCardGuest.y}px` }}>
+                        <strong>{hoveredCardGuest.name}</strong>
+                        <span>Tipo: {hoveredCardGuest.guestType}</span>
+                        <span>Familia: {hoveredCardGuest.family}</span>
+                        <span>Estado: {hoveredCardGuest.confirmedLabel}</span>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              }) ?? <p className="empty-state">Aun no hay workspace cargado.</p>}
+            </div>
+          ) : (
+            <div className="canvas__collapsed-strip">
+              <button
+                aria-expanded={isCenterPanelOpen}
+                aria-label="Abrir paneles centrales"
+                className="canvas__toggle"
+                onClick={() => setIsCenterPanelOpen(true)}
+                type="button"
+              >
+                <span aria-hidden="true" className="canvas__toggle-triangle">
+                  ▶
+                </span>
+              </button>
+            </div>
+          )}
 
           <div
-            aria-hidden={!isListsPanelOpen}
+            aria-hidden={!isListsPanelOpen || !isCenterPanelOpen}
             aria-label="Ajustar ancho de la columna derecha"
             aria-orientation="vertical"
-            aria-valuemax={LISTS_PANEL_MAX_WIDTH}
+            aria-valuemax={Math.round(getListsPanelMaxWidth(canvasRef.current?.getBoundingClientRect().width ?? listsPanelWidth))}
             aria-valuemin={LISTS_PANEL_MIN_WIDTH}
             aria-valuenow={Math.round(listsPanelWidth)}
-            className={`canvas__resizer ${isListsPanelOpen ? "" : "canvas__resizer--inactive"}`}
-            onKeyDown={isListsPanelOpen ? handleListsPanelResizeKeyDown : undefined}
-            onPointerDown={isListsPanelOpen ? startListsPanelResize : undefined}
+            className={`canvas__resizer ${isListsPanelOpen && isCenterPanelOpen ? "" : "canvas__resizer--inactive"}`}
+            onKeyDown={isListsPanelOpen && isCenterPanelOpen ? handleListsPanelResizeKeyDown : undefined}
+            onPointerDown={isListsPanelOpen && isCenterPanelOpen ? startListsPanelResize : undefined}
             role="separator"
-            tabIndex={isListsPanelOpen ? 0 : -1}
+            tabIndex={isListsPanelOpen && isCenterPanelOpen ? 0 : -1}
           />
 
           <div
@@ -2161,6 +2559,48 @@ export function App() {
                 {!collapsedPanels.unassigned ? (
                 <>
                 <section className="guest-salon__section">
+                  <div className="guest-table-visibility" role="group" aria-label="Mostrar columnas en invitados por asignar">
+                    <button
+                      aria-pressed={visibleUnassignedColumns.confirmed}
+                      className={`guest-table-visibility__toggle ${visibleUnassignedColumns.confirmed ? "guest-table-visibility__toggle--active" : ""}`}
+                      onClick={() => toggleUnassignedColumn("confirmed")}
+                      type="button"
+                    >
+                      Asistencia
+                    </button>
+                    <button
+                      aria-pressed={visibleUnassignedColumns.type}
+                      className={`guest-table-visibility__toggle ${visibleUnassignedColumns.type ? "guest-table-visibility__toggle--active" : ""}`}
+                      onClick={() => toggleUnassignedColumn("type")}
+                      type="button"
+                    >
+                      Tipo
+                    </button>
+                    <button
+                      aria-pressed={visibleUnassignedColumns.group}
+                      className={`guest-table-visibility__toggle ${visibleUnassignedColumns.group ? "guest-table-visibility__toggle--active" : ""}`}
+                      onClick={() => toggleUnassignedColumn("group")}
+                      type="button"
+                    >
+                      Familia
+                    </button>
+                    <button
+                      aria-pressed={visibleUnassignedColumns.food}
+                      className={`guest-table-visibility__toggle ${visibleUnassignedColumns.food ? "guest-table-visibility__toggle--active" : ""}`}
+                      onClick={() => toggleUnassignedColumn("food")}
+                      type="button"
+                    >
+                      Comida
+                    </button>
+                    <button
+                      aria-pressed={visibleUnassignedColumns.table}
+                      className={`guest-table-visibility__toggle ${visibleUnassignedColumns.table ? "guest-table-visibility__toggle--active" : ""}`}
+                      onClick={() => toggleUnassignedColumn("table")}
+                      type="button"
+                    >
+                      Mesa
+                    </button>
+                  </div>
                   <div
                     className={`guest-table-shell ${isUnassignedDropActive ? "guest-table-shell--drop-active" : ""}`}
                     onDragLeave={handleUnassignedDragLeave}
@@ -2173,11 +2613,14 @@ export function App() {
                         <table className="guest-table">
                           <thead>
                             <tr>
-                              <th>Invitado</th>
-                              <th>Asistencia</th>
-                              <th>Tipo</th>
-                              <th>Familia</th>
-                              <th>Mesa</th>
+                              <th>{renderSortableHeader("unassigned", "name", "Invitado")}</th>
+                              {visibleUnassignedColumns.confirmed ? <th>{renderSortableHeader("unassigned", "confirmed", "Asistencia")}</th> : null}
+                              {visibleUnassignedColumns.type ? <th>{renderSortableHeader("unassigned", "type", "Tipo")}</th> : null}
+                              {visibleUnassignedColumns.group ? <th>{renderSortableHeader("unassigned", "group", "Familia")}</th> : null}
+                              {visibleUnassignedColumns.food ? <th>{renderSortableHeader("unassigned", "intolerance", "Intolerancia")}</th> : null}
+                              {visibleUnassignedColumns.food ? <th>{renderSortableHeader("unassigned", "menu", "Menú")}</th> : null}
+                              {visibleUnassignedColumns.table ? <th>{renderSortableHeader("unassigned", "table", "Mesa")}</th> : null}
+                              {visibleUnassignedColumns.table ? <th>{renderSortableHeader("unassigned", "seat", "Asiento")}</th> : null}
                               <th aria-label="Eliminar invitado" className="guest-table__action-column" />
                             </tr>
                           </thead>
@@ -2211,82 +2654,136 @@ export function App() {
                                       </button>
                                     )}
                                   </td>
-                                  <td>
-                                    {editingGuestId === guest.id && editingGuestField === "confirmed" ? (
-                                      <select
-                                        autoFocus
-                                        className="guest-table__select"
-                                        onBlur={handleGuestEditBlur}
-                                        onChange={(event) => setEditingGuestConfirmed(event.target.value === "true")}
-                                        onKeyDown={handleGuestEditKeyDown}
-                                        value={String(editingGuestConfirmed)}
-                                      >
-                                        <option value="true">Confirmado</option>
-                                        <option value="false">Pendiente</option>
-                                      </select>
-                                    ) : (
-                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "confirmed")} type="button">
-                                        {formatConfirmedLabel(guest.confirmed)}
-                                      </button>
-                                    )}
-                                  </td>
-                                  <td>
-                                    {editingGuestId === guest.id && editingGuestField === "type" ? (
-                                      <select
-                                        className="guest-table__select"
-                                        onBlur={handleGuestEditBlur}
-                                        onChange={(event) => setEditingGuestType(event.target.value)}
-                                        onKeyDown={handleGuestEditKeyDown}
-                                        value={editingGuestType}
-                                      >
-                                        <option value="adulto">adulto</option>
-                                        <option value="adolescente">adolescente</option>
-                                        <option value="nino">nino</option>
-                                      </select>
-                                    ) : (
-                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "type")} type="button">
-                                        {formatGuestTypeLabel(guest.guest_type)}
-                                      </button>
-                                    )}
-                                  </td>
-                                  <td>
-                                    {editingGuestId === guest.id && editingGuestField === "group" ? (
-                                      <input
-                                        className="guest-table__input"
-                                        onBlur={handleGuestEditBlur}
-                                        onChange={(event) => setEditingGuestGroupId(event.target.value)}
-                                        onKeyDown={handleGuestEditKeyDown}
-                                        value={editingGuestGroupId}
-                                      />
-                                    ) : (
-                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
-                                        {guest.group_id ? guest.group_id : "Sin familia"}
-                                      </button>
-                                    )}
-                                  </td>
-                                  <td>
-                                    {editingGuestId === guest.id && editingGuestField === "table" ? (
-                                      <select
-                                        autoFocus
-                                        className="guest-table__select"
-                                        onBlur={handleGuestEditBlur}
-                                        onChange={(event) => handleGuestAssignmentSelection(guest, event.target.value)}
-                                        onKeyDown={handleGuestEditKeyDown}
-                                        value={assignmentValues[guest.id] ?? ""}
-                                      >
-                                        <option value="">Sin mesa</option>
-                                        {workspace?.tables.map((table) => (
-                                          <option key={table.id} value={table.id}>
-                                            Mesa {table.number}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    ) : (
-                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "table")} type="button">
-                                        <span className="guest-row__table guest-row__table--muted">Sin mesa</span>
-                                      </button>
-                                    )}
-                                  </td>
+                                  {visibleUnassignedColumns.confirmed ? (
+                                    <td>
+                                      {editingGuestId === guest.id && editingGuestField === "confirmed" ? (
+                                        <select
+                                          autoFocus
+                                          className="guest-table__select"
+                                          onBlur={handleGuestEditBlur}
+                                          onChange={(event) => setEditingGuestConfirmed(event.target.value === "true")}
+                                          onKeyDown={handleGuestEditKeyDown}
+                                          value={String(editingGuestConfirmed)}
+                                        >
+                                          <option value="true">Confirmado</option>
+                                          <option value="false">Pendiente</option>
+                                        </select>
+                                      ) : (
+                                        <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "confirmed")} type="button">
+                                          {formatConfirmedLabel(guest.confirmed)}
+                                        </button>
+                                      )}
+                                    </td>
+                                  ) : null}
+                                  {visibleUnassignedColumns.type ? (
+                                    <td>
+                                      {editingGuestId === guest.id && editingGuestField === "type" ? (
+                                        <select
+                                          className="guest-table__select"
+                                          onBlur={handleGuestEditBlur}
+                                          onChange={(event) => setEditingGuestType(event.target.value)}
+                                          onKeyDown={handleGuestEditKeyDown}
+                                          value={editingGuestType}
+                                        >
+                                          <option value="adulto">adulto</option>
+                                          <option value="adolescente">adolescente</option>
+                                          <option value="nino">nino</option>
+                                        </select>
+                                      ) : (
+                                        <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "type")} type="button">
+                                          {formatGuestTypeLabel(guest.guest_type)}
+                                        </button>
+                                      )}
+                                    </td>
+                                  ) : null}
+                                  {visibleUnassignedColumns.group ? (
+                                    <td>
+                                      {editingGuestId === guest.id && editingGuestField === "group" ? (
+                                        <input
+                                          className="guest-table__input"
+                                          onBlur={handleGuestEditBlur}
+                                          onChange={(event) => setEditingGuestGroupId(event.target.value)}
+                                          onKeyDown={handleGuestEditKeyDown}
+                                          value={editingGuestGroupId}
+                                        />
+                                      ) : (
+                                        <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
+                                          {guest.group_id ? guest.group_id : "Sin familia"}
+                                        </button>
+                                      )}
+                                    </td>
+                                  ) : null}
+                                  {visibleUnassignedColumns.food ? (
+                                    <td>
+                                      {editingGuestId === guest.id && editingGuestField === "intolerance" ? (
+                                        <input
+                                          autoFocus
+                                          className="guest-table__input"
+                                          onBlur={handleGuestEditBlur}
+                                          onChange={(event) => setEditingGuestIntolerance(event.target.value)}
+                                          onKeyDown={handleGuestEditKeyDown}
+                                          value={editingGuestIntolerance}
+                                        />
+                                      ) : (
+                                        <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "intolerance")} type="button">
+                                          {guest.intolerance || "Sin intolerancia"}
+                                        </button>
+                                      )}
+                                    </td>
+                                  ) : null}
+                                  {visibleUnassignedColumns.food ? (
+                                    <td>
+                                      {editingGuestId === guest.id && editingGuestField === "menu" ? (
+                                        <select
+                                          autoFocus
+                                          className="guest-table__select"
+                                          onBlur={handleGuestEditBlur}
+                                          onChange={(event) => setEditingGuestMenu(event.target.value)}
+                                          onKeyDown={handleGuestEditKeyDown}
+                                          value={editingGuestMenu}
+                                        >
+                                          <option value="desconocido">Desconocido</option>
+                                          <option value="carne">Carne</option>
+                                          <option value="pescado">Pescado</option>
+                                          <option value="vegano">Vegano</option>
+                                        </select>
+                                      ) : (
+                                        <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "menu")} type="button">
+                                          {formatMenuLabel(guest.menu)}
+                                        </button>
+                                      )}
+                                    </td>
+                                  ) : null}
+                                  {visibleUnassignedColumns.table ? (
+                                    <td>
+                                      {editingGuestId === guest.id && editingGuestField === "table" ? (
+                                        <select
+                                          autoFocus
+                                          className="guest-table__select"
+                                          onBlur={handleGuestEditBlur}
+                                          onChange={(event) => handleGuestAssignmentSelection(guest, event.target.value)}
+                                          onKeyDown={handleGuestEditKeyDown}
+                                          value={assignmentValues[guest.id] ?? ""}
+                                        >
+                                          <option value="">Sin mesa</option>
+                                          {workspace?.tables.map((table) => (
+                                            <option key={table.id} value={table.id}>
+                                              Mesa {table.number}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      ) : (
+                                        <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "table")} type="button">
+                                          <span className="guest-row__table guest-row__table--muted">Sin mesa</span>
+                                        </button>
+                                      )}
+                                    </td>
+                                  ) : null}
+                                  {visibleUnassignedColumns.table ? (
+                                    <td>
+                                      <span className="guest-row__table guest-row__table--muted">Sin asiento</span>
+                                    </td>
+                                  ) : null}
                                   <td className="guest-table__action-column">
                                     <div className="guest-table__actions guest-table__actions--icon-only">
                                       {editingGuestId === guest.id ? (
@@ -2437,6 +2934,36 @@ export function App() {
                               <option value="nino">nino</option>
                             </select>
                           </label>
+                          <label className="mini-field">
+                            <span>Intolerancia</span>
+                            <input
+                              placeholder="opcional"
+                              value={draft.intolerance}
+                              onChange={(event) =>
+                                updateGuestDraft(index, {
+                                  ...draft,
+                                  intolerance: event.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                          <label className="mini-field">
+                            <span>Menú</span>
+                            <select
+                              value={draft.menu}
+                              onChange={(event) =>
+                                updateGuestDraft(index, {
+                                  ...draft,
+                                  menu: event.target.value,
+                                })
+                              }
+                            >
+                              <option value="desconocido">desconocido</option>
+                              <option value="carne">carne</option>
+                              <option value="pescado">pescado</option>
+                              <option value="vegano">vegano</option>
+                            </select>
+                          </label>
                           <label className="mini-field mini-field--checkbox">
                             <span>Confirmado</span>
                             <input
@@ -2473,11 +3000,47 @@ export function App() {
               </div>
               {!collapsedPanels.assigned ? (
               <section className="guest-salon__section guest-salon__section--standalone">
-                <div className="guest-salon__section-header">
-                  <div>
-                    <h4>Ya ubicados</h4>
-                    <p>Vista densa para revisar rápidamente mesa, familia y acciones.</p>
-                  </div>
+                <div className="guest-table-visibility" role="group" aria-label="Mostrar columnas en invitados ubicados">
+                  <button
+                    aria-pressed={visibleAssignedColumns.confirmed}
+                    className={`guest-table-visibility__toggle ${visibleAssignedColumns.confirmed ? "guest-table-visibility__toggle--active" : ""}`}
+                    onClick={() => toggleAssignedColumn("confirmed")}
+                    type="button"
+                  >
+                    Asistencia
+                  </button>
+                  <button
+                    aria-pressed={visibleAssignedColumns.type}
+                    className={`guest-table-visibility__toggle ${visibleAssignedColumns.type ? "guest-table-visibility__toggle--active" : ""}`}
+                    onClick={() => toggleAssignedColumn("type")}
+                    type="button"
+                  >
+                    Tipo
+                  </button>
+                  <button
+                    aria-pressed={visibleAssignedColumns.group}
+                    className={`guest-table-visibility__toggle ${visibleAssignedColumns.group ? "guest-table-visibility__toggle--active" : ""}`}
+                    onClick={() => toggleAssignedColumn("group")}
+                    type="button"
+                  >
+                    Familia
+                  </button>
+                  <button
+                    aria-pressed={visibleAssignedColumns.food}
+                    className={`guest-table-visibility__toggle ${visibleAssignedColumns.food ? "guest-table-visibility__toggle--active" : ""}`}
+                    onClick={() => toggleAssignedColumn("food")}
+                    type="button"
+                  >
+                    Comida
+                  </button>
+                  <button
+                    aria-pressed={visibleAssignedColumns.table}
+                    className={`guest-table-visibility__toggle ${visibleAssignedColumns.table ? "guest-table-visibility__toggle--active" : ""}`}
+                    onClick={() => toggleAssignedColumn("table")}
+                    type="button"
+                  >
+                    Mesa
+                  </button>
                 </div>
                 <div className="guest-table-shell guest-table-shell--compact">
                   {filteredAssignedGuests.length > 0 ? (
@@ -2485,11 +3048,15 @@ export function App() {
                     <table className="guest-table guest-table--placed">
                       <thead>
                         <tr>
-                          <th>Invitado</th>
-                          <th>Asistencia</th>
-                          <th>Tipo</th>
-                          <th>Familia</th>
-                          <th>Mesa</th>
+                          <th>{renderSortableHeader("assigned", "name", "Invitado")}</th>
+                          {visibleAssignedColumns.confirmed ? <th>{renderSortableHeader("assigned", "confirmed", "Asistencia")}</th> : null}
+                          {visibleAssignedColumns.type ? <th>{renderSortableHeader("assigned", "type", "Tipo")}</th> : null}
+                          {visibleAssignedColumns.group ? <th>{renderSortableHeader("assigned", "group", "Familia")}</th> : null}
+                          {visibleAssignedColumns.food ? <th>{renderSortableHeader("assigned", "intolerance", "Intolerancia")}</th> : null}
+                          {visibleAssignedColumns.food ? <th>{renderSortableHeader("assigned", "menu", "Menú")}</th> : null}
+                          {visibleAssignedColumns.table ? <th>{renderSortableHeader("assigned", "table", "Mesa")}</th> : null}
+                          {visibleAssignedColumns.table ? <th>{renderSortableHeader("assigned", "seat", "Asiento")}</th> : null}
+                          <th aria-label="Eliminar invitado" className="guest-table__action-column" />
                         </tr>
                       </thead>
                       <tbody>
@@ -2521,60 +3088,156 @@ export function App() {
                                     </button>
                                   )}
                                 </td>
-                                <td>
-                                  {editingGuestId === guest.id && editingGuestField === "confirmed" ? (
-                                    <select
-                                      autoFocus
-                                      className="guest-table__select"
-                                      onBlur={handleGuestEditBlur}
-                                      onChange={(event) => setEditingGuestConfirmed(event.target.value === "true")}
-                                      onKeyDown={handleGuestEditKeyDown}
-                                      value={String(editingGuestConfirmed)}
-                                    >
-                                      <option value="true">Confirmado</option>
-                                      <option value="false">Pendiente</option>
-                                    </select>
-                                  ) : (
-                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "confirmed")} type="button">
-                                      {formatConfirmedLabel(guest.confirmed)}
-                                    </button>
-                                  )}
-                                </td>
-                                <td>
-                                  {editingGuestId === guest.id && editingGuestField === "type" ? (
-                                    <select
-                                      className="guest-table__select"
-                                      onBlur={handleGuestEditBlur}
-                                      onChange={(event) => setEditingGuestType(event.target.value)}
-                                      onKeyDown={handleGuestEditKeyDown}
-                                      value={editingGuestType}
-                                    >
-                                      <option value="adulto">adulto</option>
-                                      <option value="adolescente">adolescente</option>
-                                      <option value="nino">nino</option>
-                                    </select>
-                                  ) : (
-                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "type")} type="button">
-                                      {formatGuestTypeLabel(guest.guest_type)}
-                                    </button>
-                                  )}
-                                </td>
-                                <td>
-                                  {editingGuestId === guest.id && editingGuestField === "group" ? (
-                                    <input
-                                      className="guest-table__input"
-                                      onBlur={handleGuestEditBlur}
-                                      onChange={(event) => setEditingGuestGroupId(event.target.value)}
-                                      onKeyDown={handleGuestEditKeyDown}
-                                      value={editingGuestGroupId}
-                                    />
-                                  ) : (
-                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
-                                      {guest.group_id ? guest.group_id : "Sin agrupación"}
-                                    </button>
-                                  )}
-                                </td>
-                                <td>
+                                {visibleAssignedColumns.confirmed ? (
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "confirmed" ? (
+                                      <select
+                                        autoFocus
+                                        className="guest-table__select"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => setEditingGuestConfirmed(event.target.value === "true")}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={String(editingGuestConfirmed)}
+                                      >
+                                        <option value="true">Confirmado</option>
+                                        <option value="false">Pendiente</option>
+                                      </select>
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "confirmed")} type="button">
+                                        {formatConfirmedLabel(guest.confirmed)}
+                                      </button>
+                                    )}
+                                  </td>
+                                ) : null}
+                                {visibleAssignedColumns.type ? (
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "type" ? (
+                                      <select
+                                        className="guest-table__select"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => setEditingGuestType(event.target.value)}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={editingGuestType}
+                                      >
+                                        <option value="adulto">adulto</option>
+                                        <option value="adolescente">adolescente</option>
+                                        <option value="nino">nino</option>
+                                      </select>
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "type")} type="button">
+                                        {formatGuestTypeLabel(guest.guest_type)}
+                                      </button>
+                                    )}
+                                  </td>
+                                ) : null}
+                                {visibleAssignedColumns.group ? (
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "group" ? (
+                                      <input
+                                        className="guest-table__input"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => setEditingGuestGroupId(event.target.value)}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={editingGuestGroupId}
+                                      />
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
+                                        {guest.group_id ? guest.group_id : "Sin agrupación"}
+                                      </button>
+                                    )}
+                                  </td>
+                                ) : null}
+                                {visibleAssignedColumns.food ? (
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "intolerance" ? (
+                                      <input
+                                        autoFocus
+                                        className="guest-table__input"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => setEditingGuestIntolerance(event.target.value)}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={editingGuestIntolerance}
+                                      />
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "intolerance")} type="button">
+                                        {guest.intolerance || "Sin intolerancia"}
+                                      </button>
+                                    )}
+                                  </td>
+                                ) : null}
+                                {visibleAssignedColumns.food ? (
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "menu" ? (
+                                      <select
+                                        autoFocus
+                                        className="guest-table__select"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => setEditingGuestMenu(event.target.value)}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={editingGuestMenu}
+                                      >
+                                        <option value="desconocido">Desconocido</option>
+                                        <option value="carne">Carne</option>
+                                        <option value="pescado">Pescado</option>
+                                        <option value="vegano">Vegano</option>
+                                      </select>
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "menu")} type="button">
+                                        {formatMenuLabel(guest.menu)}
+                                      </button>
+                                    )}
+                                  </td>
+                                ) : null}
+                                {visibleAssignedColumns.table ? (
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "table" ? (
+                                      <select
+                                        autoFocus
+                                        className="guest-table__select"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => handleAssignedGuestTableSelection(guest, event.target.value)}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={assignmentValues[guest.id] ?? guest.table_id ?? ""}
+                                      >
+                                        <option value="">Elegir mesa</option>
+                                        {workspace?.tables.map((table) => (
+                                          <option key={table.id} value={table.id}>
+                                            Mesa {table.number}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "table")} type="button">
+                                        <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
+                                      </button>
+                                    )}
+                                  </td>
+                                ) : null}
+                                {visibleAssignedColumns.table ? (
+                                  <td>
+                                    {editingGuestId === guest.id && editingGuestField === "seat" && guest.table_id ? (
+                                      <select
+                                        autoFocus
+                                        className="guest-table__select"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => handleGuestSeatSelection(guest, event.target.value)}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={editingGuestSeatIndex}
+                                      >
+                                        {getSelectableSeatIndexes(guest.table_id, guest.id).map((seatIndex) => (
+                                          <option key={`${guest.id}-seat-${seatIndex}`} value={seatIndex}>
+                                            {formatSeatLabel(seatIndex)}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "seat")} type="button">
+                                        <span className="guest-row__table">{formatSeatLabel(guest.seat_index)}</span>
+                                      </button>
+                                    )}
+                                  </td>
+                                ) : null}
+                                <td className="guest-table__action-column">
                                   {pendingGuestRemovalId === guest.id ? (
                                     <div className="guest-table__confirm guest-table__confirm--inline">
                                       <span>¿Quitar?</span>
@@ -2607,43 +3270,22 @@ export function App() {
                                         </svg>
                                       </button>
                                     </div>
-                                  ) : editingGuestId === guest.id && editingGuestField === "table" ? (
-                                    <select
-                                      autoFocus
-                                      className="guest-table__select"
-                                      onBlur={handleGuestEditBlur}
-                                      onChange={(event) => handleAssignedGuestTableSelection(guest, event.target.value)}
-                                      onKeyDown={handleGuestEditKeyDown}
-                                      value={assignmentValues[guest.id] ?? guest.table_id ?? ""}
-                                    >
-                                      <option value="">Elegir mesa</option>
-                                      {workspace?.tables.map((table) => (
-                                        <option key={table.id} value={table.id}>
-                                          Mesa {table.number}
-                                        </option>
-                                      ))}
-                                    </select>
                                   ) : (
-                                    <div className="guest-table__cell-inline">
-                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "table")} type="button">
-                                        <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
-                                      </button>
-                                      <button
-                                        aria-label={`Eliminar a ${guest.name}`}
-                                        className="button button--ghost button--small button--icon"
-                                        disabled={isActionRunning(`delete-${guest.id}`)}
-                                        onClick={() => setPendingGuestRemovalId(guest.id)}
-                                        type="button"
-                                      >
-                                        <svg aria-hidden="true" className="button__icon" viewBox="0 0 24 24">
-                                          <path d="M9 4.75h6" />
-                                          <path d="M5.75 7.25h12.5" />
-                                          <path d="M8.25 7.25v10.1A1.4 1.4 0 0 0 9.65 18.75h4.7a1.4 1.4 0 0 0 1.4-1.4V7.25" />
-                                          <path d="M10 10.25v5.5" />
-                                          <path d="M14 10.25v5.5" />
-                                        </svg>
-                                      </button>
-                                    </div>
+                                    <button
+                                      aria-label={`Eliminar a ${guest.name}`}
+                                      className="button button--ghost button--small button--icon"
+                                      disabled={isActionRunning(`delete-${guest.id}`)}
+                                      onClick={() => setPendingGuestRemovalId(guest.id)}
+                                      type="button"
+                                    >
+                                      <svg aria-hidden="true" className="button__icon" viewBox="0 0 24 24">
+                                        <path d="M9 4.75h6" />
+                                        <path d="M5.75 7.25h12.5" />
+                                        <path d="M8.25 7.25v10.1A1.4 1.4 0 0 0 9.65 18.75h4.7a1.4 1.4 0 0 0 1.4-1.4V7.25" />
+                                        <path d="M10 10.25v5.5" />
+                                        <path d="M14 10.25v5.5" />
+                                      </svg>
+                                    </button>
                                   )}
                                 </td>
                               </tr>
@@ -2711,16 +3353,69 @@ export function App() {
                     <table className="guest-table guest-table--placed">
                       <thead>
                         <tr>
-                          <th>Invitado</th>
-                          <th>Familia</th>
-                          <th>Mesa</th>
+                          <th>{renderSortableHeader("conflicts", "name", "Invitado")}</th>
+                          <th>{renderSortableHeader("conflicts", "intolerance", "Intolerancia")}</th>
+                          <th>{renderSortableHeader("conflicts", "menu", "Menú")}</th>
+                          <th>{renderSortableHeader("conflicts", "group", "Familia")}</th>
+                          <th>{renderSortableHeader("conflicts", "table", "Mesa")}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {paginatedConflictRows.rows.map((row) => (
                           <tr className="guest-table__row guest-table__row--conflict" key={row.rowId}>
                             <td>
-                              <strong>{row.guestName}</strong>
+                              {row.guest ? (
+                                <button className="guest-name-button" onClick={() => beginGuestEdit(row.guest!, "name")} type="button">
+                                  <strong>{row.guestName}</strong>
+                                </button>
+                              ) : (
+                                <strong>{row.guestName}</strong>
+                              )}
+                            </td>
+                            <td>
+                              {row.guest ? (
+                                editingGuestId === row.guest.id && editingGuestField === "intolerance" ? (
+                                  <input
+                                    autoFocus
+                                    className="guest-table__input"
+                                    onBlur={handleGuestEditBlur}
+                                    onChange={(event) => setEditingGuestIntolerance(event.target.value)}
+                                    onKeyDown={handleGuestEditKeyDown}
+                                    value={editingGuestIntolerance}
+                                  />
+                                ) : (
+                                  <button className="guest-cell-button" onClick={() => beginGuestEdit(row.guest!, "intolerance")} type="button">
+                                    {row.guest.intolerance || "Sin intolerancia"}
+                                  </button>
+                                )
+                              ) : (
+                                "Sin intolerancia"
+                              )}
+                            </td>
+                            <td>
+                              {row.guest ? (
+                                editingGuestId === row.guest.id && editingGuestField === "menu" ? (
+                                  <select
+                                    autoFocus
+                                    className="guest-table__select"
+                                    onBlur={handleGuestEditBlur}
+                                    onChange={(event) => setEditingGuestMenu(event.target.value)}
+                                    onKeyDown={handleGuestEditKeyDown}
+                                    value={editingGuestMenu}
+                                  >
+                                    <option value="desconocido">Desconocido</option>
+                                    <option value="carne">Carne</option>
+                                    <option value="pescado">Pescado</option>
+                                    <option value="vegano">Vegano</option>
+                                  </select>
+                                ) : (
+                                  <button className="guest-cell-button" onClick={() => beginGuestEdit(row.guest!, "menu")} type="button">
+                                    {formatMenuLabel(row.guest.menu)}
+                                  </button>
+                                )
+                              ) : (
+                                "Desconocido"
+                              )}
                             </td>
                             <td>{row.groupId}</td>
                             <td>{row.tableLabel}</td>
@@ -2782,7 +3477,7 @@ export function App() {
                   type="file"
                 />
                 <p className="guest-import-panel__lead">
-                  Importa un CSV con las columnas <code>nombre</code>, <code>asistencia</code>, <code>tipo</code> y <code>familia</code>.
+                  Importa un CSV con las columnas <code>nombre</code>, <code>asistencia</code>, <code>tipo</code> y <code>familia</code>. Las columnas <code>intolerancia</code> y <code>menu</code> son opcionales.
                 </p>
                 <div className="guest-import-panel__actions">
                   <button className="button button--ghost button--small" onClick={() => guestImportInputRef.current?.click()} type="button">
@@ -2833,14 +3528,16 @@ export function App() {
                       <table className="guest-table guest-import-panel__table">
                         <thead>
                           <tr>
-                            <th>Invitado</th>
-                            <th>Asistencia</th>
-                            <th>Tipo</th>
-                            <th>Familia</th>
+                            <th>{renderSortableHeader("guestImport", "name", "Invitado")}</th>
+                            <th>{renderSortableHeader("guestImport", "confirmed", "Asistencia")}</th>
+                            <th>{renderSortableHeader("guestImport", "type", "Tipo")}</th>
+                            <th>{renderSortableHeader("guestImport", "group", "Familia")}</th>
+                            <th>{renderSortableHeader("guestImport", "intolerance", "Intolerancia")}</th>
+                            <th>{renderSortableHeader("guestImport", "menu", "Menú")}</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {guestImportStats.previewRows.map((guest, index) => (
+                          {sortedGuestImportPreviewRows.map((guest, index) => (
                             <tr className="guest-table__row" key={`${guest.name}-${guest.group_id ?? "sin-familia"}-${index}`}>
                               <td>
                                 <strong>{guest.name}</strong>
@@ -2848,6 +3545,8 @@ export function App() {
                               <td>{formatConfirmedLabel(guest.confirmed)}</td>
                               <td>{formatGuestTypeLabel(guest.guest_type)}</td>
                               <td>{guest.group_id ?? "Sin familia"}</td>
+                              <td>{guest.intolerance || "Sin intolerancia"}</td>
+                              <td>{formatMenuLabel(guest.menu)}</td>
                             </tr>
                           ))}
                         </tbody>

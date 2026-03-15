@@ -7,7 +7,7 @@ from datetime import datetime
 import math
 import random
 
-from backend.app.domains.seating import Event, Guest, GuestType, Table
+from backend.app.domains.seating import Event, Guest, GuestMenu, GuestType, Table
 
 PAGE_WIDTH = 595.0
 PAGE_HEIGHT = 842.0
@@ -216,6 +216,16 @@ def _format_guest_type(guest_type: GuestType) -> str:
     return "Niño"
 
 
+def _format_guest_menu(menu: GuestMenu) -> str:
+    if menu is GuestMenu.MEAT:
+        return "Carne"
+    if menu is GuestMenu.FISH:
+        return "Pescado"
+    if menu is GuestMenu.VEGAN:
+        return "Vegano"
+    return "Desconocido"
+
+
 def _sorted_assigned_guests(event: Event, table_by_id: dict[str, Table]) -> list[Guest]:
     return sorted(
         (guest for guest in event.guests.values() if guest.table_id is not None),
@@ -390,6 +400,10 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
     adult_guests = sum(1 for guest in all_guests if guest.guest_type is GuestType.ADULT)
     teen_guests = sum(1 for guest in all_guests if guest.guest_type is GuestType.TEEN)
     child_guests = sum(1 for guest in all_guests if guest.guest_type is GuestType.CHILD)
+    fish_menu_guests = sum(1 for guest in all_guests if guest.menu is GuestMenu.FISH)
+    meat_menu_guests = sum(1 for guest in all_guests if guest.menu is GuestMenu.MEAT)
+    vegetarian_menu_guests = sum(1 for guest in all_guests if guest.menu is GuestMenu.VEGAN)
+    unknown_menu_guests = sum(1 for guest in all_guests if guest.menu is GuestMenu.UNKNOWN)
     occupancy_average = 0
     total_capacity = sum(table.capacity for table in tables)
     if total_capacity > 0:
@@ -427,6 +441,10 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
         ("Adultos", str(adult_guests), (0.986, 0.975, 0.954)),
         ("Adolescentes", str(teen_guests), (0.942, 0.972, 0.991)),
         ("Niños", str(child_guests), (0.947, 0.984, 0.952)),
+        ("Comen pescado", str(fish_menu_guests), (0.943, 0.974, 0.992)),
+        ("Comen carne", str(meat_menu_guests), (0.988, 0.965, 0.941)),
+        ("Vegetarianos", str(vegetarian_menu_guests), (0.949, 0.984, 0.952)),
+        ("Menú desconocido", str(unknown_menu_guests), (0.978, 0.975, 0.949)),
     ]
     layout.ensure_space(_estimate_summary_cards_height(len(summary_cards)))
     layout.cursor_top = _draw_summary_cards(pdf, layout.cursor_top, summary_cards)
@@ -448,14 +466,16 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
             f"Mesa {table_by_id[guest.table_id].number}" if guest.table_id else "-",
             _format_guest_type(guest.guest_type),
             "Confirmado" if guest.confirmed else "Pendiente",
+            guest.intolerance or "-",
+            _format_guest_menu(guest.menu),
         ]
         for guest in assigned_guests
     ]
     _draw_data_table(
         layout,
-        ["Invitado", "Familia", "Mesa", "Tipo", "Asistencia"],
+        ["Invitado", "Familia", "Mesa", "Tipo", "Asistencia", "Intolerancia", "Menú"],
         assigned_rows,
-        [0.28, 0.24, 0.14, 0.16, 0.18],
+        [0.19, 0.16, 0.10, 0.12, 0.13, 0.18, 0.12],
         "No hay invitados ubicados.",
     )
 
@@ -467,14 +487,16 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
             guest.group_id or "",
             _format_guest_type(guest.guest_type),
             "Confirmado" if guest.confirmed else "Pendiente",
+            guest.intolerance or "-",
+            _format_guest_menu(guest.menu),
         ]
         for guest in unassigned_guests
     ]
     _draw_data_table(
         layout,
-        ["Invitado", "Familia", "Tipo", "Asistencia"],
+        ["Invitado", "Familia", "Tipo", "Asistencia", "Intolerancia", "Menú"],
         unassigned_rows,
-        [0.34, 0.28, 0.18, 0.20],
+        [0.22, 0.17, 0.12, 0.13, 0.22, 0.14],
         "No hay invitados sin sentar.",
     )
 
@@ -487,12 +509,20 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
             for guest_id in sorted(guest_ids, key=lambda current_id: guest_by_id[current_id].name.casefold()):
                 guest = guest_by_id[guest_id]
                 table_number = table_by_id[guest.table_id].number if guest.table_id else "-"
-                conflict_rows.append([guest.name, group_id, f"Mesa {table_number}"])
+                conflict_rows.append(
+                    [
+                        guest.name,
+                        guest.intolerance or "-",
+                        _format_guest_menu(guest.menu),
+                        group_id,
+                        f"Mesa {table_number}",
+                    ]
+                )
     _draw_data_table(
         layout,
-        ["Invitado", "Familia", "Mesa"],
+        ["Invitado", "Intolerancia", "Menú", "Familia", "Mesa"],
         conflict_rows,
-        [0.46, 0.34, 0.20],
+        [0.24, 0.24, 0.14, 0.24, 0.14],
         "No hay ubicaciones por revisar.",
     )
 
