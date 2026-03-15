@@ -167,6 +167,7 @@ export async function updateTablePosition(
   tableId: string,
   positionX: number,
   positionY: number,
+  rotationDegrees: number | null,
   token: string,
 ): Promise<void> {
   await request(`/api/tables/${tableId}/position`, {
@@ -175,7 +176,11 @@ export async function updateTablePosition(
       ...API_HEADERS,
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ position_x: positionX, position_y: positionY }),
+    body: JSON.stringify({
+      position_x: positionX,
+      position_y: positionY,
+      rotation_degrees: rotationDegrees,
+    }),
   });
 }
 

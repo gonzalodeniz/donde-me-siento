@@ -254,10 +254,10 @@ def _draw_table_diagram(pdf: PdfDocument, top: float, height: float, tables: lis
         pdf.text(box_x + 16, box_y + height - 26, "No hay mesas para representar.", size=11, color=MUTED_COLOR)
         return top + height + 12
 
-    min_x = min(table.position_x for table in tables) - 160.0
-    max_x = max(table.position_x for table in tables) + 180.0
-    min_y = min(table.position_y for table in tables) - 160.0
-    max_y = max(table.position_y for table in tables) + 180.0
+    min_x = min(table.position_x - (220.0 if table.is_couple else 160.0) for table in tables)
+    max_x = max(table.position_x + (220.0 if table.is_couple else 180.0) for table in tables)
+    min_y = min(table.position_y - (170.0 if table.is_couple else 160.0) for table in tables)
+    max_y = max(table.position_y + (170.0 if table.is_couple else 180.0) for table in tables)
     span_x = max(max_x - min_x, 1.0)
     span_y = max(max_y - min_y, 1.0)
     padding = 24.0
@@ -271,8 +271,12 @@ def _draw_table_diagram(pdf: PdfDocument, top: float, height: float, tables: lis
         center_x = offset_x + (table.position_x - min_x) * scale
         center_y = offset_y + (max_y - table.position_y) * scale
         occupied = event.table_occupancy(table.id)
-        pdf.circle(center_x, center_y, 24, stroke=ACCENT_COLOR, fill=(1.0, 0.976, 0.945))
-        number_text = str(table.number)
+        if table.is_couple:
+            pdf.rect(center_x - 42, center_y - 18, 84, 36, stroke=ACCENT_COLOR, fill=(1.0, 0.976, 0.945))
+            number_text = "Novios"
+        else:
+            pdf.circle(center_x, center_y, 24, stroke=ACCENT_COLOR, fill=(1.0, 0.976, 0.945))
+            number_text = str(table.number)
         occupancy_text = f"{occupied}/{table.capacity}"
         pdf.text(center_x - _estimated_text_width(number_text, 11) / 2, center_y + 5, number_text, size=11, bold=True, color=ACCENT_COLOR)
         pdf.text(
@@ -508,14 +512,14 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
         for group_id, guest_ids in sorted(conflict_groups.items(), key=lambda item: item[0].casefold()):
             for guest_id in sorted(guest_ids, key=lambda current_id: guest_by_id[current_id].name.casefold()):
                 guest = guest_by_id[guest_id]
-                table_number = table_by_id[guest.table_id].number if guest.table_id else "-"
+                table_label = table_by_id[guest.table_id].display_name if guest.table_id else "-"
                 conflict_rows.append(
                     [
                         guest.name,
                         guest.intolerance or "-",
                         _format_guest_menu(guest.menu),
                         group_id,
-                        f"Mesa {table_number}",
+                        table_label.title() if table_label != "-" else "-",
                     ]
                 )
     _draw_data_table(

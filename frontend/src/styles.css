@@ -1523,6 +1523,10 @@ select {
   stroke: rgba(87, 62, 49, 0.34);
 }
 
+.plan-table__disc--couple {
+  fill: rgba(255, 247, 234, 0.98);
+}
+
 .plan-table--selected .plan-table__halo {
   fill: rgba(210, 146, 69, 0.2);
   stroke: rgba(154, 79, 36, 0.7);
@@ -1555,6 +1559,24 @@ select {
 
 .plan-table--moving .plan-table__disc {
   stroke: rgba(154, 79, 36, 0.34);
+}
+
+.plan-table__rotate-stem {
+  stroke: rgba(154, 79, 36, 0.48);
+  stroke-width: 2.5;
+  pointer-events: none;
+}
+
+.plan-table__rotate-handle {
+  fill: rgba(255, 248, 237, 0.98);
+  stroke: rgba(154, 79, 36, 0.92);
+  stroke-width: 2.5;
+  cursor: grab;
+}
+
+.plan-table__rotate-handle:hover,
+.plan-table__rotate-handle:focus-visible {
+  fill: rgba(255, 241, 219, 0.98);
 }
 
 .plan-table__number,
@@ -1857,6 +1879,11 @@ select {
 .status-flag--tight {
   color: #7d4a1f;
   background: rgba(255, 239, 218, 0.92);
+}
+
+.status-flag--featured {
+  color: #7d2f1f;
+  background: rgba(255, 233, 218, 0.96);
 }
 
 .guest-row {

@@ -24,7 +24,7 @@ import {
   updateTablePosition,
 } from "./api";
 import { SeatingPlan } from "./components/SeatingPlan";
-import type { Guest, SavedSession, SessionBackup, Workspace } from "./types";
+import type { Guest, SavedSession, SessionBackup, Workspace, WorkspaceTable } from "./types";
 
 const TOKEN_STORAGE_KEY = "dms.auth.token";
 const LISTS_PANEL_WIDTH_STORAGE_KEY = "dms.ui.listsPanelWidth";
@@ -50,6 +50,7 @@ type SeatTarget = {
 type TablePosition = {
   position_x: number;
   position_y: number;
+  rotation_degrees: number;
 };
 type GuestEditableField = "name" | "confirmed" | "type" | "intolerance" | "menu" | "group" | "table" | "seat";
 type PanelKey = "salon" | "summary" | "sessions" | "unassigned" | "assigned" | "conflicts" | "guestImport";
@@ -278,6 +279,24 @@ function parseGuestImportCsv(fileName: string, content: string): GuestImportPrev
     fileName,
     guests,
   };
+}
+
+function isCoupleTable(table: Pick<WorkspaceTable, "table_kind"> | null | undefined) {
+  return table?.table_kind === "couple";
+}
+
+function getTableLabel(table: Pick<WorkspaceTable, "table_kind" | "number"> | null | undefined) {
+  if (!table) {
+    return "Mesa";
+  }
+  return isCoupleTable(table) ? "Mesa de novios" : `Mesa ${table.number}`;
+}
+
+function getTableReferenceLabel(table: Pick<WorkspaceTable, "table_kind" | "number"> | null | undefined) {
+  if (!table) {
+    return "la mesa";
+  }
+  return isCoupleTable(table) ? "la mesa de novios" : `la mesa ${table.number}`;
 }
 
 function randomLoginName() {
@@ -560,8 +579,8 @@ export function App() {
     () => allGuests.filter((guest) => guest.menu === "desconocido").length,
     [allGuests],
   );
-  const tableNumberById = useMemo(
-    () => new Map((workspace?.tables ?? []).map((table) => [table.id, table.number])),
+  const tableLabelById = useMemo(
+    () => new Map((workspace?.tables ?? []).map((table) => [table.id, getTableLabel(table)])),
     [workspace],
   );
   const tableById = useMemo(
@@ -603,7 +622,7 @@ export function App() {
         .flatMap(([groupId, guestIds]) =>
           guestIds.map((guestId) => {
             const guest = guestById.get(guestId);
-            const tableNumber = guest?.table_id ? tableNumberById.get(guest.table_id) : null;
+            const tableLabel = guest?.table_id ? tableLabelById.get(guest.table_id) : null;
 
             return {
               rowId: `${groupId}-${guestId}`,
@@ -611,7 +630,7 @@ export function App() {
               groupId,
               guest: guest ?? null,
               guestName: guest?.name ?? guestId,
-              tableLabel: tableNumber ? `Mesa ${tableNumber}` : "Sin mesa",
+              tableLabel: tableLabel ?? "Sin mesa",
             };
           }),
         )
@@ -623,7 +642,7 @@ export function App() {
 
           return left.guestName.localeCompare(right.guestName, "es");
         }),
-    [guestById, tableNumberById, workspace],
+    [guestById, tableLabelById, workspace],
   );
   const guestImportStats = useMemo(() => {
     if (!guestImportPreview) {
@@ -669,7 +688,7 @@ export function App() {
           case "group":
             return guest.group_id ?? "zzz";
           case "table":
-            return guest.table_id ? (tableNumberById.get(guest.table_id) ?? 0) : -1;
+            return guest.table_id ? (tableById.get(guest.table_id)?.number ?? 0) : -1;
           case "seat":
             return guest.seat_index ?? Number.MAX_SAFE_INTEGER;
           case "name":
@@ -677,7 +696,7 @@ export function App() {
             return guest.name;
         }
       }),
-    [filteredUnassignedGuests, tableNumberById, tableSorts.unassigned],
+    [filteredUnassignedGuests, tableById, tableSorts.unassigned],
   );
   const sortedAssignedGuests = useMemo(
     () =>
@@ -694,7 +713,7 @@ export function App() {
           case "group":
             return guest.group_id ?? "zzz";
           case "table":
-            return guest.table_id ? (tableNumberById.get(guest.table_id) ?? 0) : -1;
+            return guest.table_id ? (tableById.get(guest.table_id)?.number ?? 0) : -1;
           case "seat":
             return guest.seat_index ?? Number.MAX_SAFE_INTEGER;
           case "name":
@@ -702,7 +721,7 @@ export function App() {
             return guest.name;
         }
       }),
-    [filteredAssignedGuests, tableNumberById, tableSorts.assigned],
+    [filteredAssignedGuests, tableById, tableSorts.assigned],
   );
   const sortedConflictRows = useMemo(
     () =>
@@ -1190,11 +1209,16 @@ export function App() {
     }
   }
 
-  async function handleTableMove(tableId: string, positionX: number, positionY: number) {
+  async function handleTableMove(tableId: string, positionX: number, positionY: number, rotationDegrees: number | null = null) {
     if (!token) {
       return;
     }
-    const nextPosition = { position_x: positionX, position_y: positionY };
+    const currentTable = tableById.get(tableId);
+    const nextPosition = {
+      position_x: positionX,
+      position_y: positionY,
+      rotation_degrees: rotationDegrees ?? currentTable?.rotation_degrees ?? 0,
+    };
 
     setSubmittingAction(`position-${tableId}`);
     setErrorMessage(null);
@@ -1202,7 +1226,7 @@ export function App() {
     setOptimisticTablePositions((current) => ({ ...current, [tableId]: nextPosition }));
 
     try {
-      await updateTablePosition(tableId, positionX, positionY, token);
+      await updateTablePosition(tableId, positionX, positionY, nextPosition.rotation_degrees, token);
       await refreshWorkspaceState(token);
     } catch (error) {
       setOptimisticTablePositions((current) => {
@@ -1935,7 +1959,7 @@ export function App() {
               {!collapsedPanels.salon ? (selectedTable ? (
                 <div className="rail-table-settings rail-table-settings--selected">
                   <div className="rail-table-settings__meta">
-                    <span>Mesa {selectedTable.number}</span>
+                    <span>{getTableLabel(selectedTable)}</span>
                     <strong>{selectedTable.occupied} sentados</strong>
                   </div>
                   <div className="stepper" aria-label="Asientos">
@@ -1949,7 +1973,7 @@ export function App() {
                           `capacity-${selectedTable.id}`,
                           "tables",
                           () => updateTableCapacity(selectedTable.id, selectedTable.capacity - 1, token ?? ""),
-                          `Los asientos de la mesa ${selectedTable.number} se han ajustado.`,
+                          `Los asientos de ${getTableReferenceLabel(selectedTable)} se han ajustado.`,
                         )
                       }
                       type="button"
@@ -1968,7 +1992,7 @@ export function App() {
                           `capacity-${selectedTable.id}`,
                           "tables",
                           () => updateTableCapacity(selectedTable.id, selectedTable.capacity + 1, token ?? ""),
-                          `Los asientos de la mesa ${selectedTable.number} se han ajustado.`,
+                          `Los asientos de ${getTableReferenceLabel(selectedTable)} se han ajustado.`,
                         )
                       }
                       type="button"
@@ -1976,58 +2000,104 @@ export function App() {
                       +
                     </button>
                   </div>
-                  <button
-                    className="button button--ghost button--small"
-                    disabled={isActionRunning(`duplicate-table-${selectedTable.id}`)}
-                    onClick={() =>
-                      void runWorkspaceAction(
-                        `duplicate-table-${selectedTable.id}`,
-                        "tables",
-                        () => duplicateTable(selectedTable.id, token ?? ""),
-                        `La mesa ${selectedTable.number} se ha duplicado.`,
-                      )
-                    }
-                    type="button"
-                  >
-                    {isActionRunning(`duplicate-table-${selectedTable.id}`) ? "Duplicando..." : "Duplicar mesa"}
-                  </button>
-                  {pendingTableRemovalId === selectedTable.id ? (
-                    <div className="rail-table-settings__confirm rail-table-settings__confirm--danger">
-                      <p>Se eliminará la mesa vacía y la numeración se ajustará automáticamente.</p>
-                      <button
-                        className="button button--quiet button--small"
-                        onClick={() => setPendingTableRemovalId(null)}
-                        type="button"
-                      >
-                        Cancelar
-                      </button>
+                  {isCoupleTable(selectedTable) ? (
+                    <>
+                      <div className="stepper" aria-label="Rotación de la mesa de novios">
+                        <button
+                          className="stepper__button"
+                          disabled={isActionRunning(`position-${selectedTable.id}`)}
+                          onClick={() =>
+                            void handleTableMove(
+                              selectedTable.id,
+                              selectedTable.position_x,
+                              selectedTable.position_y,
+                              selectedTable.rotation_degrees - 15,
+                            )
+                          }
+                          type="button"
+                        >
+                          ↺
+                        </button>
+                        <div className="stepper__value stepper__value--stacked">
+                          <span className="stepper__caption">Rotación</span>
+                          <strong>{Math.round(selectedTable.rotation_degrees)}°</strong>
+                        </div>
+                        <button
+                          className="stepper__button"
+                          disabled={isActionRunning(`position-${selectedTable.id}`)}
+                          onClick={() =>
+                            void handleTableMove(
+                              selectedTable.id,
+                              selectedTable.position_x,
+                              selectedTable.position_y,
+                              selectedTable.rotation_degrees + 15,
+                            )
+                          }
+                          type="button"
+                        >
+                          ↻
+                        </button>
+                      </div>
+                      <p className="rail-table-settings__hint">
+                        La mesa de novios siempre está en el salón. Puedes moverla en el plano y girarla con este control o con el tirador circular.
+                      </p>
+                    </>
+                  ) : (
+                    <>
                       <button
                         className="button button--ghost button--small"
-                        disabled={isActionRunning(`remove-table-${selectedTable.id}`)}
+                        disabled={isActionRunning(`duplicate-table-${selectedTable.id}`)}
                         onClick={() =>
                           void runWorkspaceAction(
-                            `remove-table-${selectedTable.id}`,
+                            `duplicate-table-${selectedTable.id}`,
                             "tables",
-                            async () => {
-                              await deleteTable(selectedTable.id, token ?? "");
-                              setPendingTableRemovalId(null);
-                            },
-                            `La mesa ${selectedTable.number} se ha retirado del salón.`,
+                            () => duplicateTable(selectedTable.id, token ?? ""),
+                            `${getTableLabel(selectedTable)} se ha duplicado.`,
                           )
                         }
                         type="button"
                       >
-                        {isActionRunning(`remove-table-${selectedTable.id}`) ? "Eliminando..." : "Confirmar eliminación"}
+                        {isActionRunning(`duplicate-table-${selectedTable.id}`) ? "Duplicando..." : "Duplicar mesa"}
                       </button>
-                    </div>
-                  ) : (
-                    <button
-                      className="button button--quiet button--small button--danger-soft"
-                      onClick={() => setPendingTableRemovalId(selectedTable.id)}
-                      type="button"
-                    >
-                      Eliminar mesa
-                    </button>
+                      {pendingTableRemovalId === selectedTable.id ? (
+                        <div className="rail-table-settings__confirm rail-table-settings__confirm--danger">
+                          <p>Se eliminará la mesa vacía y la numeración se ajustará automáticamente.</p>
+                          <button
+                            className="button button--quiet button--small"
+                            onClick={() => setPendingTableRemovalId(null)}
+                            type="button"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            className="button button--ghost button--small"
+                            disabled={isActionRunning(`remove-table-${selectedTable.id}`)}
+                            onClick={() =>
+                              void runWorkspaceAction(
+                                `remove-table-${selectedTable.id}`,
+                                "tables",
+                                async () => {
+                                  await deleteTable(selectedTable.id, token ?? "");
+                                  setPendingTableRemovalId(null);
+                                },
+                                `${getTableLabel(selectedTable)} se ha retirado del salón.`,
+                              )
+                            }
+                            type="button"
+                          >
+                            {isActionRunning(`remove-table-${selectedTable.id}`) ? "Eliminando..." : "Confirmar eliminación"}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="button button--quiet button--small button--danger-soft"
+                          onClick={() => setPendingTableRemovalId(selectedTable.id)}
+                          type="button"
+                        >
+                          Eliminar mesa
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               ) : (
@@ -2409,7 +2479,7 @@ export function App() {
                   >
                     <div className="table-card__header">
                       <div>
-                        <span className="table-card__label">Mesa {table.number}</span>
+                        <span className="table-card__label">{getTableLabel(table)}</span>
                         <h3>{table.occupied}/{table.capacity} asientos</h3>
                       </div>
                       <span className={`table-card__pill ${table.available === 0 ? "table-card__pill--full" : ""}`}>
@@ -2420,6 +2490,7 @@ export function App() {
                       <i style={{ width: `${ratio}%` }} />
                     </div>
                     <div className="table-card__flags">
+                      {isCoupleTable(table) ? <span className="status-flag status-flag--featured">Novios</span> : null}
                       {conflictTableIds.has(table.id) ? <span className="status-flag status-flag--conflict">Por revisar</span> : null}
                       {table.available === 0 ? <span className="status-flag status-flag--full">Completa</span> : null}
                       {table.available > 0 && table.available <= 2 ? <span className="status-flag status-flag--tight">Poco margen</span> : null}
@@ -2768,7 +2839,7 @@ export function App() {
                                           <option value="">Sin mesa</option>
                                           {workspace?.tables.map((table) => (
                                             <option key={table.id} value={table.id}>
-                                              Mesa {table.number}
+                                              {getTableLabel(table)}
                                             </option>
                                           ))}
                                         </select>
@@ -3061,7 +3132,7 @@ export function App() {
                       </thead>
                       <tbody>
                         {paginatedAssignedGuests.rows.map((guest) => {
-                          const tableNumber = guest.table_id ? tableNumberById.get(guest.table_id) : null;
+                          const tableLabel = guest.table_id ? tableLabelById.get(guest.table_id) : null;
 
                           return (
                             <Fragment key={guest.id}>
@@ -3202,13 +3273,13 @@ export function App() {
                                         <option value="">Elegir mesa</option>
                                         {workspace?.tables.map((table) => (
                                           <option key={table.id} value={table.id}>
-                                            Mesa {table.number}
+                                            {getTableLabel(table)}
                                           </option>
                                         ))}
                                       </select>
                                     ) : (
                                       <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "table")} type="button">
-                                        <span className="guest-row__table">{tableNumber ? `Mesa ${tableNumber}` : "Mesa asignada"}</span>
+                                        <span className="guest-row__table">{tableLabel ?? "Mesa asignada"}</span>
                                       </button>
                                     )}
                                   </td>

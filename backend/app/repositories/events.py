@@ -11,7 +11,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import select
 
-from backend.app.domains.seating import Event, Guest, GuestMenu, GuestType, Table
+from backend.app.domains.seating import Event, Guest, GuestMenu, GuestType, Table, TableKind
 from backend.app.models.event import EventModel, GuestModel, SavedSessionModel, TableModel
 
 
@@ -84,6 +84,8 @@ class EventRepository:
                     capacity=table.capacity,
                     position_x=table.position_x,
                     position_y=table.position_y,
+                    table_kind=table.kind.value,
+                    rotation_degrees=table.rotation_degrees,
                 )
                 for table in event.tables.values()
             ]
@@ -243,6 +245,8 @@ class EventRepository:
                     capacity=table.capacity,
                     position_x=table.position_x,
                     position_y=table.position_y,
+                    table_kind=table.kind.value,
+                    rotation_degrees=table.rotation_degrees,
                 )
                 for table in event.tables.values()
             ],
@@ -278,9 +282,12 @@ class EventRepository:
                 capacity=table.capacity,
                 position_x=table.position_x,
                 position_y=table.position_y,
+                kind=TableKind(getattr(table, "table_kind", "round")),
+                rotation_degrees=float(getattr(table, "rotation_degrees", 0.0)),
             )
             for table in model.tables
         }
+        event._ensure_couple_table()
         event.guests = {
             EventRepository._public_id(model.id, guest.id): Guest(
                 id=EventRepository._public_id(model.id, guest.id),
@@ -322,6 +329,8 @@ class EventRepository:
                     "capacity": table.capacity,
                     "position_x": table.position_x,
                     "position_y": table.position_y,
+                    "table_kind": table.kind.value,
+                    "rotation_degrees": table.rotation_degrees,
                 }
                 for table in sorted(event.tables.values(), key=lambda current: current.number)
             ],
@@ -356,9 +365,12 @@ class EventRepository:
                 capacity=int(table["capacity"]),
                 position_x=float(table["position_x"]),
                 position_y=float(table["position_y"]),
+                kind=TableKind(str(table.get("table_kind", "couple" if str(table["id"]) == Event.COUPLE_TABLE_ID else "round"))),
+                rotation_degrees=float(table.get("rotation_degrees", 0.0)),
             )
             for table in snapshot["tables"]
         }
+        event._ensure_couple_table()
         event.guests = {
             str(guest["id"]): Guest(
                 id=str(guest["id"]),
