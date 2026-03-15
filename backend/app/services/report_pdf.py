@@ -34,21 +34,36 @@ def _estimated_text_width(value: str, font_size: float) -> float:
     return len(value) * font_size * 0.5
 
 
+def _split_word_to_fit(value: str, max_width: float, font_size: float) -> list[str]:
+    if not value:
+        return [""]
+    max_chars = max(1, math.floor(max_width / max(font_size * 0.5, 0.1)))
+    return [value[index : index + max_chars] for index in range(0, len(value), max_chars)]
+
+
 def _wrap_text(value: str, max_width: float, font_size: float) -> list[str]:
     words = value.split()
     if not words:
         return [""]
 
     lines: list[str] = []
-    current = words[0]
-    for word in words[1:]:
-        candidate = f"{current} {word}"
-        if _estimated_text_width(candidate, font_size) <= max_width:
-            current = candidate
-            continue
+    current = ""
+    for word in words:
+        word_parts = [word]
+        if _estimated_text_width(word, font_size) > max_width:
+            word_parts = _split_word_to_fit(word, max_width, font_size)
+        for part in word_parts:
+            if not current:
+                current = part
+                continue
+            candidate = f"{current} {part}"
+            if _estimated_text_width(candidate, font_size) <= max_width:
+                current = candidate
+                continue
+            lines.append(current)
+            current = part
+    if current:
         lines.append(current)
-        current = word
-    lines.append(current)
     return lines
 
 
@@ -732,7 +747,7 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
         layout,
         ["Invitado", "Familia", "Mesa", "Tipo", "Asistencia", "Intolerancia", "Menú"],
         assigned_rows,
-        [0.19, 0.16, 0.10, 0.12, 0.13, 0.18, 0.12],
+        [0.18, 0.15, 0.10, 0.11, 0.13, 0.17, 0.16],
         "No hay invitados ubicados.",
     )
 
