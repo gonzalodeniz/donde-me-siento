@@ -3000,11 +3000,6 @@ export function App() {
               </div>
               {!collapsedPanels.assigned ? (
               <section className="guest-salon__section guest-salon__section--standalone">
-                <div className="guest-salon__section-header">
-                  <div>
-                    <h4>Ya ubicados</h4>
-                  </div>
-                </div>
                 <div className="guest-table-visibility" role="group" aria-label="Mostrar columnas en invitados ubicados">
                   <button
                     aria-pressed={visibleAssignedColumns.confirmed}
