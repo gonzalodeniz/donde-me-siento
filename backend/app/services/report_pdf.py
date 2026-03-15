@@ -446,33 +446,125 @@ def _draw_table_diagram(pdf: PdfDocument, top: float, height: float, tables: lis
     return top + height + 12
 
 
-def _draw_summary_cards(pdf: PdfDocument, top: float, items: list[tuple[str, str, tuple[float, float, float]]]) -> float:
-    columns = 3
-    gap = 12.0
-    card_height = 68.0
-    card_width = (PAGE_WIDTH - PAGE_MARGIN * 2 - gap * (columns - 1)) / columns
-
-    for index, (label, value, fill) in enumerate(items):
-        row = index // columns
-        column = index % columns
-        x = PAGE_MARGIN + column * (card_width + gap)
-        y_top = top + row * (card_height + gap)
-        y = PAGE_HEIGHT - y_top - card_height
-
-        pdf.rect(x, y, card_width, card_height, stroke=(0.78, 0.69, 0.61), fill=fill)
-        pdf.text(x + 14, y + card_height - 22, label, size=9.2, color=MUTED_COLOR)
-        pdf.text(x + 14, y + 18, value, size=21, bold=True, color=ACCENT_COLOR)
-
-    rows = math.ceil(len(items) / columns)
-    return top + rows * card_height + max(0, rows - 1) * gap + 10
+def _draw_progress_bar(
+    pdf: PdfDocument,
+    *,
+    x: float,
+    y_top: float,
+    width: float,
+    height: float,
+    progress: float,
+    fill: tuple[float, float, float],
+) -> None:
+    y = PAGE_HEIGHT - y_top - height
+    pdf.rect(x, y, width, height, stroke=(0.88, 0.83, 0.78), fill=(0.962, 0.949, 0.936))
+    if progress <= 0:
+        return
+    pdf.rect(x, y, width * min(max(progress, 0.0), 1.0), height, stroke=fill, fill=fill)
 
 
-def _estimate_summary_cards_height(item_count: int) -> float:
-    columns = 3
-    gap = 12.0
-    card_height = 68.0
-    rows = math.ceil(item_count / columns)
-    return rows * card_height + max(0, rows - 1) * gap + 10
+def _draw_summary_dashboard(
+    pdf: PdfDocument,
+    top: float,
+    *,
+    total_guests: int,
+    seated_guests: int,
+    confirmed_guests: int,
+    unconfirmed_guests: int,
+    adult_guests: int,
+    teen_guests: int,
+    child_guests: int,
+    meat_menu_guests: int,
+    fish_menu_guests: int,
+    vegetarian_menu_guests: int,
+    unknown_menu_guests: int,
+    full_tables: int,
+    conflict_count: int,
+    occupancy_average: int,
+) -> float:
+    panel_x = PAGE_MARGIN
+    panel_width = PAGE_WIDTH - PAGE_MARGIN * 2
+    panel_height = 412.0
+    panel_y = PAGE_HEIGHT - top - panel_height
+    pdf.rect(panel_x, panel_y, panel_width, panel_height, stroke=(0.81, 0.72, 0.65), fill=(0.992, 0.986, 0.979))
+
+    section_gap = 16.0
+    section_padding_x = 16.0
+    inner_x = panel_x + section_padding_x
+    inner_width = panel_width - section_padding_x * 2
+    current_top = top + 18.0
+
+    def draw_section_header(title: str) -> None:
+        nonlocal current_top
+        pdf.text(inner_x, PAGE_HEIGHT - current_top, title.upper(), size=8.1, bold=True, color=MUTED_COLOR)
+        current_top += 16.0
+
+    def draw_separator() -> None:
+        nonlocal current_top
+        line_y = PAGE_HEIGHT - current_top
+        pdf.line(inner_x, line_y, inner_x + inner_width, line_y, width=0.8, color=(0.87, 0.80, 0.74))
+        current_top += section_gap
+
+    draw_section_header("Ubicación y asistencia")
+    seating_progress = seated_guests / max(total_guests, 1)
+    confirmation_progress = confirmed_guests / max(total_guests, 1)
+    pdf.text(inner_x, PAGE_HEIGHT - current_top, f"{seated_guests} de {total_guests} invitados sentados", size=12.2, bold=True, color=TEXT_COLOR)
+    current_top += 20.0
+    _draw_progress_bar(pdf, x=inner_x, y_top=current_top, width=inner_width, height=10.0, progress=seating_progress, fill=(0.20, 0.35, 0.32))
+    current_top += 21.0
+    pdf.text(inner_x, PAGE_HEIGHT - current_top, f"{round(seating_progress * 100)}% del salón ubicado", size=8.8, color=MUTED_COLOR)
+    current_top += 20.0
+    pdf.text(inner_x, PAGE_HEIGHT - current_top, f"{confirmed_guests} confirmados · {unconfirmed_guests} pendientes", size=10.6, bold=True, color=TEXT_COLOR)
+    current_top += 17.0
+    _draw_progress_bar(pdf, x=inner_x, y_top=current_top, width=inner_width, height=6.0, progress=confirmation_progress, fill=(0.42, 0.58, 0.53))
+    current_top += 22.0
+
+    draw_separator()
+    draw_section_header("Composición de invitados")
+    pill_y = PAGE_HEIGHT - current_top - 20.0
+    pill_width = (inner_width - 12.0) / 3
+    compositions = [
+        ("Adultos", adult_guests, (0.87, 0.80, 0.73)),
+        ("Adolescentes", teen_guests, (0.52, 0.74, 0.84)),
+        ("Niños", child_guests, (0.58, 0.83, 0.62)),
+    ]
+    for index, (label, value, fill) in enumerate(compositions):
+        x = inner_x + index * (pill_width + 6.0)
+        pdf.rect(x, pill_y, pill_width, 20.0, stroke=fill, fill=(0.992, 0.986, 0.979))
+        pdf.circle(x + 9.0, pill_y + 10.0, 3.1, stroke=fill, fill=fill)
+        pdf.text(x + 17.0, pill_y + 6.0, f"{value} {label}", size=9.0, bold=True, color=TEXT_COLOR)
+    current_top += 34.0
+
+    draw_separator()
+    draw_section_header("Menús y dietas")
+    menu_rows = [
+        ("Carnes", meat_menu_guests, False),
+        ("Pescados", fish_menu_guests, False),
+        ("Vegetarianos", vegetarian_menu_guests, False),
+        ("Por definir", unknown_menu_guests, True),
+    ]
+    for label, value, is_alert in menu_rows:
+        color = (0.63, 0.29, 0.16) if is_alert else TEXT_COLOR
+        pdf.text(inner_x, PAGE_HEIGHT - current_top, label, size=9.5, color=MUTED_COLOR if not is_alert else color)
+        value_text = str(value)
+        pdf.text(inner_x + inner_width - _estimated_text_width(value_text, 9.8), PAGE_HEIGHT - current_top, value_text, size=9.8, bold=True, color=color)
+        current_top += 16.0
+
+    draw_separator()
+    draw_section_header("Estado de las mesas")
+    table_rows = [
+        ("Mesas completas", full_tables, False),
+        ("Ubicaciones por revisar", conflict_count, True),
+        ("Ocupación media", f"{occupancy_average}%", False),
+    ]
+    for label, value, is_alert in table_rows:
+        color = (0.63, 0.29, 0.16) if is_alert else TEXT_COLOR
+        pdf.text(inner_x, PAGE_HEIGHT - current_top, label, size=9.5, color=MUTED_COLOR if not is_alert else color)
+        value_text = str(value)
+        pdf.text(inner_x + inner_width - _estimated_text_width(value_text, 9.8), PAGE_HEIGHT - current_top, value_text, size=9.8, bold=True, color=color)
+        current_top += 16.0
+
+    return top + panel_height + 10.0
 
 
 def _draw_data_table(
@@ -588,26 +680,25 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
     layout.cursor_top = TOP_CONTENT_MARGIN + 52
 
     layout.section_title("Resumen del banquete", underline=False)
-    summary_cards = [
-        ("Total invitados", str(len(event.guests)), (0.995, 0.987, 0.975)),
-        ("Invitados sentados", str(validation["assigned_guests"]), (0.967, 0.986, 0.972)),
-        ("Invitados sin sentar", str(validation["unassigned_guests"]), (0.994, 0.973, 0.952)),
-        ("Total mesas", str(len(tables)), (0.984, 0.979, 0.996)),
-        ("Mesas completas", str(full_tables), (0.976, 0.956, 0.935)),
-        ("Ubicaciones por revisar", str(len(conflict_groups)), (0.998, 0.947, 0.937)),
-        ("Ocupación media", f"{occupancy_average}%", (0.949, 0.971, 0.991)),
-        ("Confirmados", str(confirmed_guests), (0.958, 0.985, 0.969)),
-        ("Sin confirmar", str(unconfirmed_guests), (0.995, 0.967, 0.949)),
-        ("Adultos", str(adult_guests), (0.986, 0.975, 0.954)),
-        ("Adolescentes", str(teen_guests), (0.942, 0.972, 0.991)),
-        ("Niños", str(child_guests), (0.947, 0.984, 0.952)),
-        ("Comen pescado", str(fish_menu_guests), (0.943, 0.974, 0.992)),
-        ("Comen carne", str(meat_menu_guests), (0.988, 0.965, 0.941)),
-        ("Vegetarianos", str(vegetarian_menu_guests), (0.949, 0.984, 0.952)),
-        ("Menú desconocido", str(unknown_menu_guests), (0.978, 0.975, 0.949)),
-    ]
-    layout.ensure_space(_estimate_summary_cards_height(len(summary_cards)))
-    layout.cursor_top = _draw_summary_cards(pdf, layout.cursor_top, summary_cards)
+    layout.ensure_space(440)
+    layout.cursor_top = _draw_summary_dashboard(
+        pdf,
+        layout.cursor_top,
+        total_guests=len(event.guests),
+        seated_guests=validation["assigned_guests"],
+        confirmed_guests=confirmed_guests,
+        unconfirmed_guests=unconfirmed_guests,
+        adult_guests=adult_guests,
+        teen_guests=teen_guests,
+        child_guests=child_guests,
+        meat_menu_guests=meat_menu_guests,
+        fish_menu_guests=fish_menu_guests,
+        vegetarian_menu_guests=vegetarian_menu_guests,
+        unknown_menu_guests=unknown_menu_guests,
+        full_tables=full_tables,
+        conflict_count=len(conflict_groups),
+        occupancy_average=occupancy_average,
+    )
     layout.pdf.new_page()
     layout.cursor_top = TOP_CONTENT_MARGIN
 
