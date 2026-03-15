@@ -2550,9 +2550,9 @@ export function App() {
                               <th>{renderSortableHeader("unassigned", "name", "Invitado")}</th>
                               <th>{renderSortableHeader("unassigned", "confirmed", "Asistencia")}</th>
                               <th>{renderSortableHeader("unassigned", "type", "Tipo")}</th>
+                              <th>{renderSortableHeader("unassigned", "group", "Familia")}</th>
                               <th>{renderSortableHeader("unassigned", "intolerance", "Intolerancia")}</th>
                               <th>{renderSortableHeader("unassigned", "menu", "Menú")}</th>
-                              <th>{renderSortableHeader("unassigned", "group", "Familia")}</th>
                               <th>{renderSortableHeader("unassigned", "table", "Mesa")}</th>
                               <th>{renderSortableHeader("unassigned", "seat", "Asiento")}</th>
                               <th aria-label="Eliminar invitado" className="guest-table__action-column" />
@@ -2627,6 +2627,21 @@ export function App() {
                                     )}
                                   </td>
                                   <td>
+                                    {editingGuestId === guest.id && editingGuestField === "group" ? (
+                                      <input
+                                        className="guest-table__input"
+                                        onBlur={handleGuestEditBlur}
+                                        onChange={(event) => setEditingGuestGroupId(event.target.value)}
+                                        onKeyDown={handleGuestEditKeyDown}
+                                        value={editingGuestGroupId}
+                                      />
+                                    ) : (
+                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
+                                        {guest.group_id ? guest.group_id : "Sin familia"}
+                                      </button>
+                                    )}
+                                  </td>
+                                  <td>
                                     {editingGuestId === guest.id && editingGuestField === "intolerance" ? (
                                       <input
                                         autoFocus
@@ -2660,21 +2675,6 @@ export function App() {
                                     ) : (
                                       <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "menu")} type="button">
                                         {formatMenuLabel(guest.menu)}
-                                      </button>
-                                    )}
-                                  </td>
-                                  <td>
-                                    {editingGuestId === guest.id && editingGuestField === "group" ? (
-                                      <input
-                                        className="guest-table__input"
-                                        onBlur={handleGuestEditBlur}
-                                        onChange={(event) => setEditingGuestGroupId(event.target.value)}
-                                        onKeyDown={handleGuestEditKeyDown}
-                                        value={editingGuestGroupId}
-                                      />
-                                    ) : (
-                                      <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
-                                        {guest.group_id ? guest.group_id : "Sin familia"}
                                       </button>
                                     )}
                                   </td>
@@ -2935,9 +2935,9 @@ export function App() {
                           <th>{renderSortableHeader("assigned", "name", "Invitado")}</th>
                           <th>{renderSortableHeader("assigned", "confirmed", "Asistencia")}</th>
                           <th>{renderSortableHeader("assigned", "type", "Tipo")}</th>
+                          <th>{renderSortableHeader("assigned", "group", "Familia")}</th>
                           <th>{renderSortableHeader("assigned", "intolerance", "Intolerancia")}</th>
                           <th>{renderSortableHeader("assigned", "menu", "Menú")}</th>
-                          <th>{renderSortableHeader("assigned", "group", "Familia")}</th>
                           <th>{renderSortableHeader("assigned", "table", "Mesa")}</th>
                           <th>{renderSortableHeader("assigned", "seat", "Asiento")}</th>
                           <th aria-label="Eliminar invitado" className="guest-table__action-column" />
@@ -3011,6 +3011,21 @@ export function App() {
                                   )}
                                 </td>
                                 <td>
+                                  {editingGuestId === guest.id && editingGuestField === "group" ? (
+                                    <input
+                                      className="guest-table__input"
+                                      onBlur={handleGuestEditBlur}
+                                      onChange={(event) => setEditingGuestGroupId(event.target.value)}
+                                      onKeyDown={handleGuestEditKeyDown}
+                                      value={editingGuestGroupId}
+                                    />
+                                  ) : (
+                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
+                                      {guest.group_id ? guest.group_id : "Sin agrupación"}
+                                    </button>
+                                  )}
+                                </td>
+                                <td>
                                   {editingGuestId === guest.id && editingGuestField === "intolerance" ? (
                                     <input
                                       autoFocus
@@ -3044,21 +3059,6 @@ export function App() {
                                   ) : (
                                     <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "menu")} type="button">
                                       {formatMenuLabel(guest.menu)}
-                                    </button>
-                                  )}
-                                </td>
-                                <td>
-                                  {editingGuestId === guest.id && editingGuestField === "group" ? (
-                                    <input
-                                      className="guest-table__input"
-                                      onBlur={handleGuestEditBlur}
-                                      onChange={(event) => setEditingGuestGroupId(event.target.value)}
-                                      onKeyDown={handleGuestEditKeyDown}
-                                      value={editingGuestGroupId}
-                                    />
-                                  ) : (
-                                    <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
-                                      {guest.group_id ? guest.group_id : "Sin agrupación"}
                                     </button>
                                   )}
                                 </td>
@@ -3401,9 +3401,9 @@ export function App() {
                             <th>{renderSortableHeader("guestImport", "name", "Invitado")}</th>
                             <th>{renderSortableHeader("guestImport", "confirmed", "Asistencia")}</th>
                             <th>{renderSortableHeader("guestImport", "type", "Tipo")}</th>
+                            <th>{renderSortableHeader("guestImport", "group", "Familia")}</th>
                             <th>{renderSortableHeader("guestImport", "intolerance", "Intolerancia")}</th>
                             <th>{renderSortableHeader("guestImport", "menu", "Menú")}</th>
-                            <th>{renderSortableHeader("guestImport", "group", "Familia")}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -3414,9 +3414,9 @@ export function App() {
                               </td>
                               <td>{formatConfirmedLabel(guest.confirmed)}</td>
                               <td>{formatGuestTypeLabel(guest.guest_type)}</td>
+                              <td>{guest.group_id ?? "Sin familia"}</td>
                               <td>{guest.intolerance || "Sin intolerancia"}</td>
                               <td>{formatMenuLabel(guest.menu)}</td>
-                              <td>{guest.group_id ?? "Sin familia"}</td>
                             </tr>
                           ))}
                         </tbody>
