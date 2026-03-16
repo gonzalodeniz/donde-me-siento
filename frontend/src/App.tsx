@@ -1952,7 +1952,7 @@ export function App() {
           </div>
 
           <div className="rail-panels">
-            <section className="list-card rail-card">
+            <section className="list-card rail-card rail-card--salon">
               <div className="rail-section">
               <div className="rail-section__header">
                 <button className="panel-toggle" onClick={() => togglePanel("salon")} type="button">
@@ -2154,7 +2154,7 @@ export function App() {
               </div>
             </section>
 
-            <section className={`list-card rail-card rail-summary ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
+            <section className={`list-card rail-card rail-card--summary rail-summary ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
               <div className="rail-summary__header">
                 <button className="panel-toggle panel-toggle--compact" onClick={() => togglePanel("summary")} type="button">
                   <h4>Resumen del banquete</h4>
@@ -2264,7 +2264,7 @@ export function App() {
               ) : null}
             </section>
 
-            <section className="list-card rail-card">
+            <section className="list-card rail-card rail-card--sessions">
               <div className="list-card__header">
                 <button className="panel-toggle panel-toggle--compact" onClick={() => togglePanel("sessions")} type="button">
                   <h3>Sesiones</h3>
