@@ -1,4 +1,4 @@
-import { ChangeEvent, DragEvent, FormEvent, Fragment, KeyboardEvent as ReactKeyboardEvent, startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, ChangeEvent, DragEvent, FormEvent, Fragment, KeyboardEvent as ReactKeyboardEvent, startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   assignGuest,
@@ -316,6 +316,67 @@ function formatGuestTypeLabel(guestType: string) {
   }
 }
 
+function formatGuestAgeLabel(guestType: string) {
+  switch (guestType) {
+    case "adulto":
+      return "+18";
+    case "adolescente":
+      return "+11";
+    case "nino":
+      return "+1";
+    default:
+      return guestType;
+  }
+}
+
+function formatGuestAgeTooltip(guestType: string) {
+  switch (guestType) {
+    case "adulto":
+      return "Adulto";
+    case "adolescente":
+      return "Adolescente";
+    case "nino":
+      return "Niño";
+    default:
+      return guestType;
+  }
+}
+
+function buildFamilyBadgeStyle(groupId: string): CSSProperties {
+  let hash = 0;
+  for (let index = 0; index < groupId.length; index += 1) {
+    hash = ((hash << 5) - hash) + groupId.charCodeAt(index);
+    hash |= 0;
+  }
+
+  const hue = Math.abs(hash) % 360;
+
+  return {
+    "--family-badge-bg": `hsla(${hue} 48% 90% / 0.95)`,
+    "--family-badge-border": `hsla(${hue} 28% 58% / 0.45)`,
+    "--family-badge-text": `hsla(${hue} 24% 28% / 1)`,
+  } as CSSProperties;
+}
+
+function buildIntoleranceBadgeStyle(intolerance: string): CSSProperties {
+  let hash = 0;
+  for (let index = 0; index < intolerance.length; index += 1) {
+    hash = ((hash << 5) - hash) + intolerance.charCodeAt(index);
+    hash |= 0;
+  }
+
+  const base = Math.abs(hash);
+  const hue = (base * 137) % 360;
+  const saturation = 42 + (base % 18);
+  const lightness = 86 + (base % 8);
+
+  return {
+    "--intolerance-badge-bg": `hsla(${hue} ${saturation}% ${lightness}% / 0.95)`,
+    "--intolerance-badge-border": `hsla(${hue} 30% 58% / 0.45)`,
+    "--intolerance-badge-text": `hsla(${hue} 24% 28% / 1)`,
+  } as CSSProperties;
+}
+
 function formatSessionDate(value: string) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
@@ -335,6 +396,70 @@ function formatConfirmedLabel(confirmed: boolean) {
   return confirmed ? "Confirmado" : "Pendiente";
 }
 
+function GuestConfirmationBadge({ confirmed }: { confirmed: boolean }) {
+  const label = confirmed ? "Confirmación recibida" : "Confirmación pendiente";
+
+  return (
+    <span
+      className={`guest-confirmation-badge ${confirmed ? "guest-confirmation-badge--confirmed" : "guest-confirmation-badge--pending"}`}
+      aria-label={label}
+      title={label}
+    >
+      <span aria-hidden="true" className="guest-confirmation-badge__icon">
+        {confirmed ? "✓" : "?"}
+      </span>
+    </span>
+  );
+}
+
+function GuestAgeBadge({ guestType }: { guestType: string }) {
+  const label = formatGuestAgeTooltip(guestType);
+  const tone =
+    guestType === "adolescente"
+      ? "guest-age-badge--teen"
+      : guestType === "nino"
+        ? "guest-age-badge--child"
+        : "guest-age-badge--adult";
+
+  return (
+    <span
+      className={`guest-age-badge ${tone}`}
+      aria-label={label}
+      title={label}
+    >
+      {formatGuestAgeLabel(guestType)}
+    </span>
+  );
+}
+
+function FamilyBadge({ groupId }: { groupId: string | null }) {
+  if (!groupId) {
+    return <span className="family-badge family-badge--empty">-</span>;
+  }
+
+  return (
+    <span className="family-badge" style={buildFamilyBadgeStyle(groupId)} title={groupId}>
+      {groupId}
+    </span>
+  );
+}
+
+function IntoleranceBadge({ intolerance }: { intolerance: string }) {
+  if (!intolerance) {
+    return <span className="intolerance-badge intolerance-badge--empty">-</span>;
+  }
+
+  return (
+    <span
+      className="intolerance-badge"
+      style={buildIntoleranceBadgeStyle(intolerance)}
+      title={intolerance}
+    >
+      {intolerance}
+    </span>
+  );
+}
+
 function formatMenuLabel(menu: string) {
   switch (menu) {
     case "carne":
@@ -347,6 +472,64 @@ function formatMenuLabel(menu: string) {
     default:
       return "Desconocido";
   }
+}
+
+function formatMenuOptionLabel(menu: string) {
+  switch (menu) {
+    case "carne":
+      return "🐄 Carne";
+    case "pescado":
+      return "🐟 Pescado";
+    case "vegano":
+      return "🍅 Vegano";
+    case "desconocido":
+    default:
+      return "- Desconocido";
+  }
+}
+
+function MenuBadge({ menu }: { menu: string }) {
+  const label = formatMenuLabel(menu);
+
+  if (menu === "desconocido") {
+    return <span className="menu-badge menu-badge--empty">-</span>;
+  }
+
+  return (
+    <span className={`menu-badge menu-badge--${menu}`} aria-label={label} title={label}>
+      {menu === "carne" ? (
+        <svg aria-hidden="true" className="menu-badge__icon" viewBox="0 0 24 24">
+          <path d="M7.2 9.2 5.4 6.8l1.3-.8 2.3 1.5" />
+          <path d="M16.8 9.2 18.6 6.8l-1.3-.8L15 7.5" />
+          <path d="M8.4 17.2v-2.6" />
+          <path d="M15.6 17.2v-2.6" />
+          <path d="M8.2 15.2c-1.7 0-3-1.3-3-3v-1.1c0-1.7 1.3-3 3-3h7.6c1.7 0 3 1.3 3 3v1.1c0 1.7-1.3 3-3 3Z" />
+          <path d="M9.2 15.2v1.2c0 .7.5 1.2 1.2 1.2h3.2c.7 0 1.2-.5 1.2-1.2v-1.2" />
+          <path d="M10.2 12.4h3.6" />
+          <circle cx="9.4" cy="11.1" r="0.55" fill="currentColor" stroke="none" />
+          <circle cx="14.6" cy="11.1" r="0.55" fill="currentColor" stroke="none" />
+          <circle cx="10.7" cy="13.3" r="0.45" fill="currentColor" stroke="none" />
+          <circle cx="13.3" cy="13.3" r="0.45" fill="currentColor" stroke="none" />
+        </svg>
+      ) : null}
+      {menu === "pescado" ? (
+        <svg aria-hidden="true" className="menu-badge__icon" viewBox="0 0 24 24">
+          <path d="M4 12c2.4-3 5.4-4.5 8.8-4.5 3.4 0 5.6 1.5 7.2 4.5-1.6 3-3.8 4.5-7.2 4.5C9.4 16.5 6.4 15 4 12Z" />
+          <path d="M4 12l-2.2-2.2" />
+          <path d="M4 12l-2.2 2.2" />
+          <circle cx="14.8" cy="10.8" r="0.9" />
+        </svg>
+      ) : null}
+      {menu === "vegano" ? (
+        <svg aria-hidden="true" className="menu-badge__icon" viewBox="0 0 24 24">
+          <circle cx="12" cy="13" r="5.2" />
+          <path d="M12 7.8V5.2" />
+          <path d="M12 7.6c1.1-1.7 2.5-2.5 4.2-2.6-0.2 1.8-1.1 3.2-2.8 4" />
+          <path d="M12 7.6c-1.1-1.7-2.5-2.5-4.2-2.6 0.2 1.8 1.1 3.2 2.8 4" />
+        </svg>
+      ) : null}
+    </span>
+  );
 }
 
 function formatSeatLabel(seatIndex: number | null) {
@@ -371,10 +554,6 @@ function matchesGuestSearch(guest: Guest, rawQuery: string) {
   ];
 
   return searchableFields.some((field) => normalizeSearchText(field).includes(query));
-}
-
-function GuestSignal({ guest }: { guest: Guest }) {
-  return guest.confirmed ? null : <span className="guest-signal" title="Invitado no confirmado">?</span>;
 }
 
 export function App() {
@@ -1952,7 +2131,7 @@ export function App() {
           </div>
 
           <div className="rail-panels">
-            <section className="list-card rail-card">
+            <section className="list-card rail-card rail-card--salon">
               <div className="rail-section">
               <div className="rail-section__header">
                 <button className="panel-toggle" onClick={() => togglePanel("salon")} type="button">
@@ -2154,7 +2333,7 @@ export function App() {
               </div>
             </section>
 
-            <section className={`list-card rail-card rail-summary ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
+            <section className={`list-card rail-card rail-card--summary rail-summary ${tablesSectionBusy ? "section-shell section-shell--busy" : ""}`} aria-busy={tablesSectionBusy}>
               <div className="rail-summary__header">
                 <button className="panel-toggle panel-toggle--compact" onClick={() => togglePanel("summary")} type="button">
                   <h4>Resumen del banquete</h4>
@@ -2264,7 +2443,7 @@ export function App() {
               ) : null}
             </section>
 
-            <section className="list-card rail-card">
+            <section className="list-card rail-card rail-card--sessions">
               <div className="list-card__header">
                 <button className="panel-toggle panel-toggle--compact" onClick={() => togglePanel("sessions")} type="button">
                   <h3>Sesiones</h3>
@@ -2655,7 +2834,7 @@ export function App() {
                       onClick={() => toggleUnassignedColumn("confirmed")}
                       type="button"
                     >
-                      Asistencia
+                      Confirmación
                     </button>
                     <button
                       aria-pressed={visibleUnassignedColumns.type}
@@ -2663,7 +2842,7 @@ export function App() {
                       onClick={() => toggleUnassignedColumn("type")}
                       type="button"
                     >
-                      Tipo
+                      Edad
                     </button>
                     <button
                       aria-pressed={visibleUnassignedColumns.group}
@@ -2703,13 +2882,13 @@ export function App() {
                           <thead>
                             <tr>
                               <th>{renderSortableHeader("unassigned", "name", "Invitado")}</th>
-                              {visibleUnassignedColumns.confirmed ? <th>{renderSortableHeader("unassigned", "confirmed", "Asistencia")}</th> : null}
-                              {visibleUnassignedColumns.type ? <th>{renderSortableHeader("unassigned", "type", "Tipo")}</th> : null}
+                              {visibleUnassignedColumns.confirmed ? <th className="guest-table__status-column">{renderSortableHeader("unassigned", "confirmed", "Conf.")}</th> : null}
+                              {visibleUnassignedColumns.type ? <th className="guest-table__age-column">{renderSortableHeader("unassigned", "type", "Edad")}</th> : null}
                               {visibleUnassignedColumns.group ? <th>{renderSortableHeader("unassigned", "group", "Familia")}</th> : null}
-                              {visibleUnassignedColumns.food ? <th>{renderSortableHeader("unassigned", "intolerance", "Intolerancia")}</th> : null}
-                              {visibleUnassignedColumns.food ? <th>{renderSortableHeader("unassigned", "menu", "Menú")}</th> : null}
-                              {visibleUnassignedColumns.table ? <th>{renderSortableHeader("unassigned", "table", "Mesa")}</th> : null}
-                              {visibleUnassignedColumns.table ? <th>{renderSortableHeader("unassigned", "seat", "Asiento")}</th> : null}
+                              {visibleUnassignedColumns.food ? <th className="guest-table__intolerance-column">{renderSortableHeader("unassigned", "intolerance", "Intolerancia")}</th> : null}
+                              {visibleUnassignedColumns.food ? <th className="guest-table__menu-column">{renderSortableHeader("unassigned", "menu", "Menú")}</th> : null}
+                              {visibleUnassignedColumns.table ? <th className="guest-table__table-column">{renderSortableHeader("unassigned", "table", "Mesa")}</th> : null}
+                              {visibleUnassignedColumns.table ? <th className="guest-table__seat-column">{renderSortableHeader("unassigned", "seat", "Asiento")}</th> : null}
                               <th aria-label="Eliminar invitado" className="guest-table__action-column" />
                             </tr>
                           </thead>
@@ -2738,13 +2917,12 @@ export function App() {
                                       <button className="guest-name-button" onClick={() => beginGuestEdit(guest, "name")} type="button">
                                         <span className="guest-card__nameplate">
                                           <strong>{guest.name}</strong>
-                                          <GuestSignal guest={guest} />
                                         </span>
                                       </button>
                                     )}
                                   </td>
                                   {visibleUnassignedColumns.confirmed ? (
-                                    <td>
+                                    <td className="guest-table__status-column">
                                       {editingGuestId === guest.id && editingGuestField === "confirmed" ? (
                                         <select
                                           autoFocus
@@ -2759,13 +2937,13 @@ export function App() {
                                         </select>
                                       ) : (
                                         <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "confirmed")} type="button">
-                                          {formatConfirmedLabel(guest.confirmed)}
+                                          <GuestConfirmationBadge confirmed={guest.confirmed} />
                                         </button>
                                       )}
                                     </td>
                                   ) : null}
                                   {visibleUnassignedColumns.type ? (
-                                    <td>
+                                    <td className="guest-table__age-column">
                                       {editingGuestId === guest.id && editingGuestField === "type" ? (
                                         <select
                                           className="guest-table__select"
@@ -2780,13 +2958,13 @@ export function App() {
                                         </select>
                                       ) : (
                                         <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "type")} type="button">
-                                          {formatGuestTypeLabel(guest.guest_type)}
+                                          <GuestAgeBadge guestType={guest.guest_type} />
                                         </button>
                                       )}
                                     </td>
                                   ) : null}
                                   {visibleUnassignedColumns.group ? (
-                                    <td>
+                                    <td className="guest-table__intolerance-column">
                                       {editingGuestId === guest.id && editingGuestField === "group" ? (
                                         <input
                                           className="guest-table__input"
@@ -2797,13 +2975,13 @@ export function App() {
                                         />
                                       ) : (
                                         <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
-                                          {guest.group_id ? guest.group_id : "Sin familia"}
+                                          <FamilyBadge groupId={guest.group_id} />
                                         </button>
                                       )}
                                     </td>
                                   ) : null}
                                   {visibleUnassignedColumns.food ? (
-                                    <td>
+                                    <td className="guest-table__table-column">
                                       {editingGuestId === guest.id && editingGuestField === "intolerance" ? (
                                         <input
                                           autoFocus
@@ -2815,13 +2993,13 @@ export function App() {
                                         />
                                       ) : (
                                         <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "intolerance")} type="button">
-                                          {guest.intolerance || "Sin intolerancia"}
+                                          <IntoleranceBadge intolerance={guest.intolerance} />
                                         </button>
                                       )}
                                     </td>
                                   ) : null}
                                   {visibleUnassignedColumns.food ? (
-                                    <td>
+                                    <td className="guest-table__seat-column">
                                       {editingGuestId === guest.id && editingGuestField === "menu" ? (
                                         <select
                                           autoFocus
@@ -2831,14 +3009,14 @@ export function App() {
                                           onKeyDown={handleGuestEditKeyDown}
                                           value={editingGuestMenu}
                                         >
-                                          <option value="desconocido">Desconocido</option>
-                                          <option value="carne">Carne</option>
-                                          <option value="pescado">Pescado</option>
-                                          <option value="vegano">Vegano</option>
+                                          <option value="desconocido">{formatMenuOptionLabel("desconocido")}</option>
+                                          <option value="carne">{formatMenuOptionLabel("carne")}</option>
+                                          <option value="pescado">{formatMenuOptionLabel("pescado")}</option>
+                                          <option value="vegano">{formatMenuOptionLabel("vegano")}</option>
                                         </select>
                                       ) : (
                                         <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "menu")} type="button">
-                                          {formatMenuLabel(guest.menu)}
+                                          <MenuBadge menu={guest.menu} />
                                         </button>
                                       )}
                                     </td>
@@ -2863,14 +3041,14 @@ export function App() {
                                         </select>
                                       ) : (
                                         <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "table")} type="button">
-                                          <span className="guest-row__table guest-row__table--muted">Sin mesa</span>
+                                          <span className="guest-row__table guest-row__table--muted">-</span>
                                         </button>
                                       )}
                                     </td>
                                   ) : null}
                                   {visibleUnassignedColumns.table ? (
                                     <td>
-                                      <span className="guest-row__table guest-row__table--muted">Sin asiento</span>
+                                      <span className="guest-row__table guest-row__table--muted">-</span>
                                     </td>
                                   ) : null}
                                   <td className="guest-table__action-column">
@@ -3047,10 +3225,10 @@ export function App() {
                                 })
                               }
                             >
-                              <option value="desconocido">desconocido</option>
-                              <option value="carne">carne</option>
-                              <option value="pescado">pescado</option>
-                              <option value="vegano">vegano</option>
+                              <option value="desconocido">{formatMenuOptionLabel("desconocido")}</option>
+                              <option value="carne">{formatMenuOptionLabel("carne")}</option>
+                              <option value="pescado">{formatMenuOptionLabel("pescado")}</option>
+                              <option value="vegano">{formatMenuOptionLabel("vegano")}</option>
                             </select>
                           </label>
                           <label className="mini-field mini-field--checkbox">
@@ -3096,7 +3274,7 @@ export function App() {
                     onClick={() => toggleAssignedColumn("confirmed")}
                     type="button"
                   >
-                    Asistencia
+                    Confirmación
                   </button>
                   <button
                     aria-pressed={visibleAssignedColumns.type}
@@ -3104,7 +3282,7 @@ export function App() {
                     onClick={() => toggleAssignedColumn("type")}
                     type="button"
                   >
-                    Tipo
+                    Edad
                   </button>
                   <button
                     aria-pressed={visibleAssignedColumns.group}
@@ -3138,13 +3316,13 @@ export function App() {
                       <thead>
                         <tr>
                           <th>{renderSortableHeader("assigned", "name", "Invitado")}</th>
-                          {visibleAssignedColumns.confirmed ? <th>{renderSortableHeader("assigned", "confirmed", "Asistencia")}</th> : null}
-                          {visibleAssignedColumns.type ? <th>{renderSortableHeader("assigned", "type", "Tipo")}</th> : null}
+                          {visibleAssignedColumns.confirmed ? <th className="guest-table__status-column">{renderSortableHeader("assigned", "confirmed", "Conf.")}</th> : null}
+                          {visibleAssignedColumns.type ? <th className="guest-table__age-column">{renderSortableHeader("assigned", "type", "Edad")}</th> : null}
                           {visibleAssignedColumns.group ? <th>{renderSortableHeader("assigned", "group", "Familia")}</th> : null}
-                          {visibleAssignedColumns.food ? <th>{renderSortableHeader("assigned", "intolerance", "Intolerancia")}</th> : null}
-                          {visibleAssignedColumns.food ? <th>{renderSortableHeader("assigned", "menu", "Menú")}</th> : null}
-                          {visibleAssignedColumns.table ? <th>{renderSortableHeader("assigned", "table", "Mesa")}</th> : null}
-                          {visibleAssignedColumns.table ? <th>{renderSortableHeader("assigned", "seat", "Asiento")}</th> : null}
+                          {visibleAssignedColumns.food ? <th className="guest-table__intolerance-column">{renderSortableHeader("assigned", "intolerance", "Intolerancia")}</th> : null}
+                          {visibleAssignedColumns.food ? <th className="guest-table__menu-column">{renderSortableHeader("assigned", "menu", "Menú")}</th> : null}
+                          {visibleAssignedColumns.table ? <th className="guest-table__table-column">{renderSortableHeader("assigned", "table", "Mesa")}</th> : null}
+                          {visibleAssignedColumns.table ? <th className="guest-table__seat-column">{renderSortableHeader("assigned", "seat", "Asiento")}</th> : null}
                           <th aria-label="Eliminar invitado" className="guest-table__action-column" />
                         </tr>
                       </thead>
@@ -3172,13 +3350,12 @@ export function App() {
                                     <button className="guest-name-button" onClick={() => beginGuestEdit(guest, "name")} type="button">
                                       <span className="guest-card__nameplate">
                                         <strong>{guest.name}</strong>
-                                        <GuestSignal guest={guest} />
                                       </span>
                                     </button>
                                   )}
                                 </td>
                                 {visibleAssignedColumns.confirmed ? (
-                                  <td>
+                                  <td className="guest-table__status-column">
                                     {editingGuestId === guest.id && editingGuestField === "confirmed" ? (
                                       <select
                                         autoFocus
@@ -3193,13 +3370,13 @@ export function App() {
                                       </select>
                                     ) : (
                                       <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "confirmed")} type="button">
-                                        {formatConfirmedLabel(guest.confirmed)}
+                                        <GuestConfirmationBadge confirmed={guest.confirmed} />
                                       </button>
                                     )}
                                   </td>
                                 ) : null}
                                 {visibleAssignedColumns.type ? (
-                                  <td>
+                                  <td className="guest-table__age-column">
                                     {editingGuestId === guest.id && editingGuestField === "type" ? (
                                       <select
                                         className="guest-table__select"
@@ -3214,13 +3391,13 @@ export function App() {
                                       </select>
                                     ) : (
                                       <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "type")} type="button">
-                                        {formatGuestTypeLabel(guest.guest_type)}
+                                        <GuestAgeBadge guestType={guest.guest_type} />
                                       </button>
                                     )}
                                   </td>
                                 ) : null}
                                 {visibleAssignedColumns.group ? (
-                                  <td>
+                                  <td className="guest-table__menu-column">
                                     {editingGuestId === guest.id && editingGuestField === "group" ? (
                                       <input
                                         className="guest-table__input"
@@ -3231,13 +3408,13 @@ export function App() {
                                       />
                                     ) : (
                                       <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
-                                        {guest.group_id ? guest.group_id : "Sin agrupación"}
+                                        <FamilyBadge groupId={guest.group_id} />
                                       </button>
                                     )}
                                   </td>
                                 ) : null}
                                 {visibleAssignedColumns.food ? (
-                                  <td>
+                                  <td className="guest-table__intolerance-column">
                                     {editingGuestId === guest.id && editingGuestField === "intolerance" ? (
                                       <input
                                         autoFocus
@@ -3249,13 +3426,13 @@ export function App() {
                                       />
                                     ) : (
                                       <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "intolerance")} type="button">
-                                        {guest.intolerance || "Sin intolerancia"}
+                                        <IntoleranceBadge intolerance={guest.intolerance} />
                                       </button>
                                     )}
                                   </td>
                                 ) : null}
                                 {visibleAssignedColumns.food ? (
-                                  <td>
+                                  <td className="guest-table__table-column">
                                     {editingGuestId === guest.id && editingGuestField === "menu" ? (
                                       <select
                                         autoFocus
@@ -3265,20 +3442,20 @@ export function App() {
                                         onKeyDown={handleGuestEditKeyDown}
                                         value={editingGuestMenu}
                                       >
-                                        <option value="desconocido">Desconocido</option>
-                                        <option value="carne">Carne</option>
-                                        <option value="pescado">Pescado</option>
-                                        <option value="vegano">Vegano</option>
+                                        <option value="desconocido">{formatMenuOptionLabel("desconocido")}</option>
+                                        <option value="carne">{formatMenuOptionLabel("carne")}</option>
+                                        <option value="pescado">{formatMenuOptionLabel("pescado")}</option>
+                                        <option value="vegano">{formatMenuOptionLabel("vegano")}</option>
                                       </select>
                                     ) : (
                                       <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "menu")} type="button">
-                                        {formatMenuLabel(guest.menu)}
+                                        <MenuBadge menu={guest.menu} />
                                       </button>
                                     )}
                                   </td>
                                 ) : null}
                                 {visibleAssignedColumns.table ? (
-                                  <td>
+                                  <td className="guest-table__seat-column">
                                     {editingGuestId === guest.id && editingGuestField === "table" ? (
                                       <select
                                         autoFocus
@@ -3444,7 +3621,7 @@ export function App() {
                         <tr>
                           <th>{renderSortableHeader("conflicts", "name", "Invitado")}</th>
                           <th>{renderSortableHeader("conflicts", "intolerance", "Intolerancia")}</th>
-                          <th>{renderSortableHeader("conflicts", "menu", "Menú")}</th>
+                          <th className="guest-table__menu-column">{renderSortableHeader("conflicts", "menu", "Menú")}</th>
                           <th>{renderSortableHeader("conflicts", "group", "Familia")}</th>
                           <th>{renderSortableHeader("conflicts", "table", "Mesa")}</th>
                         </tr>
@@ -3452,7 +3629,7 @@ export function App() {
                       <tbody>
                         {paginatedConflictRows.rows.map((row) => (
                           <tr className="guest-table__row guest-table__row--conflict" key={row.rowId}>
-                            <td>
+                            <td className="guest-table__menu-column">
                               {row.guest ? (
                                 <button className="guest-name-button" onClick={() => beginGuestEdit(row.guest!, "name")} type="button">
                                   <strong>{row.guestName}</strong>
@@ -3474,11 +3651,11 @@ export function App() {
                                   />
                                 ) : (
                                   <button className="guest-cell-button" onClick={() => beginGuestEdit(row.guest!, "intolerance")} type="button">
-                                    {row.guest.intolerance || "Sin intolerancia"}
+                                    <IntoleranceBadge intolerance={row.guest.intolerance} />
                                   </button>
                                 )
                               ) : (
-                                "Sin intolerancia"
+                                <IntoleranceBadge intolerance="" />
                               )}
                             </td>
                             <td>
@@ -3492,18 +3669,18 @@ export function App() {
                                     onKeyDown={handleGuestEditKeyDown}
                                     value={editingGuestMenu}
                                   >
-                                    <option value="desconocido">Desconocido</option>
-                                    <option value="carne">Carne</option>
-                                    <option value="pescado">Pescado</option>
-                                    <option value="vegano">Vegano</option>
+                                    <option value="desconocido">{formatMenuOptionLabel("desconocido")}</option>
+                                    <option value="carne">{formatMenuOptionLabel("carne")}</option>
+                                    <option value="pescado">{formatMenuOptionLabel("pescado")}</option>
+                                    <option value="vegano">{formatMenuOptionLabel("vegano")}</option>
                                   </select>
                                 ) : (
                                   <button className="guest-cell-button" onClick={() => beginGuestEdit(row.guest!, "menu")} type="button">
-                                    {formatMenuLabel(row.guest.menu)}
+                                    <MenuBadge menu={row.guest.menu} />
                                   </button>
                                 )
                               ) : (
-                                "Desconocido"
+                                <MenuBadge menu="desconocido" />
                               )}
                             </td>
                             <td>{row.groupId}</td>
@@ -3622,7 +3799,7 @@ export function App() {
                             <th>{renderSortableHeader("guestImport", "type", "Tipo")}</th>
                             <th>{renderSortableHeader("guestImport", "group", "Familia")}</th>
                             <th>{renderSortableHeader("guestImport", "intolerance", "Intolerancia")}</th>
-                            <th>{renderSortableHeader("guestImport", "menu", "Menú")}</th>
+                            <th className="guest-table__menu-column">{renderSortableHeader("guestImport", "menu", "Menú")}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -3633,9 +3810,9 @@ export function App() {
                               </td>
                               <td>{formatConfirmedLabel(guest.confirmed)}</td>
                               <td>{formatGuestTypeLabel(guest.guest_type)}</td>
-                              <td>{guest.group_id ?? "Sin familia"}</td>
-                              <td>{guest.intolerance || "Sin intolerancia"}</td>
-                              <td>{formatMenuLabel(guest.menu)}</td>
+                              <td><FamilyBadge groupId={guest.group_id} /></td>
+                              <td><IntoleranceBadge intolerance={guest.intolerance} /></td>
+                              <td className="guest-table__menu-column"><MenuBadge menu={guest.menu} /></td>
                             </tr>
                           ))}
                         </tbody>

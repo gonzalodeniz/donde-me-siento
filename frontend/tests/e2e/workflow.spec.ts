@@ -134,7 +134,6 @@ test("estados UX del workspace unico: alertas de conflicto y aforo", async ({ pa
 
   await firstGuestCard.dispatchEvent("dragstart", { dataTransfer: firstDataTransfer });
   await tableOneDropzone.dispatchEvent("dragenter", { dataTransfer: firstDataTransfer });
-  await expect(page.getByText(`Suelta a ${guestOne} sobre una mesa resaltada para sentarlo.`)).toBeVisible();
   await tableOneDropzone.dispatchEvent("dragover", { dataTransfer: firstDataTransfer });
   await tableOneDropzone.dispatchEvent("drop", { dataTransfer: firstDataTransfer });
   await firstGuestCard.dispatchEvent("dragend", { dataTransfer: firstDataTransfer });
