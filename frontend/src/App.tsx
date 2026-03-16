@@ -358,6 +358,25 @@ function buildFamilyBadgeStyle(groupId: string): CSSProperties {
   } as CSSProperties;
 }
 
+function buildIntoleranceBadgeStyle(intolerance: string): CSSProperties {
+  let hash = 0;
+  for (let index = 0; index < intolerance.length; index += 1) {
+    hash = ((hash << 5) - hash) + intolerance.charCodeAt(index);
+    hash |= 0;
+  }
+
+  const base = Math.abs(hash);
+  const hue = (base * 137) % 360;
+  const saturation = 42 + (base % 18);
+  const lightness = 86 + (base % 8);
+
+  return {
+    "--intolerance-badge-bg": `hsla(${hue} ${saturation}% ${lightness}% / 0.95)`,
+    "--intolerance-badge-border": `hsla(${hue} 30% 58% / 0.45)`,
+    "--intolerance-badge-text": `hsla(${hue} 24% 28% / 1)`,
+  } as CSSProperties;
+}
+
 function formatSessionDate(value: string) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
@@ -421,6 +440,22 @@ function FamilyBadge({ groupId }: { groupId: string | null }) {
   return (
     <span className="family-badge" style={buildFamilyBadgeStyle(groupId)} title={groupId}>
       {groupId}
+    </span>
+  );
+}
+
+function IntoleranceBadge({ intolerance }: { intolerance: string }) {
+  if (!intolerance) {
+    return <span className="intolerance-badge intolerance-badge--empty">-</span>;
+  }
+
+  return (
+    <span
+      className="intolerance-badge"
+      style={buildIntoleranceBadgeStyle(intolerance)}
+      title={intolerance}
+    >
+      {intolerance}
     </span>
   );
 }
@@ -2900,7 +2935,7 @@ export function App() {
                                         />
                                       ) : (
                                         <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "intolerance")} type="button">
-                                          {guest.intolerance || "Sin intolerancia"}
+                                          <IntoleranceBadge intolerance={guest.intolerance} />
                                         </button>
                                       )}
                                     </td>
@@ -3333,7 +3368,7 @@ export function App() {
                                       />
                                     ) : (
                                       <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "intolerance")} type="button">
-                                        {guest.intolerance || "Sin intolerancia"}
+                                        <IntoleranceBadge intolerance={guest.intolerance} />
                                       </button>
                                     )}
                                   </td>
@@ -3558,11 +3593,11 @@ export function App() {
                                   />
                                 ) : (
                                   <button className="guest-cell-button" onClick={() => beginGuestEdit(row.guest!, "intolerance")} type="button">
-                                    {row.guest.intolerance || "Sin intolerancia"}
+                                    <IntoleranceBadge intolerance={row.guest.intolerance} />
                                   </button>
                                 )
                               ) : (
-                                "Sin intolerancia"
+                                <IntoleranceBadge intolerance="" />
                               )}
                             </td>
                             <td>
@@ -3718,7 +3753,7 @@ export function App() {
                               <td>{formatConfirmedLabel(guest.confirmed)}</td>
                               <td>{formatGuestTypeLabel(guest.guest_type)}</td>
                               <td><FamilyBadge groupId={guest.group_id} /></td>
-                              <td>{guest.intolerance || "Sin intolerancia"}</td>
+                              <td><IntoleranceBadge intolerance={guest.intolerance} /></td>
                               <td>{formatMenuLabel(guest.menu)}</td>
                             </tr>
                           ))}
