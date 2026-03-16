@@ -692,9 +692,7 @@ export function SeatingPlan({
           <p className="eyebrow">Plano interactivo</p>
           <h3>Salón y mesas</h3>
           <p className="plan-card__lead">
-            {isDraggingGuest
-              ? `Desliza a ${draggedGuestName} y suéltalo directamente sobre una silla libre.`
-              : "Puedes arrastrar cada mesa para colocarla como estará en el salón real. La mesa de novios siempre aparece arriba, con 2 asientos colocados en el mismo lado largo, y admite giro."}
+            Puedes arrastrar cada mesa para colocarla como estará en el salón real. La mesa de novios siempre aparece arriba, con 2 asientos colocados en el mismo lado largo, y admite giro.
           </p>
         </div>
         <div className="plan-legend">
@@ -744,12 +742,6 @@ export function SeatingPlan({
             {zoomPercent}%
           </button>
         </div>
-        {isDraggingGuest ? (
-          <div className="plan-stage__guide" aria-live="polite">
-            <strong>{draggedGuestName}</strong>
-            <span>Busca una silla libre resaltada y suelta ahí para recolocar al invitado.</span>
-          </div>
-        ) : null}
         <div
           ref={scrollViewportRef}
           className="plan-stage__scroll"

@@ -1537,32 +1537,6 @@ select {
   pointer-events: none;
 }
 
-.plan-stage__guide {
-  position: absolute;
-  top: 1rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 4;
-  display: grid;
-  gap: 0.2rem;
-  min-width: min(30rem, calc(100% - 2rem));
-  padding: 0.8rem 1rem;
-  border-radius: 1rem;
-  text-align: center;
-  background: rgba(255, 250, 245, 0.94);
-  border: 1px solid rgba(154, 79, 36, 0.14);
-  box-shadow: 0 16px 32px rgba(87, 49, 24, 0.1);
-}
-
-.plan-stage__guide strong {
-  font-size: 1rem;
-}
-
-.plan-stage__guide span {
-  color: var(--muted);
-  font-size: 0.86rem;
-}
-
 .plan-stage__svg {
   display: block;
 }
