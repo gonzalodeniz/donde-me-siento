@@ -119,14 +119,12 @@ La imagen Docker incluida empaqueta:
 
 - frontend compilado con Vite;
 - backend FastAPI con Uvicorn;
-- Nginx sirviendo la SPA y haciendo proxy a `/api`;
-- `supervisord` para levantar Nginx y Uvicorn dentro del contenedor.
+- FastAPI sirviendo la SPA compilada y la API desde un unico proceso.
 
 Ficheros relevantes:
 
 - Dockerfile: [Dockerfile](/home/gdeniz/Workspaces/development/donde-me-siento/Dockerfile)
-- Nginx interno del contenedor: [deploy/docker/nginx.conf](/home/gdeniz/Workspaces/development/donde-me-siento/deploy/docker/nginx.conf)
-- Supervisor del contenedor: [deploy/docker/supervisord.conf](/home/gdeniz/Workspaces/development/donde-me-siento/deploy/docker/supervisord.conf)
+- Backend de produccion: [backend/app/main.py](/home/gdeniz/Workspaces/development/donde-me-siento/backend/app/main.py)
 
 Construcción de la imagen:
 
@@ -167,18 +165,15 @@ Persistencia:
 
 Ese directorio guarda la base de datos SQLite y cualquier dato persistente del backend. Si no lo montas, perderás los datos al eliminar el contenedor.
 
-## Ejecutar con docker compose y proxy inverso
+## Ejecutar con docker compose
 
-Se incluye un despliegue con dos servicios:
+Se incluye un despliegue simple con un servicio:
 
-- `app`: ejecuta la imagen `donde-me-siento:latest` y la publica internamente en `8080`
-- `reverse-proxy`: Nginx frontal que escucha en `80` y `443` y redirige al puerto `8080`
+- `app`: ejecuta la imagen `donde-me-siento:latest` y la publica en `8080`
 
 Ficheros incluidos:
 
 - Compose: [docker-compose.yml](/home/gdeniz/Workspaces/development/donde-me-siento/docker-compose.yml)
-- Nginx principal del proxy: [deploy/reverse-proxy/nginx.conf](/home/gdeniz/Workspaces/development/donde-me-siento/deploy/reverse-proxy/nginx.conf)
-- Virtual host del proxy: [deploy/reverse-proxy/conf.d/donde-me-siento.conf](/home/gdeniz/Workspaces/development/donde-me-siento/deploy/reverse-proxy/conf.d/donde-me-siento.conf)
 
 Antes de levantarlo:
 
@@ -186,26 +181,6 @@ Antes de levantarlo:
 
 ```bash
 make docker-build
-```
-
-2. Crea o copia los certificados TLS en:
-
-```text
-./deploy/reverse-proxy/certs/fullchain.pem
-./deploy/reverse-proxy/certs/privkey.pem
-```
-
-Si no existen, el proxy los generará automáticamente al arrancar usando un certificado autofirmado temporal.
-
-Si prefieres generarlos tú manualmente para pruebas rápidas:
-
-```bash
-mkdir -p deploy/reverse-proxy/certs
-openssl req -x509 -nodes -days 365 \
-  -newkey rsa:2048 \
-  -keyout deploy/reverse-proxy/certs/privkey.pem \
-  -out deploy/reverse-proxy/certs/fullchain.pem \
-  -subj "/CN=localhost"
 ```
 
 Arranque:
@@ -229,14 +204,12 @@ make compose-logs
 Persistencia con `docker compose`:
 
 - `./data` debe persistirse porque se monta como `/app/data`
-- `./deploy/reverse-proxy/certs` debe persistirse porque contiene los certificados usados por el proxy en `443`
 
 Comprobaciones útiles:
 
 ```bash
-curl -I http://127.0.0.1/
-curl -kI https://127.0.0.1/
-curl -i http://127.0.0.1/health
+curl -i http://127.0.0.1:8080/
+curl -i http://127.0.0.1:8080/health
 ```
 
 ## Ejecutar E2E

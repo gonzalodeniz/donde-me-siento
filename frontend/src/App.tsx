@@ -2298,79 +2298,62 @@ export function App() {
                 type="file"
               />
               {savedSessions.length > 0 ? (
-                <div className="guest-table-shell guest-table-shell--compact session-library__list">
-                  <table className="guest-table session-table">
-                    <thead>
-                      <tr>
-                        <th>{renderSortableHeader("sessions", "name", "Sesión")}</th>
-                        <th>{renderSortableHeader("sessions", "created_at", "Creada")}</th>
-                        <th aria-label="Descargar sesión" className="guest-table__action-column" />
-                        <th aria-label="Cargar sesión" className="guest-table__action-column" />
-                        <th aria-label="Eliminar sesión" className="guest-table__action-column" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedSessions.map((session) => (
-                        <tr className="guest-table__row" key={session.id}>
-                          <td>
-                            <strong>{session.name}</strong>
-                          </td>
-                          <td>{formatSessionDate(session.created_at)}</td>
-                          <td className="guest-table__action-column">
-                            <button
-                              className="button button--ghost button--small"
-                              disabled={isActionRunning(`export-session-${session.id}`)}
-                              onClick={() => void handleSessionExport(session)}
-                              type="button"
-                            >
-                              Descargar
-                            </button>
-                          </td>
-                          <td className="guest-table__action-column">
-                            <button
-                              className="button button--ghost button--small"
-                              disabled={isActionRunning(`load-session-${session.id}`)}
-                              onClick={() =>
-                                void runWorkspaceAction(
-                                  `load-session-${session.id}`,
-                                  "tables",
-                                  () => loadSession(session.id, token ?? ""),
-                                  `Sesión "${session.name}" cargada.`,
-                                )
-                              }
-                              type="button"
-                            >
-                              Cargar sesión
-                            </button>
-                          </td>
-                          <td className="guest-table__action-column">
-                            <button
-                              aria-label={`Eliminar sesión ${session.name}`}
-                              className="button button--quiet button--small button--icon"
-                              disabled={isActionRunning(`delete-session-${session.id}`)}
-                              onClick={() =>
-                                void runWorkspaceAction(
-                                  `delete-session-${session.id}`,
-                                  "tables",
-                                  () => deleteSession(session.id, token ?? ""),
-                                  `Sesión "${session.name}" eliminada.`,
-                                )
-                              }
-                              type="button"
-                            >
-                              <svg aria-hidden="true" className="button__icon" viewBox="0 0 24 24">
-                                <path d="M9 4.75h6" />
-                                <path d="M5.75 7.25h12.5" />
-                                <path d="M8.25 7.25v10.1A1.4 1.4 0 0 0 9.65 18.75h4.7a1.4 1.4 0 0 0 1.4-1.4V7.25" />
-                                <path d="M10 10.25v5.5" />
-                                <path d="M14 10.25v5.5" />
-                              </svg>
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="session-library__list" role="list" aria-label="Sesiones guardadas">
+                  {sortedSessions.map((session) => (
+                    <article className="session-card" key={session.id} role="listitem">
+                      <div className="session-card__meta">
+                        <strong className="session-card__name">{session.name}</strong>
+                        <span className="session-card__date">{formatSessionDate(session.created_at)}</span>
+                      </div>
+                      <div className="session-card__actions">
+                        <button
+                          className="button button--ghost button--small"
+                          disabled={isActionRunning(`export-session-${session.id}`)}
+                          onClick={() => void handleSessionExport(session)}
+                          type="button"
+                        >
+                          Descargar
+                        </button>
+                        <button
+                          className="button button--ghost button--small"
+                          disabled={isActionRunning(`load-session-${session.id}`)}
+                          onClick={() =>
+                            void runWorkspaceAction(
+                              `load-session-${session.id}`,
+                              "tables",
+                              () => loadSession(session.id, token ?? ""),
+                              `Sesión "${session.name}" cargada.`,
+                            )
+                          }
+                          type="button"
+                        >
+                          Cargar sesión
+                        </button>
+                        <button
+                          aria-label={`Eliminar sesión ${session.name}`}
+                          className="button button--quiet button--small button--icon"
+                          disabled={isActionRunning(`delete-session-${session.id}`)}
+                          onClick={() =>
+                            void runWorkspaceAction(
+                              `delete-session-${session.id}`,
+                              "tables",
+                              () => deleteSession(session.id, token ?? ""),
+                              `Sesión "${session.name}" eliminada.`,
+                            )
+                          }
+                          type="button"
+                        >
+                          <svg aria-hidden="true" className="button__icon" viewBox="0 0 24 24">
+                            <path d="M9 4.75h6" />
+                            <path d="M5.75 7.25h12.5" />
+                            <path d="M8.25 7.25v10.1A1.4 1.4 0 0 0 9.65 18.75h4.7a1.4 1.4 0 0 0 1.4-1.4V7.25" />
+                            <path d="M10 10.25v5.5" />
+                            <path d="M14 10.25v5.5" />
+                          </svg>
+                        </button>
+                      </div>
+                    </article>
+                  ))}
                 </div>
               ) : null}
               {isResetSessionPending ? (

@@ -314,6 +314,7 @@ async def test_save_load_and_delete_sessions_flow(client: AsyncClient) -> None:
     await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto", "confirmed": True})
     await client.put("/api/guests/guest-1/assignment", json={"table_id": "table-2", "seat_index": 1})
     await client.put("/api/tables/table-2/position", json={"position_x": 420, "position_y": 360})
+    await client.put("/api/tables/table-couple/position", json={"position_x": 520, "position_y": 64, "rotation_degrees": 30})
 
     save_response = await client.post("/api/sessions", json={"name": "base familiar"})
     assert save_response.status_code == 201
@@ -333,26 +334,39 @@ async def test_save_load_and_delete_sessions_flow(client: AsyncClient) -> None:
     assert backup_payload["session"]["name"] == "base familiar"
     assert backup_payload["snapshot"]["guests"][0]["seat_index"] == 1
     assert backup_payload["snapshot"]["guests"][0]["confirmed"] is True
+    backup_couple_table = next(table for table in backup_payload["snapshot"]["tables"] if table["id"] == "table-couple")
+    assert backup_couple_table["position_x"] == 600
+    assert backup_couple_table["position_y"] == 90
+    assert backup_couple_table["rotation_degrees"] == 0
 
     await client.put("/api/guests/guest-1/assignment", json={"table_id": "table-1", "seat_index": 0})
     await client.put("/api/tables/table-2/position", json={"position_x": 150, "position_y": 150})
+    await client.put("/api/tables/table-couple/position", json={"position_x": 700, "position_y": 120, "rotation_degrees": 75})
 
     load_response = await client.post(f"/api/sessions/{session_id}/load")
     assert load_response.status_code == 200
     loaded_guest = next(guest for guest in load_response.json()["guests"] if guest["id"] == "guest-1")
     loaded_table = next(table for table in load_response.json()["tables"] if table["id"] == "table-2")
+    loaded_couple_table = next(table for table in load_response.json()["tables"] if table["id"] == "table-couple")
     assert loaded_guest["table_id"] == "table-2"
     assert loaded_guest["seat_index"] == 1
     assert loaded_guest["confirmed"] is True
     assert loaded_table["position_x"] == 420
     assert loaded_table["position_y"] == 360
+    assert loaded_couple_table["position_x"] == 600
+    assert loaded_couple_table["position_y"] == 90
+    assert loaded_couple_table["rotation_degrees"] == 0
 
     await client.post("/api/workspace/reset")
     import_response = await client.post("/api/sessions/import", json=backup_payload)
     assert import_response.status_code == 200
     imported_guest = next(guest for guest in import_response.json()["guests"] if guest["id"] == "guest-1")
+    imported_couple_table = next(table for table in import_response.json()["tables"] if table["id"] == "table-couple")
     assert imported_guest["table_id"] == "table-2"
     assert imported_guest["seat_index"] == 1
+    assert imported_couple_table["position_x"] == 600
+    assert imported_couple_table["position_y"] == 90
+    assert imported_couple_table["rotation_degrees"] == 0
 
     delete_response = await client.delete(f"/api/sessions/{session_id}")
     assert delete_response.status_code == 204
@@ -366,16 +380,24 @@ async def test_save_load_and_delete_sessions_flow(client: AsyncClient) -> None:
 async def test_reset_workspace_clears_tables_and_guests(client: AsyncClient) -> None:
     await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto"})
     await client.put("/api/tables/table-1", json={"capacity": 5})
+    await client.put("/api/tables/table-couple/position", json={"position_x": 520, "position_y": 64, "rotation_degrees": 30})
 
     reset_response = await client.post("/api/workspace/reset")
     assert reset_response.status_code == 200
     assert [table["id"] for table in reset_response.json()["tables"]] == ["table-couple"]
     assert reset_response.json()["guests"] == []
+    assert reset_response.json()["tables"][0]["position_x"] == 600
+    assert reset_response.json()["tables"][0]["position_y"] == 90
+    assert reset_response.json()["tables"][0]["rotation_degrees"] == 0
+    assert reset_response.json()["tables"][0]["capacity"] == 2
 
     workspace_response = await client.get("/api/workspace")
     assert workspace_response.status_code == 200
     assert [table["id"] for table in workspace_response.json()["tables"]] == ["table-couple"]
     assert workspace_response.json()["tables"][0]["capacity"] == 2
+    assert workspace_response.json()["tables"][0]["position_x"] == 600
+    assert workspace_response.json()["tables"][0]["position_y"] == 90
+    assert workspace_response.json()["tables"][0]["rotation_degrees"] == 0
     assert workspace_response.json()["guests"]["assigned"] == []
     assert workspace_response.json()["guests"]["unassigned"] == []
 
@@ -466,6 +488,9 @@ async def test_workspace_endpoint_returns_aggregated_state_for_frontend(client: 
     assert couple_table["id"] == "table-couple"
     assert couple_table["table_kind"] == "couple"
     assert couple_table["capacity"] == 2
+    assert couple_table["position_x"] == 600
+    assert couple_table["position_y"] == 90
+    assert couple_table["rotation_degrees"] == 0
     assert first_table["id"] == "table-1"
     assert first_table["occupied"] == 1
     assert [guest["id"] for guest in first_table["guests"]] == ["guest-1"]

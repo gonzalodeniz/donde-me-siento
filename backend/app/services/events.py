@@ -152,6 +152,10 @@ class EventService:
     def reset_workspace(self) -> Event:
         event = self.ensure_workspace()
         couple_table = event._ensure_couple_table()
+        couple_table.position_x = Event.COUPLE_TABLE_POSITION_X
+        couple_table.position_y = Event.COUPLE_TABLE_POSITION_Y
+        couple_table.rotation_degrees = 0.0
+        couple_table.capacity = Event.COUPLE_TABLE_CAPACITY
         event.tables = {couple_table.id: couple_table}
         event.guests.clear()
         return self.repository.save(event)

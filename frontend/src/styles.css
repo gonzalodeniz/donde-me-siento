@@ -683,45 +683,62 @@ select {
   max-width: none;
 }
 
-.session-table {
-  min-width: 18rem;
+.session-library__list {
+  display: grid;
+  gap: 0.8rem;
+  container-type: inline-size;
 }
 
-.session-table th,
-.session-table td {
-  padding: 0.45rem 0.5rem;
+.session-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.8rem 1rem;
+  align-items: center;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(119, 84, 64, 0.1);
+  background: linear-gradient(180deg, rgba(255, 252, 247, 0.94), rgba(247, 239, 229, 0.86));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38);
 }
 
-.session-table th:first-child,
-.session-table td:first-child {
-  width: 1%;
-  white-space: nowrap;
+.session-card__meta {
+  min-width: 0;
+  display: grid;
+  gap: 0.22rem;
 }
 
-.session-table td:first-child strong {
+.session-card__name {
   display: block;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
-.session-table td:nth-child(2),
-.session-table th:nth-child(2) {
-  white-space: nowrap;
-  width: 1%;
-  padding-left: 0.3rem;
-  padding-right: 0.3rem;
+.session-card__date {
+  color: var(--muted);
   font-size: 0.82rem;
 }
 
-.session-table .guest-table__action-column {
-  width: 1%;
-  padding-left: 0.08rem;
-  padding-right: 0.08rem;
-  white-space: nowrap;
+.session-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
 }
 
-.session-table .button--icon {
+.session-card .button--icon {
   width: 1.75rem;
   min-width: 1.75rem;
+}
+
+@container (max-width: 32rem) {
+  .session-card {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .session-card__actions {
+    justify-content: flex-start;
+  }
 }
 
 .session-library__new {

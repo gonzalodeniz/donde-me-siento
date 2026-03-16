@@ -26,11 +26,14 @@ def test_create_tables_generates_expected_layout() -> None:
     event = Event(id="event-1", name="Evento", default_table_capacity=8)
 
     tables = event.create_tables(5)
+    couple_table = event.tables[Event.COUPLE_TABLE_ID]
 
     assert len(tables) == 5
-    assert event.tables[Event.COUPLE_TABLE_ID].kind is TableKind.COUPLE
-    assert event.tables[Event.COUPLE_TABLE_ID].capacity == Event.COUPLE_TABLE_CAPACITY
-    assert event.tables[Event.COUPLE_TABLE_ID].position_y == Event.COUPLE_TABLE_POSITION_Y
+    assert couple_table.kind is TableKind.COUPLE
+    assert couple_table.capacity == Event.COUPLE_TABLE_CAPACITY
+    assert couple_table.position_x == Event.COUPLE_TABLE_POSITION_X
+    assert couple_table.position_y == Event.COUPLE_TABLE_POSITION_Y
+    assert couple_table.rotation_degrees == 0.0
     assert tables[0].position_x == 180.0
     assert tables[0].position_y == 180.0
     assert tables[4].position_y == 460.0

@@ -327,10 +327,14 @@ class EventRepository:
                     "id": table.id,
                     "number": table.number,
                     "capacity": table.capacity,
-                    "position_x": table.position_x,
-                    "position_y": table.position_y,
+                    "position_x": (
+                        Event.COUPLE_TABLE_POSITION_X if table.id == Event.COUPLE_TABLE_ID else table.position_x
+                    ),
+                    "position_y": (
+                        Event.COUPLE_TABLE_POSITION_Y if table.id == Event.COUPLE_TABLE_ID else table.position_y
+                    ),
                     "table_kind": table.kind.value,
-                    "rotation_degrees": table.rotation_degrees,
+                    "rotation_degrees": 0.0 if table.id == Event.COUPLE_TABLE_ID else table.rotation_degrees,
                 }
                 for table in sorted(event.tables.values(), key=lambda current: current.number)
             ],
