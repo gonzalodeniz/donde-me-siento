@@ -2795,8 +2795,34 @@ select {
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  padding: 0;
+  padding: 0.55rem 0.7rem;
   border-bottom: 0;
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 250, 0.96) 0%, rgba(247, 239, 230, 0.92) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 12px 30px rgba(91, 62, 42, 0.08);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease,
+    transform 180ms ease;
+}
+
+.guest-search--panel:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 14px 32px rgba(91, 62, 42, 0.1);
+}
+
+.guest-search--panel:focus-within {
+  background:
+    linear-gradient(180deg, rgba(255, 253, 250, 0.98) 0%, rgba(251, 242, 233, 0.96) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.84),
+    0 0 0 4px rgba(154, 79, 36, 0.1),
+    0 16px 34px rgba(91, 62, 42, 0.12);
 }
 
 .guest-search__icon {
@@ -2806,8 +2832,10 @@ select {
   width: 2.1rem;
   height: 2.1rem;
   border-radius: 999px;
-  background: rgba(119, 84, 64, 0.08);
-  color: rgba(107, 87, 75, 0.86);
+  background: linear-gradient(180deg, rgba(244, 234, 222, 0.95) 0%, rgba(235, 220, 205, 0.92) 100%);
+  color: rgba(94, 62, 43, 0.96);
+  border: 1px solid rgba(126, 88, 64, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
   flex: 0 0 auto;
 }
 
@@ -2828,10 +2856,14 @@ select {
   border-radius: 0;
   background: transparent;
   outline: none;
+  color: #3f2a20;
+  font-size: 0.96rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .guest-search--panel input {
-  padding: 0.35rem 0;
+  padding: 0.42rem 0;
 }
 
 .guest-search__clear {
@@ -2841,19 +2873,20 @@ select {
   height: 2rem;
   border: 0;
   border-radius: 999px;
-  background: rgba(119, 84, 64, 0.08);
-  color: rgba(107, 87, 75, 0.88);
+  background: rgba(119, 84, 64, 0.09);
+  color: rgba(85, 58, 42, 0.92);
   cursor: pointer;
   font-size: 1rem;
   line-height: 1;
   flex: 0 0 auto;
-  transition: background-color 160ms ease, color 160ms ease, opacity 160ms ease;
+  transition: background-color 160ms ease, color 160ms ease, opacity 160ms ease, transform 160ms ease;
 }
 
 .guest-search__clear:hover,
 .guest-search__clear:focus-visible {
-  background: rgba(154, 79, 36, 0.16);
+  background: rgba(154, 79, 36, 0.18);
   color: #7d2f1f;
+  transform: scale(1.03);
   outline: none;
 }
 
@@ -2863,8 +2896,9 @@ select {
 }
 
 .guest-search input::placeholder {
-  color: rgba(107, 87, 75, 0.8);
-  font-style: italic;
+  color: rgba(111, 83, 66, 0.88);
+  font-style: normal;
+  font-weight: 500;
 }
 
 .guest-salon__section {
