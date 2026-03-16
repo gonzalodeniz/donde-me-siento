@@ -2834,7 +2834,7 @@ export function App() {
                       onClick={() => toggleUnassignedColumn("confirmed")}
                       type="button"
                     >
-                      Asistencia
+                      Confirmación
                     </button>
                     <button
                       aria-pressed={visibleUnassignedColumns.type}
@@ -3274,7 +3274,7 @@ export function App() {
                     onClick={() => toggleAssignedColumn("confirmed")}
                     type="button"
                   >
-                    Asistencia
+                    Confirmación
                   </button>
                   <button
                     aria-pressed={visibleAssignedColumns.type}
