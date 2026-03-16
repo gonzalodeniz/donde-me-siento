@@ -32,7 +32,8 @@ def test_repository_persists_and_restores_complete_event() -> None:
 
     assert restored is not None
     assert restored.name == "Cena"
-    assert len(restored.tables) == 2
+    assert len(restored.tables) == 3
+    assert "table-couple" in restored.tables
     assert len(restored.guests) == 2
     assert restored.guests["guest-2"].table_id == "table-1"
 
