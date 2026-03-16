@@ -316,6 +316,32 @@ function formatGuestTypeLabel(guestType: string) {
   }
 }
 
+function formatGuestAgeLabel(guestType: string) {
+  switch (guestType) {
+    case "adulto":
+      return "+18";
+    case "adolescente":
+      return "+11";
+    case "nino":
+      return "+1";
+    default:
+      return guestType;
+  }
+}
+
+function formatGuestAgeTooltip(guestType: string) {
+  switch (guestType) {
+    case "adulto":
+      return "Adulto";
+    case "adolescente":
+      return "Adolescente";
+    case "nino":
+      return "Niño";
+    default:
+      return guestType;
+  }
+}
+
 function formatSessionDate(value: string) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
@@ -347,6 +373,26 @@ function GuestConfirmationBadge({ confirmed }: { confirmed: boolean }) {
       <span aria-hidden="true" className="guest-confirmation-badge__icon">
         {confirmed ? "✓" : "?"}
       </span>
+    </span>
+  );
+}
+
+function GuestAgeBadge({ guestType }: { guestType: string }) {
+  const label = formatGuestAgeTooltip(guestType);
+  const tone =
+    guestType === "adolescente"
+      ? "guest-age-badge--teen"
+      : guestType === "nino"
+        ? "guest-age-badge--child"
+        : "guest-age-badge--adult";
+
+  return (
+    <span
+      className={`guest-age-badge ${tone}`}
+      aria-label={label}
+      title={label}
+    >
+      {formatGuestAgeLabel(guestType)}
     </span>
   );
 }
@@ -2675,7 +2721,7 @@ export function App() {
                       onClick={() => toggleUnassignedColumn("type")}
                       type="button"
                     >
-                      Tipo
+                      Edad
                     </button>
                     <button
                       aria-pressed={visibleUnassignedColumns.group}
@@ -2716,7 +2762,7 @@ export function App() {
                             <tr>
                               <th>{renderSortableHeader("unassigned", "name", "Invitado")}</th>
                               {visibleUnassignedColumns.confirmed ? <th className="guest-table__status-column">{renderSortableHeader("unassigned", "confirmed", "Conf.")}</th> : null}
-                              {visibleUnassignedColumns.type ? <th>{renderSortableHeader("unassigned", "type", "Tipo")}</th> : null}
+                              {visibleUnassignedColumns.type ? <th>{renderSortableHeader("unassigned", "type", "Edad")}</th> : null}
                               {visibleUnassignedColumns.group ? <th>{renderSortableHeader("unassigned", "group", "Familia")}</th> : null}
                               {visibleUnassignedColumns.food ? <th>{renderSortableHeader("unassigned", "intolerance", "Intolerancia")}</th> : null}
                               {visibleUnassignedColumns.food ? <th>{renderSortableHeader("unassigned", "menu", "Menú")}</th> : null}
@@ -2791,7 +2837,7 @@ export function App() {
                                         </select>
                                       ) : (
                                         <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "type")} type="button">
-                                          {formatGuestTypeLabel(guest.guest_type)}
+                                          <GuestAgeBadge guestType={guest.guest_type} />
                                         </button>
                                       )}
                                     </td>
@@ -3115,7 +3161,7 @@ export function App() {
                     onClick={() => toggleAssignedColumn("type")}
                     type="button"
                   >
-                    Tipo
+                    Edad
                   </button>
                   <button
                     aria-pressed={visibleAssignedColumns.group}
@@ -3150,7 +3196,7 @@ export function App() {
                         <tr>
                           <th>{renderSortableHeader("assigned", "name", "Invitado")}</th>
                           {visibleAssignedColumns.confirmed ? <th className="guest-table__status-column">{renderSortableHeader("assigned", "confirmed", "Conf.")}</th> : null}
-                          {visibleAssignedColumns.type ? <th>{renderSortableHeader("assigned", "type", "Tipo")}</th> : null}
+                          {visibleAssignedColumns.type ? <th>{renderSortableHeader("assigned", "type", "Edad")}</th> : null}
                           {visibleAssignedColumns.group ? <th>{renderSortableHeader("assigned", "group", "Familia")}</th> : null}
                           {visibleAssignedColumns.food ? <th>{renderSortableHeader("assigned", "intolerance", "Intolerancia")}</th> : null}
                           {visibleAssignedColumns.food ? <th>{renderSortableHeader("assigned", "menu", "Menú")}</th> : null}
@@ -3224,7 +3270,7 @@ export function App() {
                                       </select>
                                     ) : (
                                       <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "type")} type="button">
-                                        {formatGuestTypeLabel(guest.guest_type)}
+                                        <GuestAgeBadge guestType={guest.guest_type} />
                                       </button>
                                     )}
                                   </td>

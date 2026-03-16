@@ -2342,6 +2342,39 @@ select {
   background: rgba(246, 238, 228, 0.86);
 }
 
+.guest-age-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3rem;
+  min-height: 1.9rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(119, 84, 64, 0.14);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.guest-age-badge--adult {
+  background: rgba(244, 234, 222, 0.72);
+  border-color: rgba(114, 79, 55, 0.18);
+  color: #6e4e40;
+}
+
+.guest-age-badge--teen {
+  background: rgba(132, 189, 214, 0.9);
+  border-color: rgba(44, 108, 140, 0.72);
+  color: #184d67;
+}
+
+.guest-age-badge--child {
+  background: rgba(149, 212, 157, 0.94);
+  border-color: rgba(58, 133, 76, 0.78);
+  color: #1e5b2b;
+}
+
 .guest-confirmation-badge {
   display: inline-grid;
   place-items: center;
