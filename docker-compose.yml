@@ -1,9 +1,6 @@
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: donde-me-siento:latest
+    image: soygonzalodeniz/donde-me-siento:latest
     container_name: donde-me-siento
     restart: unless-stopped
     ports:

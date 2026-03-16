@@ -7,11 +7,12 @@ BACKEND_PORT ?= 8000
 FRONTEND_PORT ?= 5173
 API_PROXY_TARGET ?= http://127.0.0.1:$(BACKEND_PORT)
 DOCKER_IMAGE ?= donde-me-siento:latest
+DOCKER_PUBLISH_IMAGE ?= soygonzalodeniz/donde-me-siento:latest
 DOCKER_CONTAINER ?= donde-me-siento
 DOCKER_PORT ?= 8080
 DOCKER_DATA_DIR ?= $(CURDIR)/data
 
-.PHONY: help install test test-cov run-backend install-frontend run-frontend run-app build-frontend test-e2e install-e2e docker-build docker-run docker-stop compose-up compose-down compose-logs lint clean
+.PHONY: help install test test-cov run-backend install-frontend run-frontend run-app build-frontend test-e2e install-e2e docker-build docker-push docker-run docker-stop compose-up compose-down compose-logs lint clean
 
 help:
 	@printf "Objetivos disponibles:\n"
@@ -24,6 +25,7 @@ help:
 	@printf "  make run-app           Arranca backend y frontend a la vez.\n"
 	@printf "  make build-frontend    Genera la build del frontend.\n"
 	@printf "  make docker-build      Construye la imagen Docker de produccion.\n"
+	@printf "  make docker-push       Etiqueta la imagen y la sube a Docker Hub.\n"
 	@printf "  make docker-run        Arranca el contenedor publicando el puerto $(DOCKER_PORT).\n"
 	@printf "  make docker-stop       Detiene el contenedor Docker si existe.\n"
 	@printf "  make compose-up        Arranca la app con docker compose.\n"
@@ -102,6 +104,10 @@ build-frontend:
 
 docker-build:
 	docker build -t $(DOCKER_IMAGE) .
+
+docker-push:
+	docker tag $(DOCKER_IMAGE) $(DOCKER_PUBLISH_IMAGE)
+	docker push $(DOCKER_PUBLISH_IMAGE)
 
 docker-run:
 	mkdir -p $(DOCKER_DATA_DIR)
