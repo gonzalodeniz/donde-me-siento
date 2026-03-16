@@ -26,7 +26,7 @@ help:
 	@printf "  make docker-build      Construye la imagen Docker de produccion.\n"
 	@printf "  make docker-run        Arranca el contenedor publicando el puerto $(DOCKER_PORT).\n"
 	@printf "  make docker-stop       Detiene el contenedor Docker si existe.\n"
-	@printf "  make compose-up        Arranca app + proxy inverso con docker compose.\n"
+	@printf "  make compose-up        Arranca la app con docker compose.\n"
 	@printf "  make compose-down      Detiene los servicios de docker compose.\n"
 	@printf "  make compose-logs      Muestra los logs de docker compose.\n"
 	@printf "  make install-e2e       Instala navegadores de Playwright.\n"
@@ -43,7 +43,7 @@ test-cov:
 	$(PYTEST) --cov=backend/app --cov-report=term-missing
 
 run-backend:
-	$(UVICORN) backend.app.main:app --reload --port $(BACKEND_PORT)
+	$(UVICORN) backend.app.main:app --reload --reload-dir backend --port $(BACKEND_PORT)
 
 install-frontend:
 	cd frontend && npm install
@@ -93,7 +93,7 @@ run-app:
 				;; \
 		esac; \
 	fi; \
-	$(UVICORN) backend.app.main:app --reload --port $(BACKEND_PORT) & \
+	$(UVICORN) backend.app.main:app --reload --reload-dir backend --port $(BACKEND_PORT) & \
 	cd frontend && VITE_API_PROXY_TARGET=$(API_PROXY_TARGET) npm run dev -- --port $(FRONTEND_PORT) & \
 	wait
 
@@ -117,7 +117,7 @@ docker-stop:
 	-docker stop $(DOCKER_CONTAINER)
 
 compose-up:
-	mkdir -p $(DOCKER_DATA_DIR) deploy/reverse-proxy/certs
+	mkdir -p $(DOCKER_DATA_DIR)
 	docker compose up -d --build
 
 compose-down:
