@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { DragEvent, PointerEvent as ReactPointerEvent } from "react";
+import type { CSSProperties, DragEvent, PointerEvent as ReactPointerEvent } from "react";
 
 import type { Guest, Workspace, WorkspaceTable } from "../types";
 
@@ -135,6 +135,48 @@ function getTableReference(table: WorkspaceTable) {
   return isCoupleTable(table) ? "mesa de novios" : `mesa ${table.number}`;
 }
 
+function formatGuestAgeLabel(guestType: Guest["guest_type"]) {
+  switch (guestType) {
+    case "adulto":
+      return "+18";
+    case "adolescente":
+      return "+11";
+    case "nino":
+      return "+1";
+    default:
+      return guestType;
+  }
+}
+
+function formatGuestAgeTooltip(guestType: Guest["guest_type"]) {
+  switch (guestType) {
+    case "adulto":
+      return "Adulto";
+    case "adolescente":
+      return "Adolescente";
+    case "nino":
+      return "Niño";
+    default:
+      return guestType;
+  }
+}
+
+function buildFamilyBadgeStyle(groupId: string): CSSProperties {
+  let hash = 0;
+  for (let index = 0; index < groupId.length; index += 1) {
+    hash = ((hash << 5) - hash) + groupId.charCodeAt(index);
+    hash |= 0;
+  }
+
+  const hue = Math.abs(hash) % 360;
+
+  return {
+    "--family-badge-bg": `hsla(${hue} 48% 90% / 0.95)`,
+    "--family-badge-border": `hsla(${hue} 28% 58% / 0.45)`,
+    "--family-badge-text": `hsla(${hue} 24% 28% / 1)`,
+  } as CSSProperties;
+}
+
 function getTableBounds(table: WorkspaceTable, transform: TableRenderState) {
   const paddingX = isCoupleTable(table) ? 220 : 160;
   const paddingY = isCoupleTable(table) ? 170 : 160;
@@ -224,11 +266,12 @@ export function SeatingPlan({
   const [hoveredGuestCard, setHoveredGuestCard] = useState<{
     guestId: string;
     name: string;
-    guestType: string;
     family: string;
-    confirmedLabel: string;
-    seatLabel: string;
-    intoleranceLabel: string;
+    familyStyle: CSSProperties | null;
+    assignmentLabel: string;
+    guestType: Guest["guest_type"];
+    confirmed: boolean;
+    menu: Guest["menu"];
     menuLabel: string;
     x: number;
     y: number;
@@ -633,19 +676,6 @@ export function SeatingPlan({
     });
   }
 
-  function formatGuestTypeLabel(guestType: Guest["guest_type"]) {
-    switch (guestType) {
-      case "adulto":
-        return "Adulto";
-      case "adolescente":
-        return "Adolescente";
-      case "nino":
-        return "Niño";
-      default:
-        return guestType;
-    }
-  }
-
   function formatMenuLabel(menu: Guest["menu"]) {
     switch (menu) {
       case "carne":
@@ -660,7 +690,13 @@ export function SeatingPlan({
     }
   }
 
-  function updateHoveredGuestCardPosition(clientX: number, clientY: number, guest: Guest) {
+  function updateHoveredGuestCardPosition(
+    clientX: number,
+    clientY: number,
+    guest: Guest,
+    table: WorkspaceTable,
+    seatIndex: number,
+  ) {
     const stageElement = stageRef.current;
     if (!stageElement) {
       return;
@@ -670,11 +706,12 @@ export function SeatingPlan({
     setHoveredGuestCard({
       guestId: guest.id,
       name: guest.name,
-      guestType: formatGuestTypeLabel(guest.guest_type),
       family: guest.group_id ?? "Sin familia",
-      confirmedLabel: guest.confirmed ? "Confirmado" : "No confirmado",
-      seatLabel: guest.seat_index !== null ? `Silla ${guest.seat_index + 1}` : "Sin asiento",
-      intoleranceLabel: guest.intolerance || "Sin intolerancia",
+      familyStyle: guest.group_id ? buildFamilyBadgeStyle(guest.group_id) : null,
+      assignmentLabel: `${isCoupleTable(table) ? "Mesa de novios" : `Mesa ${table.number}`} · Silla ${seatIndex + 1}`,
+      guestType: guest.guest_type,
+      confirmed: guest.confirmed,
+      menu: guest.menu,
       menuLabel: formatMenuLabel(guest.menu),
       x: clientX - rect.left + 16,
       y: clientY - rect.top + 16,
@@ -968,9 +1005,13 @@ export function SeatingPlan({
                         onClick={() => onSelectTable(table.id)}
                         onDragEnd={onGuestDragEnd}
                         onDragStart={(event) => onGuestDragStart(event, guest.id)}
-                        onMouseEnter={(event) => updateHoveredGuestCardPosition(event.clientX, event.clientY, guest)}
+                        onMouseEnter={(event) =>
+                          updateHoveredGuestCardPosition(event.clientX, event.clientY, guest, table, seatIndex)
+                        }
                         onMouseLeave={() => setHoveredGuestCard(null)}
-                        onMouseMove={(event) => updateHoveredGuestCardPosition(event.clientX, event.clientY, guest)}
+                        onMouseMove={(event) =>
+                          updateHoveredGuestCardPosition(event.clientX, event.clientY, guest, table, seatIndex)
+                        }
                         style={{ left: `${left}%`, top: `${top}%`, width: `${hitSize}px`, height: `${hitSize}px` }}
                         type="button"
                       />
@@ -1015,13 +1056,91 @@ export function SeatingPlan({
                 className="plan-guest-tooltip"
                 style={{ left: `${hoveredGuestCard.x}px`, top: `${hoveredGuestCard.y}px` }}
               >
-                <strong>{hoveredGuestCard.name}</strong>
-                <span>Asiento: {hoveredGuestCard.seatLabel}</span>
-                <span>Tipo: {hoveredGuestCard.guestType}</span>
-                <span>Intolerancias: {hoveredGuestCard.intoleranceLabel}</span>
-                <span>Menú: {hoveredGuestCard.menuLabel}</span>
-                <span>Familia: {hoveredGuestCard.family}</span>
-                <span>Estado: {hoveredGuestCard.confirmedLabel}</span>
+                <div className="plan-guest-tooltip__header">
+                  <div className="plan-guest-tooltip__identity">
+                    <strong>{hoveredGuestCard.name}</strong>
+                    <span className="plan-guest-tooltip__assignment">{hoveredGuestCard.assignmentLabel}</span>
+                    <span
+                      className={`family-badge ${hoveredGuestCard.familyStyle ? "" : "family-badge--empty"}`}
+                      style={hoveredGuestCard.familyStyle ?? undefined}
+                    >
+                      {hoveredGuestCard.family}
+                    </span>
+                  </div>
+                  <div className="plan-guest-tooltip__badges">
+                    <span
+                      className={`guest-age-badge ${
+                        hoveredGuestCard.guestType === "adolescente"
+                          ? "guest-age-badge--teen"
+                          : hoveredGuestCard.guestType === "nino"
+                            ? "guest-age-badge--child"
+                            : "guest-age-badge--adult"
+                      }`}
+                      aria-label={formatGuestAgeTooltip(hoveredGuestCard.guestType)}
+                      title={formatGuestAgeTooltip(hoveredGuestCard.guestType)}
+                    >
+                      {formatGuestAgeLabel(hoveredGuestCard.guestType)}
+                    </span>
+                    <span
+                      className={`guest-confirmation-badge ${
+                        hoveredGuestCard.confirmed
+                          ? "guest-confirmation-badge--confirmed"
+                          : "guest-confirmation-badge--pending"
+                      }`}
+                      aria-label={hoveredGuestCard.confirmed ? "Confirmado" : "No confirmado"}
+                      title={hoveredGuestCard.confirmed ? "Confirmado" : "No confirmado"}
+                    >
+                      <span aria-hidden="true" className="guest-confirmation-badge__icon">
+                        {hoveredGuestCard.confirmed ? "✓" : "?"}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+                <div className={`plan-guest-tooltip__menu plan-guest-tooltip__menu--${hoveredGuestCard.menu}`}>
+                  <span className="plan-guest-tooltip__menu-icon" aria-hidden="true">
+                    {hoveredGuestCard.menu === "carne" ? (
+                      <svg viewBox="0 0 24 24">
+                        <path d="M7.2 9.2 5.4 6.8l1.3-.8 2.3 1.5" />
+                        <path d="M16.8 9.2 18.6 6.8l-1.3-.8L15 7.5" />
+                        <path d="M8.4 17.2v-2.6" />
+                        <path d="M15.6 17.2v-2.6" />
+                        <path d="M8.2 15.2c-1.7 0-3-1.3-3-3v-1.1c0-1.7 1.3-3 3-3h7.6c1.7 0 3 1.3 3 3v1.1c0 1.7-1.3 3-3 3Z" />
+                        <path d="M9.2 15.2v1.2c0 .7.5 1.2 1.2 1.2h3.2c.7 0 1.2-.5 1.2-1.2v-1.2" />
+                        <path d="M10.2 12.4h3.6" />
+                        <circle cx="9.4" cy="11.1" r="0.55" fill="currentColor" stroke="none" />
+                        <circle cx="14.6" cy="11.1" r="0.55" fill="currentColor" stroke="none" />
+                        <circle cx="10.7" cy="13.3" r="0.45" fill="currentColor" stroke="none" />
+                        <circle cx="13.3" cy="13.3" r="0.45" fill="currentColor" stroke="none" />
+                      </svg>
+                    ) : null}
+                    {hoveredGuestCard.menu === "pescado" ? (
+                      <svg viewBox="0 0 24 24">
+                        <path d="M4 12c2.4-3 5.4-4.5 8.8-4.5 3.4 0 5.6 1.5 7.2 4.5-1.6 3-3.8 4.5-7.2 4.5C9.4 16.5 6.4 15 4 12Z" />
+                        <path d="M4 12l-2.2-2.2" />
+                        <path d="M4 12l-2.2 2.2" />
+                        <circle cx="14.8" cy="10.8" r="0.9" />
+                      </svg>
+                    ) : null}
+                    {hoveredGuestCard.menu === "vegano" ? (
+                      <svg viewBox="0 0 24 24">
+                        <circle cx="12" cy="13" r="5.2" />
+                        <path d="M12 7.8V5.2" />
+                        <path d="M12 7.6c1.1-1.7 2.5-2.5 4.2-2.6-0.2 1.8-1.1 3.2-2.8 4" />
+                        <path d="M12 7.6c-1.1-1.7-2.5-2.5-4.2-2.6 0.2 1.8 1.1 3.2 2.8 4" />
+                      </svg>
+                    ) : null}
+                    {hoveredGuestCard.menu === "desconocido" ? (
+                      <svg viewBox="0 0 24 24">
+                        <path d="M7 4v16" />
+                        <path d="M17 4v16" />
+                        <path d="M7 9h10" />
+                        <path d="M12 13.5h.01" />
+                        <circle cx="12" cy="13.5" r="4.5" />
+                      </svg>
+                    ) : null}
+                  </span>
+                  <span>{hoveredGuestCard.menuLabel}</span>
+                </div>
               </div>
             ) : null}
           </div>
