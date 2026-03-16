@@ -335,6 +335,22 @@ function formatConfirmedLabel(confirmed: boolean) {
   return confirmed ? "Confirmado" : "Pendiente";
 }
 
+function GuestConfirmationBadge({ confirmed }: { confirmed: boolean }) {
+  const label = confirmed ? "Confirmación recibida" : "Confirmación pendiente";
+
+  return (
+    <span
+      className={`guest-confirmation-badge ${confirmed ? "guest-confirmation-badge--confirmed" : "guest-confirmation-badge--pending"}`}
+      aria-label={label}
+      title={label}
+    >
+      <span aria-hidden="true" className="guest-confirmation-badge__icon">
+        {confirmed ? "✓" : "?"}
+      </span>
+    </span>
+  );
+}
+
 function formatMenuLabel(menu: string) {
   switch (menu) {
     case "carne":
@@ -371,10 +387,6 @@ function matchesGuestSearch(guest: Guest, rawQuery: string) {
   ];
 
   return searchableFields.some((field) => normalizeSearchText(field).includes(query));
-}
-
-function GuestSignal({ guest }: { guest: Guest }) {
-  return guest.confirmed ? null : <span className="guest-signal" title="Invitado no confirmado">?</span>;
 }
 
 export function App() {
@@ -2738,7 +2750,6 @@ export function App() {
                                       <button className="guest-name-button" onClick={() => beginGuestEdit(guest, "name")} type="button">
                                         <span className="guest-card__nameplate">
                                           <strong>{guest.name}</strong>
-                                          <GuestSignal guest={guest} />
                                         </span>
                                       </button>
                                     )}
@@ -2759,7 +2770,7 @@ export function App() {
                                         </select>
                                       ) : (
                                         <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "confirmed")} type="button">
-                                          {formatConfirmedLabel(guest.confirmed)}
+                                          <GuestConfirmationBadge confirmed={guest.confirmed} />
                                         </button>
                                       )}
                                     </td>
@@ -3172,7 +3183,6 @@ export function App() {
                                     <button className="guest-name-button" onClick={() => beginGuestEdit(guest, "name")} type="button">
                                       <span className="guest-card__nameplate">
                                         <strong>{guest.name}</strong>
-                                        <GuestSignal guest={guest} />
                                       </span>
                                     </button>
                                   )}
@@ -3193,7 +3203,7 @@ export function App() {
                                       </select>
                                     ) : (
                                       <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "confirmed")} type="button">
-                                        {formatConfirmedLabel(guest.confirmed)}
+                                        <GuestConfirmationBadge confirmed={guest.confirmed} />
                                       </button>
                                     )}
                                   </td>
