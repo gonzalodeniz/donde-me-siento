@@ -3055,6 +3055,20 @@ select {
   white-space: nowrap;
 }
 
+.guest-table__table-column {
+  width: 5.6rem;
+  white-space: nowrap;
+}
+
+.guest-table__seat-column {
+  width: 6.2rem;
+  white-space: nowrap;
+}
+
+.guest-table__intolerance-column {
+  width: 9.5rem;
+}
+
 .guest-table th {
   position: sticky;
   top: 0;

@@ -2885,10 +2885,10 @@ export function App() {
                               {visibleUnassignedColumns.confirmed ? <th className="guest-table__status-column">{renderSortableHeader("unassigned", "confirmed", "Conf.")}</th> : null}
                               {visibleUnassignedColumns.type ? <th className="guest-table__age-column">{renderSortableHeader("unassigned", "type", "Edad")}</th> : null}
                               {visibleUnassignedColumns.group ? <th>{renderSortableHeader("unassigned", "group", "Familia")}</th> : null}
-                              {visibleUnassignedColumns.food ? <th>{renderSortableHeader("unassigned", "intolerance", "Intolerancia")}</th> : null}
+                              {visibleUnassignedColumns.food ? <th className="guest-table__intolerance-column">{renderSortableHeader("unassigned", "intolerance", "Intolerancia")}</th> : null}
                               {visibleUnassignedColumns.food ? <th className="guest-table__menu-column">{renderSortableHeader("unassigned", "menu", "Menú")}</th> : null}
-                              {visibleUnassignedColumns.table ? <th>{renderSortableHeader("unassigned", "table", "Mesa")}</th> : null}
-                              {visibleUnassignedColumns.table ? <th>{renderSortableHeader("unassigned", "seat", "Asiento")}</th> : null}
+                              {visibleUnassignedColumns.table ? <th className="guest-table__table-column">{renderSortableHeader("unassigned", "table", "Mesa")}</th> : null}
+                              {visibleUnassignedColumns.table ? <th className="guest-table__seat-column">{renderSortableHeader("unassigned", "seat", "Asiento")}</th> : null}
                               <th aria-label="Eliminar invitado" className="guest-table__action-column" />
                             </tr>
                           </thead>
@@ -2964,7 +2964,7 @@ export function App() {
                                     </td>
                                   ) : null}
                                   {visibleUnassignedColumns.group ? (
-                                    <td>
+                                    <td className="guest-table__intolerance-column">
                                       {editingGuestId === guest.id && editingGuestField === "group" ? (
                                         <input
                                           className="guest-table__input"
@@ -2981,7 +2981,7 @@ export function App() {
                                     </td>
                                   ) : null}
                                   {visibleUnassignedColumns.food ? (
-                                    <td>
+                                    <td className="guest-table__table-column">
                                       {editingGuestId === guest.id && editingGuestField === "intolerance" ? (
                                         <input
                                           autoFocus
@@ -2999,7 +2999,7 @@ export function App() {
                                     </td>
                                   ) : null}
                                   {visibleUnassignedColumns.food ? (
-                                    <td>
+                                    <td className="guest-table__seat-column">
                                       {editingGuestId === guest.id && editingGuestField === "menu" ? (
                                         <select
                                           autoFocus
@@ -3041,14 +3041,14 @@ export function App() {
                                         </select>
                                       ) : (
                                         <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "table")} type="button">
-                                          <span className="guest-row__table guest-row__table--muted">Sin mesa</span>
+                                          <span className="guest-row__table guest-row__table--muted">-</span>
                                         </button>
                                       )}
                                     </td>
                                   ) : null}
                                   {visibleUnassignedColumns.table ? (
                                     <td>
-                                      <span className="guest-row__table guest-row__table--muted">Sin asiento</span>
+                                      <span className="guest-row__table guest-row__table--muted">-</span>
                                     </td>
                                   ) : null}
                                   <td className="guest-table__action-column">
@@ -3319,10 +3319,10 @@ export function App() {
                           {visibleAssignedColumns.confirmed ? <th className="guest-table__status-column">{renderSortableHeader("assigned", "confirmed", "Conf.")}</th> : null}
                           {visibleAssignedColumns.type ? <th className="guest-table__age-column">{renderSortableHeader("assigned", "type", "Edad")}</th> : null}
                           {visibleAssignedColumns.group ? <th>{renderSortableHeader("assigned", "group", "Familia")}</th> : null}
-                          {visibleAssignedColumns.food ? <th>{renderSortableHeader("assigned", "intolerance", "Intolerancia")}</th> : null}
+                          {visibleAssignedColumns.food ? <th className="guest-table__intolerance-column">{renderSortableHeader("assigned", "intolerance", "Intolerancia")}</th> : null}
                           {visibleAssignedColumns.food ? <th className="guest-table__menu-column">{renderSortableHeader("assigned", "menu", "Menú")}</th> : null}
-                          {visibleAssignedColumns.table ? <th>{renderSortableHeader("assigned", "table", "Mesa")}</th> : null}
-                          {visibleAssignedColumns.table ? <th>{renderSortableHeader("assigned", "seat", "Asiento")}</th> : null}
+                          {visibleAssignedColumns.table ? <th className="guest-table__table-column">{renderSortableHeader("assigned", "table", "Mesa")}</th> : null}
+                          {visibleAssignedColumns.table ? <th className="guest-table__seat-column">{renderSortableHeader("assigned", "seat", "Asiento")}</th> : null}
                           <th aria-label="Eliminar invitado" className="guest-table__action-column" />
                         </tr>
                       </thead>
@@ -3414,7 +3414,7 @@ export function App() {
                                   </td>
                                 ) : null}
                                 {visibleAssignedColumns.food ? (
-                                  <td>
+                                  <td className="guest-table__intolerance-column">
                                     {editingGuestId === guest.id && editingGuestField === "intolerance" ? (
                                       <input
                                         autoFocus
@@ -3432,7 +3432,7 @@ export function App() {
                                   </td>
                                 ) : null}
                                 {visibleAssignedColumns.food ? (
-                                  <td>
+                                  <td className="guest-table__table-column">
                                     {editingGuestId === guest.id && editingGuestField === "menu" ? (
                                       <select
                                         autoFocus
@@ -3455,7 +3455,7 @@ export function App() {
                                   </td>
                                 ) : null}
                                 {visibleAssignedColumns.table ? (
-                                  <td>
+                                  <td className="guest-table__seat-column">
                                     {editingGuestId === guest.id && editingGuestField === "table" ? (
                                       <select
                                         autoFocus
