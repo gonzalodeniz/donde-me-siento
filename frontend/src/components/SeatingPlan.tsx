@@ -131,10 +131,6 @@ function isCoupleTable(table: WorkspaceTable) {
   return table.table_kind === "couple";
 }
 
-function getTableLabel(table: WorkspaceTable) {
-  return isCoupleTable(table) ? "Mesa de novios" : `Mesa ${table.number}`;
-}
-
 function getTableReference(table: WorkspaceTable) {
   return isCoupleTable(table) ? "mesa de novios" : `mesa ${table.number}`;
 }
@@ -1007,9 +1003,7 @@ export function SeatingPlan({
                       type="button"
                     >
                       {isDraggingGuest ? (
-                        <span className="plan-seat-hit__label">
-                          {isDropTarget ? "Soltar aquí" : getTableLabel(table)}
-                        </span>
+                        <span className="plan-seat-hit__label">{`Asiento ${seatIndex + 1}`}</span>
                       ) : null}
                     </button>
                   );

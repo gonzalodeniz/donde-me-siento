@@ -3080,7 +3080,7 @@ export function App() {
               </div>
             </section>
 
-            <section className="list-card list-card--guests">
+            <section className="list-card list-card--guests list-card--guests-assigned">
               <div className="list-card__header list-card__header--guests">
                 <button className="panel-toggle panel-toggle--compact" onClick={() => togglePanel("assigned")} type="button">
                   <h3>Invitados ubicados</h3>
