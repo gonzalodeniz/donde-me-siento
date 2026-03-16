@@ -1,4 +1,4 @@
-import { ChangeEvent, DragEvent, FormEvent, Fragment, KeyboardEvent as ReactKeyboardEvent, startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, ChangeEvent, DragEvent, FormEvent, Fragment, KeyboardEvent as ReactKeyboardEvent, startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   assignGuest,
@@ -342,6 +342,22 @@ function formatGuestAgeTooltip(guestType: string) {
   }
 }
 
+function buildFamilyBadgeStyle(groupId: string): CSSProperties {
+  let hash = 0;
+  for (let index = 0; index < groupId.length; index += 1) {
+    hash = ((hash << 5) - hash) + groupId.charCodeAt(index);
+    hash |= 0;
+  }
+
+  const hue = Math.abs(hash) % 360;
+
+  return {
+    "--family-badge-bg": `hsla(${hue} 48% 90% / 0.95)`,
+    "--family-badge-border": `hsla(${hue} 28% 58% / 0.45)`,
+    "--family-badge-text": `hsla(${hue} 24% 28% / 1)`,
+  } as CSSProperties;
+}
+
 function formatSessionDate(value: string) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
@@ -393,6 +409,18 @@ function GuestAgeBadge({ guestType }: { guestType: string }) {
       title={label}
     >
       {formatGuestAgeLabel(guestType)}
+    </span>
+  );
+}
+
+function FamilyBadge({ groupId }: { groupId: string | null }) {
+  if (!groupId) {
+    return <span className="family-badge family-badge--empty">-</span>;
+  }
+
+  return (
+    <span className="family-badge" style={buildFamilyBadgeStyle(groupId)} title={groupId}>
+      {groupId}
     </span>
   );
 }
@@ -2854,7 +2882,7 @@ export function App() {
                                         />
                                       ) : (
                                         <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
-                                          {guest.group_id ? guest.group_id : "Sin familia"}
+                                          <FamilyBadge groupId={guest.group_id} />
                                         </button>
                                       )}
                                     </td>
@@ -3287,7 +3315,7 @@ export function App() {
                                       />
                                     ) : (
                                       <button className="guest-cell-button" onClick={() => beginGuestEdit(guest, "group")} type="button">
-                                        {guest.group_id ? guest.group_id : "Sin agrupación"}
+                                        <FamilyBadge groupId={guest.group_id} />
                                       </button>
                                     )}
                                   </td>
@@ -3689,7 +3717,7 @@ export function App() {
                               </td>
                               <td>{formatConfirmedLabel(guest.confirmed)}</td>
                               <td>{formatGuestTypeLabel(guest.guest_type)}</td>
-                              <td>{guest.group_id ?? "Sin familia"}</td>
+                              <td><FamilyBadge groupId={guest.group_id} /></td>
                               <td>{guest.intolerance || "Sin intolerancia"}</td>
                               <td>{formatMenuLabel(guest.menu)}</td>
                             </tr>

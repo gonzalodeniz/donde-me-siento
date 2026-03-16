@@ -2375,6 +2375,30 @@ select {
   color: #1e5b2b;
 }
 
+.family-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  min-height: 1.9rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--family-badge-border, rgba(119, 84, 64, 0.14));
+  background: var(--family-badge-bg, rgba(244, 234, 222, 0.72));
+  color: var(--family-badge-text, #6e4e40);
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.family-badge--empty {
+  border-color: rgba(119, 84, 64, 0.12);
+  background: rgba(255, 252, 247, 0.72);
+  color: rgba(107, 87, 75, 0.78);
+}
+
 .guest-confirmation-badge {
   display: inline-grid;
   place-items: center;
