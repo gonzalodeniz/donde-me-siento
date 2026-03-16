@@ -2715,7 +2715,7 @@ export function App() {
                           <thead>
                             <tr>
                               <th>{renderSortableHeader("unassigned", "name", "Invitado")}</th>
-                              {visibleUnassignedColumns.confirmed ? <th>{renderSortableHeader("unassigned", "confirmed", "Asistencia")}</th> : null}
+                              {visibleUnassignedColumns.confirmed ? <th className="guest-table__status-column">{renderSortableHeader("unassigned", "confirmed", "Conf.")}</th> : null}
                               {visibleUnassignedColumns.type ? <th>{renderSortableHeader("unassigned", "type", "Tipo")}</th> : null}
                               {visibleUnassignedColumns.group ? <th>{renderSortableHeader("unassigned", "group", "Familia")}</th> : null}
                               {visibleUnassignedColumns.food ? <th>{renderSortableHeader("unassigned", "intolerance", "Intolerancia")}</th> : null}
@@ -2755,7 +2755,7 @@ export function App() {
                                     )}
                                   </td>
                                   {visibleUnassignedColumns.confirmed ? (
-                                    <td>
+                                    <td className="guest-table__status-column">
                                       {editingGuestId === guest.id && editingGuestField === "confirmed" ? (
                                         <select
                                           autoFocus
@@ -3149,7 +3149,7 @@ export function App() {
                       <thead>
                         <tr>
                           <th>{renderSortableHeader("assigned", "name", "Invitado")}</th>
-                          {visibleAssignedColumns.confirmed ? <th>{renderSortableHeader("assigned", "confirmed", "Asistencia")}</th> : null}
+                          {visibleAssignedColumns.confirmed ? <th className="guest-table__status-column">{renderSortableHeader("assigned", "confirmed", "Conf.")}</th> : null}
                           {visibleAssignedColumns.type ? <th>{renderSortableHeader("assigned", "type", "Tipo")}</th> : null}
                           {visibleAssignedColumns.group ? <th>{renderSortableHeader("assigned", "group", "Familia")}</th> : null}
                           {visibleAssignedColumns.food ? <th>{renderSortableHeader("assigned", "intolerance", "Intolerancia")}</th> : null}
@@ -3188,7 +3188,7 @@ export function App() {
                                   )}
                                 </td>
                                 {visibleAssignedColumns.confirmed ? (
-                                  <td>
+                                  <td className="guest-table__status-column">
                                     {editingGuestId === guest.id && editingGuestField === "confirmed" ? (
                                       <select
                                         autoFocus

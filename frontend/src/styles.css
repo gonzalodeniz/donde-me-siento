@@ -2917,6 +2917,11 @@ select {
   white-space: nowrap;
 }
 
+.guest-table__status-column {
+  width: 5.4rem;
+  white-space: nowrap;
+}
+
 .guest-table th {
   position: sticky;
   top: 0;
