@@ -169,7 +169,7 @@ Ese directorio guarda la base de datos SQLite y cualquier dato persistente del b
 
 Se incluye un despliegue simple con un servicio:
 
-- `app`: ejecuta la imagen `donde-me-siento:latest` y la publica en `8080`
+- `donde-me-siento`: ejecuta la imagen `donde-me-siento:latest` y la publica en `8080`
 
 Ficheros incluidos:
 

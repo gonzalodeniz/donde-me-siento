@@ -1,5 +1,5 @@
 services:
-  app:
+  donde-me-siento:
     image: soygonzalodeniz/donde-me-siento:latest
     container_name: donde-me-siento
     restart: unless-stopped

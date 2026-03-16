@@ -9,6 +9,7 @@ API_PROXY_TARGET ?= http://127.0.0.1:$(BACKEND_PORT)
 DOCKER_IMAGE ?= donde-me-siento:latest
 DOCKER_PUBLISH_IMAGE ?= soygonzalodeniz/donde-me-siento:latest
 DOCKER_CONTAINER ?= donde-me-siento
+DOCKER_COMPOSE_SERVICE ?= donde-me-siento
 DOCKER_PORT ?= 8080
 DOCKER_DATA_DIR ?= $(CURDIR)/data
 
@@ -130,7 +131,7 @@ compose-down:
 	docker compose down
 
 compose-logs:
-	docker compose logs -f
+	docker compose logs -f $(DOCKER_COMPOSE_SERVICE)
 
 install-e2e:
 	cd frontend && npx playwright install chromium
