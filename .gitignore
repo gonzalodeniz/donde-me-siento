@@ -32,3 +32,6 @@ build/
 *.swp
 *.swo
 *.swn
+
+# Let's Encrypt
+certbot/

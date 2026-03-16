@@ -1,5 +1,8 @@
 services:
   app:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: donde-me-siento:latest
     container_name: donde-me-siento
     restart: unless-stopped
@@ -19,4 +22,12 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./deploy/reverse-proxy/certs:/etc/nginx/certs
+      - ./certbot/conf:/etc/letsencrypt      
+      - ./certbot/www:/var/www/certbot  
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
