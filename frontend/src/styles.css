@@ -2423,6 +2423,48 @@ select {
   color: rgba(107, 87, 75, 0.78);
 }
 
+.menu-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(119, 84, 64, 0.14);
+}
+
+.menu-badge__icon {
+  width: 1.2rem;
+  height: 1.2rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.menu-badge--empty {
+  background: rgba(255, 252, 247, 0.72);
+  color: rgba(107, 87, 75, 0.78);
+}
+
+.menu-badge--carne {
+  background: rgba(255, 235, 229, 0.94);
+  border-color: rgba(171, 94, 70, 0.28);
+  color: #8d3f2a;
+}
+
+.menu-badge--pescado {
+  background: rgba(226, 241, 250, 0.96);
+  border-color: rgba(70, 127, 165, 0.3);
+  color: #225a78;
+}
+
+.menu-badge--vegano {
+  background: rgba(231, 246, 228, 0.96);
+  border-color: rgba(76, 140, 84, 0.3);
+  color: #2f6a35;
+}
+
 .guest-confirmation-badge {
   display: inline-grid;
   place-items: center;
@@ -3005,6 +3047,11 @@ select {
 
 .guest-table__age-column {
   width: 4rem;
+  white-space: nowrap;
+}
+
+.guest-table__menu-column {
+  width: 4.2rem;
   white-space: nowrap;
 }
 
