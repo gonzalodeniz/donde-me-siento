@@ -2346,9 +2346,9 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 3rem;
+  min-width: 2.45rem;
   min-height: 1.9rem;
-  padding: 0.2rem 0.65rem;
+  padding: 0.2rem 0.45rem;
   border-radius: 999px;
   border: 1px solid rgba(119, 84, 64, 0.14);
   font-size: 0.76rem;
@@ -2976,6 +2976,11 @@ select {
 
 .guest-table__status-column {
   width: 5.4rem;
+  white-space: nowrap;
+}
+
+.guest-table__age-column {
+  width: 4rem;
   white-space: nowrap;
 }
 

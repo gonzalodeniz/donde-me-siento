@@ -2790,7 +2790,7 @@ export function App() {
                             <tr>
                               <th>{renderSortableHeader("unassigned", "name", "Invitado")}</th>
                               {visibleUnassignedColumns.confirmed ? <th className="guest-table__status-column">{renderSortableHeader("unassigned", "confirmed", "Conf.")}</th> : null}
-                              {visibleUnassignedColumns.type ? <th>{renderSortableHeader("unassigned", "type", "Edad")}</th> : null}
+                              {visibleUnassignedColumns.type ? <th className="guest-table__age-column">{renderSortableHeader("unassigned", "type", "Edad")}</th> : null}
                               {visibleUnassignedColumns.group ? <th>{renderSortableHeader("unassigned", "group", "Familia")}</th> : null}
                               {visibleUnassignedColumns.food ? <th>{renderSortableHeader("unassigned", "intolerance", "Intolerancia")}</th> : null}
                               {visibleUnassignedColumns.food ? <th>{renderSortableHeader("unassigned", "menu", "Menú")}</th> : null}
@@ -2850,7 +2850,7 @@ export function App() {
                                     </td>
                                   ) : null}
                                   {visibleUnassignedColumns.type ? (
-                                    <td>
+                                    <td className="guest-table__age-column">
                                       {editingGuestId === guest.id && editingGuestField === "type" ? (
                                         <select
                                           className="guest-table__select"
@@ -3224,7 +3224,7 @@ export function App() {
                         <tr>
                           <th>{renderSortableHeader("assigned", "name", "Invitado")}</th>
                           {visibleAssignedColumns.confirmed ? <th className="guest-table__status-column">{renderSortableHeader("assigned", "confirmed", "Conf.")}</th> : null}
-                          {visibleAssignedColumns.type ? <th>{renderSortableHeader("assigned", "type", "Edad")}</th> : null}
+                          {visibleAssignedColumns.type ? <th className="guest-table__age-column">{renderSortableHeader("assigned", "type", "Edad")}</th> : null}
                           {visibleAssignedColumns.group ? <th>{renderSortableHeader("assigned", "group", "Familia")}</th> : null}
                           {visibleAssignedColumns.food ? <th>{renderSortableHeader("assigned", "intolerance", "Intolerancia")}</th> : null}
                           {visibleAssignedColumns.food ? <th>{renderSortableHeader("assigned", "menu", "Menú")}</th> : null}
@@ -3283,7 +3283,7 @@ export function App() {
                                   </td>
                                 ) : null}
                                 {visibleAssignedColumns.type ? (
-                                  <td>
+                                  <td className="guest-table__age-column">
                                     {editingGuestId === guest.id && editingGuestField === "type" ? (
                                       <select
                                         className="guest-table__select"
