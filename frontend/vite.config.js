@@ -16,5 +16,11 @@ export default defineConfig(function (_a) {
                 },
             },
         },
+        test: {
+            environment: "jsdom",
+            include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+            restoreMocks: true,
+            clearMocks: true,
+        },
     };
 });

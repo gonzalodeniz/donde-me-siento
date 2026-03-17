@@ -105,12 +105,10 @@ describe("api", () => {
 
   it("descarga el PDF como blob cuando el reporte responde OK", async () => {
     const pdfBlob = new Blob(["%PDF-demo"], { type: "application/pdf" });
-    fetchMock.mockResolvedValueOnce(
-      new Response(pdfBlob, {
-        status: 200,
-        headers: { "Content-Type": "application/pdf" },
-      }),
-    );
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      blob: vi.fn().mockResolvedValue(pdfBlob),
+    } as unknown as Response);
 
     const result = await downloadWorkspaceReport("token-demo");
 
