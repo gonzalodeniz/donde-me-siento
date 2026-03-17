@@ -404,7 +404,17 @@ async def test_reset_workspace_clears_tables_and_guests(client: AsyncClient) -> 
 
 @pytest.mark.anyio
 async def test_workspace_report_pdf_download(client: AsyncClient) -> None:
-    await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto", "group_id": "Familia 1"})
+    await client.post(
+        "/api/guests",
+        json={
+            "id": "guest-1",
+            "name": "Ana",
+            "guest_type": "adulto",
+            "group_id": "Familia 1",
+            "menu": "carne",
+            "confirmed": True,
+        },
+    )
     await client.put("/api/guests/guest-1/assignment", json={"table_id": "table-1", "seat_index": 0})
 
     response = await client.get("/api/workspace/report.pdf")
@@ -413,6 +423,11 @@ async def test_workspace_report_pdf_download(client: AsyncClient) -> None:
     assert response.headers["content-type"] == "application/pdf"
     assert response.headers["content-disposition"] == 'attachment; filename="donde-me-siento-informe.pdf"'
     assert response.content.startswith(b"%PDF-1.4")
+    assert b"(Conf.) Tj" in response.content
+    assert b"(Mesa) Tj" in response.content
+    assert b"(Asiento) Tj" in response.content
+    assert b"(1) Tj" in response.content
+    assert b"(Carne) Tj" in response.content
 
 
 @pytest.mark.anyio
