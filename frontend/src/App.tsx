@@ -23,6 +23,18 @@ import {
   updateTableCapacity,
   updateTablePosition,
 } from "./api";
+import {
+  type GuestImportPreview,
+  type SortState,
+  formatGuestTypeLabel,
+  formatMenuLabel,
+  getGuestTableTotalPages,
+  matchesGuestSearch,
+  normalizeText,
+  paginateGuestTableRows,
+  parseGuestImportCsv,
+  sortRows,
+} from "./appUtils";
 import { SeatingPlan } from "./components/SeatingPlan";
 import type { Guest, SavedSession, SessionBackup, Workspace, WorkspaceTable } from "./types";
 
@@ -36,7 +48,6 @@ const LISTS_PANEL_MIN_WIDTH = 280;
 const CANVAS_MIN_MAIN_WIDTH = 260;
 const RAIL_PANEL_MIN_WIDTH = 360;
 const SHELL_MIN_MAIN_WIDTH = 0;
-const GUEST_TABLE_PAGE_SIZE = 20;
 type SectionTone = "success" | "error" | "info";
 type SectionKey = "guests" | "tables";
 type SectionNotice = {
@@ -57,12 +68,7 @@ type PanelKey = "salon" | "summary" | "sessions" | "unassigned" | "assigned" | "
 type GuestTablePageKey = "unassigned" | "assigned" | "conflicts";
 type UnassignedGuestColumnKey = "confirmed" | "type" | "group" | "food" | "table";
 type AssignedGuestColumnKey = "confirmed" | "type" | "group" | "food" | "table";
-type SortDirection = "asc" | "desc";
 type SortTableKey = "sessions" | "unassigned" | "assigned" | "conflicts" | "guestImport";
-type SortState = {
-  column: string;
-  direction: SortDirection;
-};
 type GuestDraft = {
   name: string;
   guest_type: string;
@@ -70,20 +76,6 @@ type GuestDraft = {
   intolerance: string;
   menu: string;
 };
-type ImportedGuestDraft = {
-  name: string;
-  guest_type: string;
-  confirmed: boolean;
-  intolerance: string;
-  menu: string;
-  group_id: string | null;
-};
-type GuestImportPreview = {
-  fileName: string;
-  guests: ImportedGuestDraft[];
-};
-
-const REQUIRED_GUEST_CSV_COLUMNS = ["nombre", "asistencia", "tipo", "familia"] as const;
 
 function createEmptyGuestDraft(): GuestDraft {
   return {
@@ -95,190 +87,12 @@ function createEmptyGuestDraft(): GuestDraft {
   };
 }
 
-function normalizeText(value: string) {
-  return value.trim();
-}
-
-function normalizeSearchText(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
-function getGuestTableTotalPages(totalItems: number) {
-  return Math.max(1, Math.ceil(totalItems / GUEST_TABLE_PAGE_SIZE));
-}
-
-function paginateGuestTableRows<T>(items: T[], page: number) {
-  const totalItems = items.length;
-  const totalPages = getGuestTableTotalPages(totalItems);
-  const currentPage = Math.min(Math.max(page, 1), totalPages);
-  const startIndex = (currentPage - 1) * GUEST_TABLE_PAGE_SIZE;
-
-  return {
-    rows: items.slice(startIndex, startIndex + GUEST_TABLE_PAGE_SIZE),
-    currentPage,
-    totalPages,
-    startItem: totalItems === 0 ? 0 : startIndex + 1,
-    endItem: Math.min(startIndex + GUEST_TABLE_PAGE_SIZE, totalItems),
-    totalItems,
-  };
-}
-
 function getRailPanelMaxWidth(shellWidth: number) {
   return Math.max(RAIL_PANEL_MIN_WIDTH, shellWidth - 24 - SHELL_MIN_MAIN_WIDTH);
 }
 
 function getListsPanelMaxWidth(canvasWidth: number) {
   return Math.max(LISTS_PANEL_MIN_WIDTH, canvasWidth - CANVAS_MIN_MAIN_WIDTH);
-}
-
-function compareValues(left: string | number | boolean, right: string | number | boolean) {
-  if (typeof left === "boolean" && typeof right === "boolean") {
-    return Number(left) - Number(right);
-  }
-
-  if (typeof left === "number" && typeof right === "number") {
-    return left - right;
-  }
-
-  return String(left).localeCompare(String(right), "es", { numeric: true, sensitivity: "base" });
-}
-
-function sortRows<T>(items: T[], sort: SortState, getValue: (item: T, column: string) => string | number | boolean) {
-  return [...items].sort((left, right) => {
-    const comparison = compareValues(getValue(left, sort.column), getValue(right, sort.column));
-    return sort.direction === "asc" ? comparison : -comparison;
-  });
-}
-
-function parseCsvLine(line: string) {
-  const values: string[] = [];
-  let currentValue = "";
-  let insideQuotes = false;
-
-  for (let index = 0; index < line.length; index += 1) {
-    const character = line[index];
-
-    if (character === "\"") {
-      if (insideQuotes && line[index + 1] === "\"") {
-        currentValue += "\"";
-        index += 1;
-      } else {
-        insideQuotes = !insideQuotes;
-      }
-      continue;
-    }
-
-    if (character === "," && !insideQuotes) {
-      values.push(currentValue);
-      currentValue = "";
-      continue;
-    }
-
-    currentValue += character;
-  }
-
-  values.push(currentValue);
-  return values.map((value) => value.trim());
-}
-
-function parseGuestCsvAttendance(rawValue: string, lineNumber: number) {
-  const normalizedValue = normalizeSearchText(rawValue);
-  if (normalizedValue === "confirmado" || normalizedValue === "si" || normalizedValue === "true") {
-    return true;
-  }
-  if (
-    normalizedValue === "no confirmado" ||
-    normalizedValue === "pendiente" ||
-    normalizedValue === "no" ||
-    normalizedValue === "false"
-  ) {
-    return false;
-  }
-
-  throw new Error(`Línea ${lineNumber}: valor de asistencia no válido: "${rawValue || "vacío"}".`);
-}
-
-function parseGuestCsvType(rawValue: string, lineNumber: number) {
-  const normalizedValue = normalizeSearchText(rawValue);
-  if (normalizedValue === "adulto" || normalizedValue === "adolescente" || normalizedValue === "nino") {
-    return normalizedValue;
-  }
-
-  throw new Error(`Línea ${lineNumber}: tipo de invitado no válido: "${rawValue || "vacío"}".`);
-}
-
-function parseGuestCsvMenu(rawValue: string, lineNumber: number) {
-  const normalizedValue = normalizeSearchText(rawValue);
-  if (!normalizedValue) {
-    return "desconocido";
-  }
-
-  if (
-    normalizedValue === "desconocido" ||
-    normalizedValue === "carne" ||
-    normalizedValue === "pescado" ||
-    normalizedValue === "vegano"
-  ) {
-    return normalizedValue;
-  }
-
-  throw new Error(`Línea ${lineNumber}: valor de menú no válido: "${rawValue}".`);
-}
-
-function parseGuestImportCsv(fileName: string, content: string): GuestImportPreview {
-  const rows = content
-    .replace(/^\uFEFF/, "")
-    .split(/\r?\n/)
-    .map((line, index) => ({ line, lineNumber: index + 1 }))
-    .filter(({ line }) => line.trim() !== "");
-
-  if (rows.length < 2) {
-    throw new Error("El CSV debe incluir cabecera y al menos un invitado.");
-  }
-
-  const headerCells = parseCsvLine(rows[0].line).map((value) => normalizeSearchText(value));
-  const missingColumns = REQUIRED_GUEST_CSV_COLUMNS.filter((column) => !headerCells.includes(column));
-  if (missingColumns.length > 0) {
-    throw new Error(`Faltan columnas obligatorias en el CSV: ${missingColumns.join(", ")}.`);
-  }
-
-  const headerIndexes = Object.fromEntries(
-    REQUIRED_GUEST_CSV_COLUMNS.map((column) => [column, headerCells.indexOf(column)]),
-  ) as Record<(typeof REQUIRED_GUEST_CSV_COLUMNS)[number], number>;
-  const intoleranceColumnIndex = headerCells.indexOf("intolerancia");
-  const menuColumnIndex = headerCells.indexOf("menu");
-
-  const guests = rows.slice(1).map(({ line, lineNumber }) => {
-    const cells = parseCsvLine(line);
-    const name = normalizeText(cells[headerIndexes.nombre] ?? "");
-    if (!name) {
-      throw new Error(`Línea ${lineNumber}: el nombre del invitado es obligatorio.`);
-    }
-
-    const groupId = normalizeText(cells[headerIndexes.familia] ?? "") || null;
-
-    return {
-      name,
-      confirmed: parseGuestCsvAttendance(cells[headerIndexes.asistencia] ?? "", lineNumber),
-      guest_type: parseGuestCsvType(cells[headerIndexes.tipo] ?? "", lineNumber),
-      intolerance: normalizeText(intoleranceColumnIndex >= 0 ? (cells[intoleranceColumnIndex] ?? "") : ""),
-      menu: parseGuestCsvMenu(menuColumnIndex >= 0 ? (cells[menuColumnIndex] ?? "") : "", lineNumber),
-      group_id: groupId,
-    };
-  });
-
-  if (guests.length === 0) {
-    throw new Error("El CSV no contiene invitados válidos para importar.");
-  }
-
-  return {
-    fileName,
-    guests,
-  };
 }
 
 function isCoupleTable(table: Pick<WorkspaceTable, "table_kind"> | null | undefined) {
@@ -301,19 +115,6 @@ function getTableReferenceLabel(table: Pick<WorkspaceTable, "table_kind" | "numb
 
 function randomLoginName() {
   return LOGIN_NAMES[Math.floor(Math.random() * LOGIN_NAMES.length)];
-}
-
-function formatGuestTypeLabel(guestType: string) {
-  switch (guestType) {
-    case "adulto":
-      return "Adulto";
-    case "adolescente":
-      return "Adolescente";
-    case "nino":
-      return "Niño";
-    default:
-      return guestType;
-  }
 }
 
 function formatGuestAgeLabel(guestType: string) {
@@ -460,20 +261,6 @@ function IntoleranceBadge({ intolerance }: { intolerance: string }) {
   );
 }
 
-function formatMenuLabel(menu: string) {
-  switch (menu) {
-    case "carne":
-      return "Carne";
-    case "pescado":
-      return "Pescado";
-    case "vegano":
-      return "Vegano";
-    case "desconocido":
-    default:
-      return "Desconocido";
-  }
-}
-
 function formatMenuOptionLabel(menu: string) {
   switch (menu) {
     case "carne":
@@ -534,26 +321,6 @@ function MenuBadge({ menu }: { menu: string }) {
 
 function formatSeatLabel(seatIndex: number | null) {
   return seatIndex === null ? "Sin asiento" : `Asiento ${seatIndex + 1}`;
-}
-
-function matchesGuestSearch(guest: Guest, rawQuery: string) {
-  const query = normalizeSearchText(rawQuery);
-  if (!query) {
-    return true;
-  }
-
-  const searchableFields = [
-    guest.name,
-    guest.group_id ?? "",
-    guest.guest_type,
-    guest.intolerance,
-    guest.menu,
-    guest.table_id ?? "",
-    formatGuestTypeLabel(guest.guest_type),
-    formatMenuLabel(guest.menu),
-  ];
-
-  return searchableFields.some((field) => normalizeSearchText(field).includes(query));
 }
 
 export function App() {
