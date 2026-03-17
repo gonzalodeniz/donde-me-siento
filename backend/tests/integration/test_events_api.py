@@ -416,6 +416,18 @@ async def test_workspace_report_pdf_download(client: AsyncClient) -> None:
 
 
 @pytest.mark.anyio
+async def test_workspace_report_pdf_hides_empty_tables(client: AsyncClient) -> None:
+    response = await client.get("/api/workspace/report.pdf")
+
+    assert response.status_code == 200
+    assert b"No hay invitados ubicados." in response.content
+    assert b"No hay ubicaciones por revisar." in response.content
+    assert b"(Invitado) Tj" not in response.content
+    assert b"(Familia) Tj" not in response.content
+    assert b"(Intolerancia) Tj" not in response.content
+
+
+@pytest.mark.anyio
 async def test_delete_table_rejects_occupied_and_reorders_empty_tables(client: AsyncClient) -> None:
     await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto"})
     await client.put("/api/guests/guest-1/assignment", json={"table_id": "table-1"})

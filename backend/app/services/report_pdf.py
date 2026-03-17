@@ -240,7 +240,10 @@ class ReportLayout:
             self.cursor_top += leading
         self.cursor_top += gap_after
 
-    def section_title(self, value: str, underline: bool = True) -> None:
+    def section_title(self, value: str, underline: bool = True, gap_before: float = 0) -> None:
+        if gap_before > 0:
+            self.ensure_space(gap_before)
+            self.cursor_top += gap_before
         self.text_block(value, size=15, bold=True, color=ACCENT_COLOR, gap_after=4)
         if underline:
             self.ensure_space(8)
@@ -589,6 +592,10 @@ def _draw_data_table(
     width_fractions: list[float],
     empty_message: str,
 ) -> None:
+    if not rows:
+        layout.text_block(empty_message, size=9.8, color=MUTED_COLOR, gap_after=10)
+        return
+
     table_width = PAGE_WIDTH - PAGE_MARGIN * 2
     column_widths = [table_width * fraction for fraction in width_fractions]
     header_height = 26.0
@@ -615,14 +622,6 @@ def _draw_data_table(
         layout.cursor_top += header_height
 
     draw_header()
-
-    if not rows:
-        empty_height = 24.0
-        layout.ensure_space(empty_height)
-        draw_row_background(layout.cursor_top, empty_height, (0.995, 0.990, 0.983))
-        layout.pdf.text(PAGE_MARGIN + cell_padding_x, PAGE_HEIGHT - layout.cursor_top - 16, empty_message, size=9.8, color=MUTED_COLOR)
-        layout.cursor_top += empty_height + 6
-        return
 
     for row_index, row in enumerate(rows):
         wrapped_cells = [
@@ -729,8 +728,7 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
     layout.pdf.new_page()
     layout.cursor_top = TOP_CONTENT_MARGIN
 
-    layout.section_title("Invitados ubicados", underline=False)
-    layout.text_block("Ordenado por familia y por nombre.", size=10, color=MUTED_COLOR, gap_after=6)
+    layout.section_title("Invitados ubicados", underline=False, gap_before=10)
     assigned_rows = [
         [
             guest.name,
@@ -751,8 +749,7 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
         "No hay invitados ubicados.",
     )
 
-    layout.cursor_top += 14
-    layout.section_title("Invitados sin sentar", underline=False)
+    layout.section_title("Invitados sin sentar", underline=False, gap_before=20)
     unassigned_rows = [
         [
             guest.name,
@@ -772,8 +769,7 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
         "No hay invitados sin sentar.",
     )
 
-    layout.cursor_top += 14
-    layout.section_title("Ubicaciones por revisar", underline=False)
+    layout.section_title("Ubicaciones por revisar", underline=False, gap_before=20)
     conflict_rows: list[list[str]] = []
     if conflict_groups:
         guest_by_id = event.guests
