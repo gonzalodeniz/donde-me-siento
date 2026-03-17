@@ -1018,4 +1018,105 @@ describe("App integración", () => {
     expect(await screen.findByText("Workspace reiniciado para una nueva sesión.")).not.toBeNull();
     expect(await screen.findByRole("button", { name: "Generar 8 mesas" })).not.toBeNull();
   });
+
+  it("ajusta la capacidad de una mesa desde el panel lateral", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace)
+      .mockResolvedValueOnce(createWorkspace())
+      .mockResolvedValueOnce({
+        ...createWorkspace(),
+        tables: [
+          {
+            ...createWorkspace().tables[0],
+            capacity: 9,
+            available: 8,
+          },
+        ],
+      });
+    vi.mocked(api.fetchSessions)
+      .mockResolvedValueOnce(createSessions())
+      .mockResolvedValueOnce(createSessions());
+    vi.mocked(api.updateTableCapacity).mockResolvedValueOnce(undefined);
+
+    render(<App />);
+
+    expect(await screen.findByTestId("table-card-table-1")).not.toBeNull();
+    await user.click(screen.getByTestId("table-card-table-1"));
+    const seatsStepper = document.querySelector('[aria-label="Asientos"]');
+    if (!(seatsStepper instanceof HTMLElement)) {
+      throw new Error("No se encontró el control de asientos.");
+    }
+    const increaseButton = within(seatsStepper).getByRole("button", { name: "+" });
+    await user.click(increaseButton);
+
+    await waitFor(() => {
+      expect(api.updateTableCapacity).toHaveBeenCalledWith("table-1", 9, "token-demo");
+    });
+    expect(await screen.findByText("Los asientos de la mesa 1 se han ajustado.")).not.toBeNull();
+    expect(await screen.findByText("9")).not.toBeNull();
+  });
+
+  it("rota la mesa de novios desde el panel lateral", async () => {
+    const user = userEvent.setup();
+    const coupleWorkspace: Workspace = {
+      ...createWorkspace(),
+      tables: [
+        {
+          id: "table-couple",
+          number: 0,
+          capacity: 2,
+          position_x: 600,
+          position_y: 90,
+          table_kind: "couple",
+          rotation_degrees: 0,
+          occupied: 0,
+          available: 2,
+          guests: [],
+        },
+      ],
+      guests: {
+        assigned: [],
+        unassigned: [],
+      },
+      validation: {
+        grouping_conflicts: {},
+        tables: [],
+        assigned_guests: 0,
+        unassigned_guests: 0,
+      },
+    };
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace)
+      .mockResolvedValueOnce(coupleWorkspace)
+      .mockResolvedValueOnce({
+        ...coupleWorkspace,
+        tables: [
+          {
+            ...coupleWorkspace.tables[0],
+            rotation_degrees: 15,
+          },
+        ],
+      });
+    vi.mocked(api.fetchSessions)
+      .mockResolvedValueOnce(createSessions())
+      .mockResolvedValueOnce(createSessions());
+    vi.mocked(api.updateTablePosition).mockResolvedValueOnce(undefined);
+
+    render(<App />);
+
+    expect(await screen.findByTestId("table-card-table-couple")).not.toBeNull();
+    await user.click(screen.getByTestId("table-card-table-couple"));
+    const rotationStepper = document.querySelector('[aria-label="Rotación de la mesa de novios"]');
+    if (!(rotationStepper instanceof HTMLElement)) {
+      throw new Error("No se encontró el control de rotación de la mesa de novios.");
+    }
+    const rotateRightButton = within(rotationStepper).getByRole("button", { name: "↻" });
+    await user.click(rotateRightButton);
+
+    await waitFor(() => {
+      expect(api.updateTablePosition).toHaveBeenCalledWith("table-couple", 600, 90, 15, "token-demo");
+    });
+    expect(await screen.findByText("15°")).not.toBeNull();
+  });
 });
