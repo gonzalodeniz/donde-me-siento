@@ -143,4 +143,38 @@ describe("SeatingPlan", () => {
 
     expect(screen.getByRole("button", { name: "Silla 2 libre en mesa 1" })).not.toBeNull();
   });
+
+  it("notifica drag enter, drag leave y drop sobre una silla libre", () => {
+    const { props } = renderSeatingPlan({ draggedGuestName: "Invitado suelto" });
+    const emptySeat = screen.getByRole("button", { name: "Silla 2 libre en mesa 1" });
+    const dataTransfer = {
+      getData: vi.fn().mockReturnValue("guest-2"),
+    };
+
+    fireEvent.dragEnter(emptySeat);
+    fireEvent.dragLeave(emptySeat);
+    fireEvent.drop(emptySeat, { dataTransfer });
+
+    expect(props.onSeatDragEnter).toHaveBeenCalledWith("table-1", 1);
+    expect(props.onSeatDragLeave).toHaveBeenCalledWith("table-1", 1);
+    expect(props.onSeatDrop).toHaveBeenCalledWith("table-1", 1, "guest-2");
+    expect(dataTransfer.getData).toHaveBeenCalledWith("text/plain");
+  });
+
+  it("muestra un tooltip con el detalle del invitado al pasar el ratón por un asiento ocupado", () => {
+    renderSeatingPlan();
+
+    const occupiedSeat = screen.getByRole("button", { name: "Ana María en mesa 1, silla 1" });
+    fireEvent.mouseEnter(occupiedSeat, { clientX: 120, clientY: 160 });
+
+    expect(screen.getByText("Mesa 1 · Silla 1")).not.toBeNull();
+    expect(screen.getByText("Familia 1")).not.toBeNull();
+    expect(screen.getByText("Carne")).not.toBeNull();
+    expect(screen.getByLabelText("Adulto")).not.toBeNull();
+    expect(screen.getByLabelText("Confirmado")).not.toBeNull();
+
+    fireEvent.mouseLeave(occupiedSeat);
+
+    expect(screen.queryByText("Mesa 1 · Silla 1")).toBeNull();
+  });
 });

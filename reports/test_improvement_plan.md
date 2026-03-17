@@ -74,13 +74,19 @@ Verificación:
 
 - `pytest backend/tests/unit/test_db_session.py`
 
-## Fase 4. Siguiente iteración recomendada
+## Fase 4. Estado actual de la iteración frontend
 
-No se implementa en esta tanda salvo que haga falta ampliar alcance:
+Esta fase ya está arrancada y no parte de cero:
 
-- introducir `Vitest + React Testing Library`
-- extraer utilidades testables de `frontend/src/App.tsx`
-- crear tests de componente para [frontend/src/components/SeatingPlan.tsx](/home/gdeniz/Workspaces/development/donde-me-siento/frontend/src/components/SeatingPlan.tsx)
+- `Vitest + React Testing Library` ya están introducidos en `frontend/package.json`
+- ya existen tests de integración de [frontend/src/App.test.tsx](/home/gdeniz/Workspaces/development/donde-me-siento/frontend/src/App.test.tsx)
+- ya existen tests de componente para [frontend/src/components/SeatingPlan.test.tsx](/home/gdeniz/Workspaces/development/donde-me-siento/frontend/src/components/SeatingPlan.test.tsx)
+
+Siguiente iteración útil dentro de frontend:
+
+- ampliar cobertura de interacciones finas del plano (`drag enter/leave/drop`, tooltip, zoom y giro)
+- seguir extrayendo lógica testable de [frontend/src/App.tsx](/home/gdeniz/Workspaces/development/donde-me-siento/frontend/src/App.tsx) cuando aparezcan bloques con demasiada responsabilidad
+- mantener esta fase sin cambios productivos salvo refactor pequeño orientado a test
 
 ## Orden de ejecución
 
@@ -88,4 +94,4 @@ No se implementa en esta tanda salvo que haga falta ampliar alcance:
 2. Fase 2
 3. Fase 3
 4. Ejecutar subset de pruebas afectadas
-5. Si todo pasa, dejar siguiente tanda lista para frontend unitario
+5. Si todo pasa, continuar ampliando frontend unitario sobre el plano y la lógica extraída de `App.tsx`
