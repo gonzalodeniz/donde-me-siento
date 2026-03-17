@@ -921,4 +921,101 @@ describe("App integración", () => {
     expect(await screen.findByText("Mesa 1 se ha duplicado.")).not.toBeNull();
     expect(await screen.findByTestId("table-card-table-2")).not.toBeNull();
   });
+
+  it("elimina una mesa vacía desde el panel lateral tras confirmar", async () => {
+    const user = userEvent.setup();
+    const emptyWorkspace: Workspace = {
+      ...createWorkspace(),
+      tables: [
+        {
+          id: "table-1",
+          number: 1,
+          capacity: 8,
+          position_x: 240,
+          position_y: 200,
+          table_kind: "round",
+          rotation_degrees: 0,
+          occupied: 0,
+          available: 8,
+          guests: [],
+        },
+      ],
+      guests: {
+        assigned: [],
+        unassigned: [],
+      },
+      validation: {
+        grouping_conflicts: {},
+        tables: [],
+        assigned_guests: 0,
+        unassigned_guests: 0,
+      },
+    };
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace)
+      .mockResolvedValueOnce(emptyWorkspace)
+      .mockResolvedValueOnce({
+        ...emptyWorkspace,
+        tables: [],
+      });
+    vi.mocked(api.fetchSessions)
+      .mockResolvedValueOnce(createSessions())
+      .mockResolvedValueOnce(createSessions());
+    vi.mocked(api.deleteTable).mockResolvedValueOnce(undefined);
+
+    render(<App />);
+
+    expect(await screen.findByTestId("table-card-table-1")).not.toBeNull();
+    await user.click(screen.getByTestId("table-card-table-1"));
+    await user.click(await screen.findByRole("button", { name: "Eliminar mesa" }));
+    expect(await screen.findByText("Se eliminará la mesa vacía y la numeración se ajustará automáticamente.")).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: "Confirmar eliminación" }));
+
+    await waitFor(() => {
+      expect(api.deleteTable).toHaveBeenCalledWith("table-1", "token-demo");
+    });
+    expect(await screen.findByText("Mesa 1 se ha retirado del salón.")).not.toBeNull();
+    await waitFor(() => {
+      expect(screen.queryByTestId("table-card-table-1")).toBeNull();
+    });
+  });
+
+  it("reinicia el workspace desde nueva sesión", async () => {
+    const user = userEvent.setup();
+    const resetWorkspaceState: Workspace = {
+      ...createWorkspace(),
+      tables: [],
+      guests: {
+        assigned: [],
+        unassigned: [],
+      },
+      validation: {
+        grouping_conflicts: {},
+        tables: [],
+        assigned_guests: 0,
+        unassigned_guests: 0,
+      },
+    };
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace)
+      .mockResolvedValueOnce(createWorkspace())
+      .mockResolvedValueOnce(resetWorkspaceState);
+    vi.mocked(api.fetchSessions)
+      .mockResolvedValueOnce(createSessions())
+      .mockResolvedValueOnce(createSessions());
+    vi.mocked(api.resetWorkspace).mockResolvedValueOnce(undefined);
+
+    render(<App />);
+
+    expect(await screen.findByRole("button", { name: "Nueva sesión" })).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: "Nueva sesión" }));
+    expect(await screen.findByText("¿Crear una nueva sesión vacía?")).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: "Confirmar nueva sesión" }));
+
+    await waitFor(() => {
+      expect(api.resetWorkspace).toHaveBeenCalledWith("token-demo");
+    });
+    expect(await screen.findByText("Workspace reiniciado para una nueva sesión.")).not.toBeNull();
+    expect(await screen.findByRole("button", { name: "Generar 8 mesas" })).not.toBeNull();
+  });
 });
