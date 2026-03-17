@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -619,5 +619,89 @@ describe("App integración", () => {
     await waitFor(() => {
       expect(screen.queryByText("invitados-validos.csv")).toBeNull();
     });
+  });
+
+  it("edita un invitado sin sentar y guarda los cambios inline", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace)
+      .mockResolvedValueOnce(createWorkspace())
+      .mockResolvedValueOnce({
+        ...createWorkspace(),
+        guests: {
+          assigned: [],
+          unassigned: [
+            {
+              ...createWorkspace().guests.unassigned[0],
+              name: "Ana Lucía",
+            },
+          ],
+        },
+      });
+    vi.mocked(api.fetchSessions)
+      .mockResolvedValueOnce(createSessions())
+      .mockResolvedValueOnce(createSessions());
+    vi.mocked(api.updateGuest).mockResolvedValueOnce(undefined);
+
+    render(<App />);
+
+    const guestRow = await screen.findByTestId("unassigned-guest-guest-1");
+    await user.click(within(guestRow).getByRole("button", { name: "Ana María" }));
+
+    const editInput = within(guestRow).getByDisplayValue("Ana María");
+    await user.clear(editInput);
+    await user.type(editInput, "Ana Lucía");
+    fireEvent.keyDown(editInput, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(api.updateGuest).toHaveBeenCalledWith("guest-1", "token-demo", {
+        name: "Ana Lucía",
+        guest_type: "adulto",
+        confirmed: true,
+        intolerance: "",
+        menu: "carne",
+        group_id: "Familia Núñez",
+      });
+    });
+    expect(await screen.findByText("Invitado actualizado.")).not.toBeNull();
+    expect(await screen.findByRole("button", { name: "Ana Lucía" })).not.toBeNull();
+  });
+
+  it("elimina un invitado sin sentar tras confirmar el borrado", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace)
+      .mockResolvedValueOnce(createWorkspace())
+      .mockResolvedValueOnce({
+        ...createWorkspace(),
+        guests: {
+          assigned: [],
+          unassigned: [],
+        },
+        validation: {
+          grouping_conflicts: {},
+          tables: [],
+          assigned_guests: 0,
+          unassigned_guests: 0,
+        },
+      });
+    vi.mocked(api.fetchSessions)
+      .mockResolvedValueOnce(createSessions())
+      .mockResolvedValueOnce(createSessions());
+    vi.mocked(api.deleteGuest).mockResolvedValueOnce(undefined);
+
+    render(<App />);
+
+    expect(await screen.findByText("Ana María")).not.toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Eliminar a Ana María" }));
+    expect(await screen.findByText("¿Quitar?")).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: "Confirmar borrado de Ana María" }));
+
+    await waitFor(() => {
+      expect(api.deleteGuest).toHaveBeenCalledWith("guest-1", "token-demo");
+    });
+    expect(await screen.findByText("Ana María eliminado.")).not.toBeNull();
+    expect(await screen.findByText("No hay invitados sin sentar.")).not.toBeNull();
   });
 });
