@@ -191,4 +191,92 @@ describe("App integración", () => {
     expect(await screen.findByText("Faltan columnas obligatorias en el CSV: familia.")).not.toBeNull();
     expect((screen.getByRole("button", { name: "Importar invitados" }) as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it("guarda una sesión desde la UI y refresca la biblioteca", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace)
+      .mockResolvedValueOnce(createWorkspace())
+      .mockResolvedValueOnce(createWorkspace());
+    vi.mocked(api.fetchSessions)
+      .mockResolvedValueOnce(createSessions())
+      .mockResolvedValueOnce([
+        {
+          id: "session-3",
+          name: "Banquete final",
+          created_at: "2026-03-18T18:45:00Z",
+        },
+        ...createSessions(),
+      ]);
+    vi.mocked(api.saveSession).mockResolvedValueOnce({
+      id: "session-3",
+      name: "Banquete final",
+      created_at: "2026-03-18T18:45:00Z",
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText("Base familiar")).not.toBeNull();
+
+    const sessionNameInput = screen.getByPlaceholderText("Ej. banquete familiar");
+    await user.type(sessionNameInput, "Banquete final");
+    await user.click(screen.getByRole("button", { name: "Guardar sesión" }));
+
+    await waitFor(() => {
+      expect(api.saveSession).toHaveBeenCalledWith("Banquete final", "token-demo");
+    });
+    expect(await screen.findByRole("status", { name: "" })).not.toBeNull();
+    expect(await screen.findByText('Sesión "Banquete final" guardada.')).not.toBeNull();
+    expect(await screen.findByText("Banquete final")).not.toBeNull();
+    expect((screen.getByPlaceholderText("Ej. banquete familiar") as HTMLInputElement).value).toBe("");
+  });
+
+  it("carga una sesión guardada desde la biblioteca", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace)
+      .mockResolvedValueOnce(createWorkspace())
+      .mockResolvedValueOnce({
+        ...createWorkspace(),
+        guests: {
+          assigned: [
+            {
+              id: "guest-2",
+              name: "Carlos",
+              guest_type: "adulto",
+              confirmed: true,
+              intolerance: "",
+              menu: "pescado",
+              group_id: "Familia Costa",
+              table_id: "table-1",
+              seat_index: 0,
+            },
+          ],
+          unassigned: [],
+        },
+        validation: {
+          grouping_conflicts: {},
+          tables: [],
+          assigned_guests: 1,
+          unassigned_guests: 0,
+        },
+      });
+    vi.mocked(api.fetchSessions)
+      .mockResolvedValueOnce(createSessions())
+      .mockResolvedValueOnce(createSessions());
+    vi.mocked(api.loadSession).mockResolvedValueOnce(undefined);
+
+    render(<App />);
+
+    expect(await screen.findByText("Versión jardín")).not.toBeNull();
+
+    const loadButtons = screen.getAllByRole("button", { name: "Cargar sesión" });
+    await user.click(loadButtons[1]);
+
+    await waitFor(() => {
+      expect(api.loadSession).toHaveBeenCalledWith("session-2", "token-demo");
+    });
+    expect(await screen.findByText('Sesión "Versión jardín" cargada.')).not.toBeNull();
+    expect(await screen.findByText("1 de 1 invitados sentados")).not.toBeNull();
+  });
 });
