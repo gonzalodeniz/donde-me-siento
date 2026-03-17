@@ -452,4 +452,172 @@ describe("App integración", () => {
     expect(await screen.findByRole("button", { name: "Repartir amor en las mesas" })).not.toBeNull();
     expect(screen.getByLabelText("Tu llave")).not.toBeNull();
   });
+
+  it("crea un invitado manualmente y refresca la lista de invitados sin sentar", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace)
+      .mockResolvedValueOnce(createWorkspace())
+      .mockResolvedValueOnce({
+        ...createWorkspace(),
+        guests: {
+          assigned: [],
+          unassigned: [
+            ...createWorkspace().guests.unassigned,
+            {
+              id: "guest-2",
+              name: "Lucía",
+              guest_type: "adulto",
+              confirmed: true,
+              intolerance: "",
+              menu: "desconocido",
+              group_id: "Familia Sol",
+              table_id: null,
+              seat_index: null,
+            },
+          ],
+        },
+        validation: {
+          grouping_conflicts: {},
+          tables: [],
+          assigned_guests: 0,
+          unassigned_guests: 2,
+        },
+      });
+    vi.mocked(api.fetchSessions)
+      .mockResolvedValueOnce(createSessions())
+      .mockResolvedValueOnce(createSessions());
+    vi.mocked(api.createGuest).mockResolvedValueOnce(undefined);
+
+    render(<App />);
+
+    expect(await screen.findByText("Ana María")).not.toBeNull();
+
+    await user.click(screen.getByText("Añadir invitado", { selector: ".guest-composer__trigger" }));
+
+    const guestNameInput = await screen.findByTestId("guest-name-input");
+    const guestForm = guestNameInput.closest("form");
+    if (!(guestForm instanceof HTMLFormElement)) {
+      throw new Error("No se encontró el formulario de alta de invitados.");
+    }
+
+    const familyInput = guestForm.querySelector('input[placeholder="opcional"]');
+    if (!(familyInput instanceof HTMLInputElement)) {
+      throw new Error("No se encontró el campo de familia.");
+    }
+
+    await user.type(familyInput, "Familia Sol");
+    await user.type(guestNameInput, "Lucía");
+    await user.click(screen.getByRole("button", { name: "Añadir invitado" }));
+
+    await waitFor(() => {
+      expect(api.createGuest).toHaveBeenCalledWith("token-demo", {
+        name: "Lucía",
+        guest_type: "adulto",
+        confirmed: true,
+        intolerance: "",
+        menu: "desconocido",
+        group_id: "Familia Sol",
+      });
+    });
+    expect(await screen.findByText("Invitado añadido al workspace.")).not.toBeNull();
+    expect(await screen.findByText("Lucía")).not.toBeNull();
+  });
+
+  it("importa invitados válidos desde CSV y limpia la previsualización", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace)
+      .mockResolvedValueOnce(createWorkspace())
+      .mockResolvedValueOnce({
+        ...createWorkspace(),
+        guests: {
+          assigned: [],
+          unassigned: [
+            ...createWorkspace().guests.unassigned,
+            {
+              id: "guest-3",
+              name: "Bruno",
+              guest_type: "adulto",
+              confirmed: true,
+              intolerance: "",
+              menu: "carne",
+              group_id: "Familia Río",
+              table_id: null,
+              seat_index: null,
+            },
+            {
+              id: "guest-4",
+              name: "Marta",
+              guest_type: "nino",
+              confirmed: false,
+              intolerance: "gluten",
+              menu: "vegano",
+              group_id: "Familia Río",
+              table_id: null,
+              seat_index: null,
+            },
+          ],
+        },
+        validation: {
+          grouping_conflicts: {},
+          tables: [],
+          assigned_guests: 0,
+          unassigned_guests: 3,
+        },
+      });
+    vi.mocked(api.fetchSessions)
+      .mockResolvedValueOnce(createSessions())
+      .mockResolvedValueOnce(createSessions());
+    vi.mocked(api.importGuests).mockResolvedValueOnce(undefined);
+
+    const { container } = render(<App />);
+
+    expect(await screen.findByRole("button", { name: "Seleccionar fichero CSV" })).not.toBeNull();
+
+    const csvInput = container.querySelector('input[type="file"][accept=".csv,text/csv"]');
+    if (!(csvInput instanceof HTMLInputElement)) {
+      throw new Error("No se encontró el input de importación CSV.");
+    }
+
+    const csvFile = new File(
+      [
+        "nombre,asistencia,tipo,familia,intolerancia,menu\nBruno,si,adulto,Familia Río,,carne\nMarta,no,nino,Familia Río,gluten,vegano",
+      ],
+      "invitados-validos.csv",
+      { type: "text/csv" },
+    );
+
+    fireEvent.change(csvInput, { target: { files: [csvFile] } });
+
+    expect(await screen.findByText("invitados-validos.csv")).not.toBeNull();
+    expect(await screen.findByText("2 invitados listos para importar.")).not.toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Importar invitados" }));
+
+    await waitFor(() => {
+      expect(api.importGuests).toHaveBeenCalledWith("token-demo", [
+        {
+          name: "Bruno",
+          confirmed: true,
+          guest_type: "adulto",
+          intolerance: "",
+          menu: "carne",
+          group_id: "Familia Río",
+        },
+        {
+          name: "Marta",
+          confirmed: false,
+          guest_type: "nino",
+          intolerance: "gluten",
+          menu: "vegano",
+          group_id: "Familia Río",
+        },
+      ]);
+    });
+    expect(await screen.findByText("2 invitados importados desde el CSV.")).not.toBeNull();
+    await waitFor(() => {
+      expect(screen.queryByText("invitados-validos.csv")).toBeNull();
+    });
+  });
 });
