@@ -812,4 +812,113 @@ describe("App integración", () => {
       expect(within(assignedSection).queryByRole("button", { name: "Ana María" })).toBeNull();
     });
   });
+
+  it("crea un lote de mesas desde el planificador", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace)
+      .mockResolvedValueOnce(createWorkspace())
+      .mockResolvedValueOnce({
+        ...createWorkspace(),
+        tables: [
+          ...createWorkspace().tables,
+          {
+            id: "table-2",
+            number: 2,
+            capacity: 10,
+            position_x: 420,
+            position_y: 240,
+            table_kind: "round",
+            rotation_degrees: 0,
+            occupied: 0,
+            available: 10,
+            guests: [],
+          },
+          {
+            id: "table-3",
+            number: 3,
+            capacity: 10,
+            position_x: 520,
+            position_y: 260,
+            table_kind: "round",
+            rotation_degrees: 0,
+            occupied: 0,
+            available: 10,
+            guests: [],
+          },
+        ],
+      });
+    vi.mocked(api.fetchSessions)
+      .mockResolvedValueOnce(createSessions())
+      .mockResolvedValueOnce(createSessions());
+    vi.mocked(api.createTablesBatch).mockResolvedValueOnce(undefined);
+
+    render(<App />);
+
+    expect(await screen.findByTestId("table-card-table-1")).not.toBeNull();
+    const plannerForm = document.querySelector("form.rail-batch-form");
+    if (!(plannerForm instanceof HTMLFormElement)) {
+      throw new Error("No se encontró el formulario de creación de mesas.");
+    }
+
+    const numberInputs = plannerForm.querySelectorAll('input[type="number"]');
+    if (numberInputs.length < 2) {
+      throw new Error("No se encontraron los campos numéricos del planificador.");
+    }
+
+    await user.clear(numberInputs[0] as HTMLInputElement);
+    await user.type(numberInputs[0] as HTMLInputElement, "2");
+    await user.clear(numberInputs[1] as HTMLInputElement);
+    await user.type(numberInputs[1] as HTMLInputElement, "10");
+    await user.click(within(plannerForm).getByRole("button", { name: "Generar 2 mesas" }));
+
+    await waitFor(() => {
+      expect(api.createTablesBatch).toHaveBeenCalledWith("token-demo", { count: 2, capacity: 10 });
+    });
+    expect(await screen.findByText("Se han añadido 2 mesas al salón.")).not.toBeNull();
+    expect(await screen.findByTestId("table-card-table-2")).not.toBeNull();
+    expect(await screen.findByTestId("table-card-table-3")).not.toBeNull();
+  });
+
+  it("duplica la mesa seleccionada desde el panel lateral", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace)
+      .mockResolvedValueOnce(createWorkspace())
+      .mockResolvedValueOnce({
+        ...createWorkspace(),
+        tables: [
+          ...createWorkspace().tables,
+          {
+            id: "table-2",
+            number: 2,
+            capacity: 8,
+            position_x: 420,
+            position_y: 240,
+            table_kind: "round",
+            rotation_degrees: 0,
+            occupied: 0,
+            available: 8,
+            guests: [],
+          },
+        ],
+      });
+    vi.mocked(api.fetchSessions)
+      .mockResolvedValueOnce(createSessions())
+      .mockResolvedValueOnce(createSessions());
+    vi.mocked(api.duplicateTable).mockResolvedValueOnce(undefined);
+
+    render(<App />);
+
+    expect(await screen.findByTestId("table-card-table-1")).not.toBeNull();
+    await user.click(screen.getByTestId("table-card-table-1"));
+    expect(await screen.findByRole("button", { name: "Duplicar mesa" })).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: "Duplicar mesa" }));
+
+    await waitFor(() => {
+      expect(api.duplicateTable).toHaveBeenCalledWith("table-1", "token-demo");
+    });
+    expect(await screen.findByText("Mesa 1 se ha duplicado.")).not.toBeNull();
+    expect(await screen.findByTestId("table-card-table-2")).not.toBeNull();
+  });
 });
