@@ -23,20 +23,38 @@ import {
   updateTableCapacity,
   updateTablePosition,
 } from "./api";
+import {
+  type GuestImportPreview,
+  type SortState,
+  formatGuestTypeLabel,
+  formatMenuLabel,
+  getGuestTableTotalPages,
+  matchesGuestSearch,
+  normalizeText,
+  paginateGuestTableRows,
+  parseGuestImportCsv,
+} from "./appUtils";
 import { SeatingPlan } from "./components/SeatingPlan";
+import { buildConflictReviewRows, sortConflictRows, sortGuestRows } from "./guestTableUtils";
+import { buildGuestImportStats, buildWorkspaceStats } from "./reportStatsUtils";
+import { sortGuestImportPreviewRows, sortSessions } from "./sessionImportUtils";
 import type { Guest, SavedSession, SessionBackup, Workspace, WorkspaceTable } from "./types";
+import {
+  CENTER_PANEL_OPEN_STORAGE_KEY,
+  LISTS_PANEL_MIN_WIDTH,
+  LISTS_PANEL_OPEN_STORAGE_KEY,
+  LISTS_PANEL_WIDTH_STORAGE_KEY,
+  RAIL_PANEL_MIN_WIDTH,
+  RAIL_PANEL_WIDTH_STORAGE_KEY,
+  TOKEN_STORAGE_KEY,
+  clampPanelWidth,
+  getListsPanelMaxWidth,
+  getRailPanelMaxWidth,
+  readStoredOpenState,
+  readStoredPanelWidth,
+} from "./uiStateUtils";
 
-const TOKEN_STORAGE_KEY = "dms.auth.token";
-const LISTS_PANEL_WIDTH_STORAGE_KEY = "dms.ui.listsPanelWidth";
-const RAIL_PANEL_WIDTH_STORAGE_KEY = "dms.ui.railPanelWidth";
-const LISTS_PANEL_OPEN_STORAGE_KEY = "dms.ui.listsPanelOpen";
-const CENTER_PANEL_OPEN_STORAGE_KEY = "dms.ui.centerPanelOpen";
 const LOGIN_NAMES = ["raquel", "héctor"] as const;
-const LISTS_PANEL_MIN_WIDTH = 280;
-const CANVAS_MIN_MAIN_WIDTH = 260;
-const RAIL_PANEL_MIN_WIDTH = 360;
-const SHELL_MIN_MAIN_WIDTH = 0;
-const GUEST_TABLE_PAGE_SIZE = 20;
 type SectionTone = "success" | "error" | "info";
 type SectionKey = "guests" | "tables";
 type SectionNotice = {
@@ -57,12 +75,7 @@ type PanelKey = "salon" | "summary" | "sessions" | "unassigned" | "assigned" | "
 type GuestTablePageKey = "unassigned" | "assigned" | "conflicts";
 type UnassignedGuestColumnKey = "confirmed" | "type" | "group" | "food" | "table";
 type AssignedGuestColumnKey = "confirmed" | "type" | "group" | "food" | "table";
-type SortDirection = "asc" | "desc";
 type SortTableKey = "sessions" | "unassigned" | "assigned" | "conflicts" | "guestImport";
-type SortState = {
-  column: string;
-  direction: SortDirection;
-};
 type GuestDraft = {
   name: string;
   guest_type: string;
@@ -70,20 +83,6 @@ type GuestDraft = {
   intolerance: string;
   menu: string;
 };
-type ImportedGuestDraft = {
-  name: string;
-  guest_type: string;
-  confirmed: boolean;
-  intolerance: string;
-  menu: string;
-  group_id: string | null;
-};
-type GuestImportPreview = {
-  fileName: string;
-  guests: ImportedGuestDraft[];
-};
-
-const REQUIRED_GUEST_CSV_COLUMNS = ["nombre", "asistencia", "tipo", "familia"] as const;
 
 function createEmptyGuestDraft(): GuestDraft {
   return {
@@ -92,192 +91,6 @@ function createEmptyGuestDraft(): GuestDraft {
     confirmed: true,
     intolerance: "",
     menu: "desconocido",
-  };
-}
-
-function normalizeText(value: string) {
-  return value.trim();
-}
-
-function normalizeSearchText(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
-function getGuestTableTotalPages(totalItems: number) {
-  return Math.max(1, Math.ceil(totalItems / GUEST_TABLE_PAGE_SIZE));
-}
-
-function paginateGuestTableRows<T>(items: T[], page: number) {
-  const totalItems = items.length;
-  const totalPages = getGuestTableTotalPages(totalItems);
-  const currentPage = Math.min(Math.max(page, 1), totalPages);
-  const startIndex = (currentPage - 1) * GUEST_TABLE_PAGE_SIZE;
-
-  return {
-    rows: items.slice(startIndex, startIndex + GUEST_TABLE_PAGE_SIZE),
-    currentPage,
-    totalPages,
-    startItem: totalItems === 0 ? 0 : startIndex + 1,
-    endItem: Math.min(startIndex + GUEST_TABLE_PAGE_SIZE, totalItems),
-    totalItems,
-  };
-}
-
-function getRailPanelMaxWidth(shellWidth: number) {
-  return Math.max(RAIL_PANEL_MIN_WIDTH, shellWidth - 24 - SHELL_MIN_MAIN_WIDTH);
-}
-
-function getListsPanelMaxWidth(canvasWidth: number) {
-  return Math.max(LISTS_PANEL_MIN_WIDTH, canvasWidth - CANVAS_MIN_MAIN_WIDTH);
-}
-
-function compareValues(left: string | number | boolean, right: string | number | boolean) {
-  if (typeof left === "boolean" && typeof right === "boolean") {
-    return Number(left) - Number(right);
-  }
-
-  if (typeof left === "number" && typeof right === "number") {
-    return left - right;
-  }
-
-  return String(left).localeCompare(String(right), "es", { numeric: true, sensitivity: "base" });
-}
-
-function sortRows<T>(items: T[], sort: SortState, getValue: (item: T, column: string) => string | number | boolean) {
-  return [...items].sort((left, right) => {
-    const comparison = compareValues(getValue(left, sort.column), getValue(right, sort.column));
-    return sort.direction === "asc" ? comparison : -comparison;
-  });
-}
-
-function parseCsvLine(line: string) {
-  const values: string[] = [];
-  let currentValue = "";
-  let insideQuotes = false;
-
-  for (let index = 0; index < line.length; index += 1) {
-    const character = line[index];
-
-    if (character === "\"") {
-      if (insideQuotes && line[index + 1] === "\"") {
-        currentValue += "\"";
-        index += 1;
-      } else {
-        insideQuotes = !insideQuotes;
-      }
-      continue;
-    }
-
-    if (character === "," && !insideQuotes) {
-      values.push(currentValue);
-      currentValue = "";
-      continue;
-    }
-
-    currentValue += character;
-  }
-
-  values.push(currentValue);
-  return values.map((value) => value.trim());
-}
-
-function parseGuestCsvAttendance(rawValue: string, lineNumber: number) {
-  const normalizedValue = normalizeSearchText(rawValue);
-  if (normalizedValue === "confirmado" || normalizedValue === "si" || normalizedValue === "true") {
-    return true;
-  }
-  if (
-    normalizedValue === "no confirmado" ||
-    normalizedValue === "pendiente" ||
-    normalizedValue === "no" ||
-    normalizedValue === "false"
-  ) {
-    return false;
-  }
-
-  throw new Error(`Línea ${lineNumber}: valor de asistencia no válido: "${rawValue || "vacío"}".`);
-}
-
-function parseGuestCsvType(rawValue: string, lineNumber: number) {
-  const normalizedValue = normalizeSearchText(rawValue);
-  if (normalizedValue === "adulto" || normalizedValue === "adolescente" || normalizedValue === "nino") {
-    return normalizedValue;
-  }
-
-  throw new Error(`Línea ${lineNumber}: tipo de invitado no válido: "${rawValue || "vacío"}".`);
-}
-
-function parseGuestCsvMenu(rawValue: string, lineNumber: number) {
-  const normalizedValue = normalizeSearchText(rawValue);
-  if (!normalizedValue) {
-    return "desconocido";
-  }
-
-  if (
-    normalizedValue === "desconocido" ||
-    normalizedValue === "carne" ||
-    normalizedValue === "pescado" ||
-    normalizedValue === "vegano"
-  ) {
-    return normalizedValue;
-  }
-
-  throw new Error(`Línea ${lineNumber}: valor de menú no válido: "${rawValue}".`);
-}
-
-function parseGuestImportCsv(fileName: string, content: string): GuestImportPreview {
-  const rows = content
-    .replace(/^\uFEFF/, "")
-    .split(/\r?\n/)
-    .map((line, index) => ({ line, lineNumber: index + 1 }))
-    .filter(({ line }) => line.trim() !== "");
-
-  if (rows.length < 2) {
-    throw new Error("El CSV debe incluir cabecera y al menos un invitado.");
-  }
-
-  const headerCells = parseCsvLine(rows[0].line).map((value) => normalizeSearchText(value));
-  const missingColumns = REQUIRED_GUEST_CSV_COLUMNS.filter((column) => !headerCells.includes(column));
-  if (missingColumns.length > 0) {
-    throw new Error(`Faltan columnas obligatorias en el CSV: ${missingColumns.join(", ")}.`);
-  }
-
-  const headerIndexes = Object.fromEntries(
-    REQUIRED_GUEST_CSV_COLUMNS.map((column) => [column, headerCells.indexOf(column)]),
-  ) as Record<(typeof REQUIRED_GUEST_CSV_COLUMNS)[number], number>;
-  const intoleranceColumnIndex = headerCells.indexOf("intolerancia");
-  const menuColumnIndex = headerCells.indexOf("menu");
-
-  const guests = rows.slice(1).map(({ line, lineNumber }) => {
-    const cells = parseCsvLine(line);
-    const name = normalizeText(cells[headerIndexes.nombre] ?? "");
-    if (!name) {
-      throw new Error(`Línea ${lineNumber}: el nombre del invitado es obligatorio.`);
-    }
-
-    const groupId = normalizeText(cells[headerIndexes.familia] ?? "") || null;
-
-    return {
-      name,
-      confirmed: parseGuestCsvAttendance(cells[headerIndexes.asistencia] ?? "", lineNumber),
-      guest_type: parseGuestCsvType(cells[headerIndexes.tipo] ?? "", lineNumber),
-      intolerance: normalizeText(intoleranceColumnIndex >= 0 ? (cells[intoleranceColumnIndex] ?? "") : ""),
-      menu: parseGuestCsvMenu(menuColumnIndex >= 0 ? (cells[menuColumnIndex] ?? "") : "", lineNumber),
-      group_id: groupId,
-    };
-  });
-
-  if (guests.length === 0) {
-    throw new Error("El CSV no contiene invitados válidos para importar.");
-  }
-
-  return {
-    fileName,
-    guests,
   };
 }
 
@@ -301,19 +114,6 @@ function getTableReferenceLabel(table: Pick<WorkspaceTable, "table_kind" | "numb
 
 function randomLoginName() {
   return LOGIN_NAMES[Math.floor(Math.random() * LOGIN_NAMES.length)];
-}
-
-function formatGuestTypeLabel(guestType: string) {
-  switch (guestType) {
-    case "adulto":
-      return "Adulto";
-    case "adolescente":
-      return "Adolescente";
-    case "nino":
-      return "Niño";
-    default:
-      return guestType;
-  }
 }
 
 function formatGuestAgeLabel(guestType: string) {
@@ -460,20 +260,6 @@ function IntoleranceBadge({ intolerance }: { intolerance: string }) {
   );
 }
 
-function formatMenuLabel(menu: string) {
-  switch (menu) {
-    case "carne":
-      return "Carne";
-    case "pescado":
-      return "Pescado";
-    case "vegano":
-      return "Vegano";
-    case "desconocido":
-    default:
-      return "Desconocido";
-  }
-}
-
 function formatMenuOptionLabel(menu: string) {
   switch (menu) {
     case "carne":
@@ -536,26 +322,6 @@ function formatSeatLabel(seatIndex: number | null) {
   return seatIndex === null ? "Sin asiento" : `Asiento ${seatIndex + 1}`;
 }
 
-function matchesGuestSearch(guest: Guest, rawQuery: string) {
-  const query = normalizeSearchText(rawQuery);
-  if (!query) {
-    return true;
-  }
-
-  const searchableFields = [
-    guest.name,
-    guest.group_id ?? "",
-    guest.guest_type,
-    guest.intolerance,
-    guest.menu,
-    guest.table_id ?? "",
-    formatGuestTypeLabel(guest.guest_type),
-    formatMenuLabel(guest.menu),
-  ];
-
-  return searchableFields.some((field) => normalizeSearchText(field).includes(query));
-}
-
 export function App() {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLElement | null>(null);
@@ -599,32 +365,18 @@ export function App() {
   const [isUnassignedDropActive, setIsUnassignedDropActive] = useState(false);
   const [isRailOpen, setIsRailOpen] = useState(true);
   const [railPanelWidth, setRailPanelWidth] = useState<number>(() => {
-    const storedWidth = Number(localStorage.getItem(RAIL_PANEL_WIDTH_STORAGE_KEY));
-
-    if (Number.isFinite(storedWidth) && storedWidth >= RAIL_PANEL_MIN_WIDTH) {
-      return storedWidth;
-    }
-
-    return 420;
+    return readStoredPanelWidth(localStorage.getItem(RAIL_PANEL_WIDTH_STORAGE_KEY), RAIL_PANEL_MIN_WIDTH, 420);
   });
   const [isResizingRailPanel, setIsResizingRailPanel] = useState(false);
   const [optimisticTablePositions, setOptimisticTablePositions] = useState<Record<string, TablePosition>>({});
   const [listsPanelWidth, setListsPanelWidth] = useState<number>(() => {
-    const storedWidth = Number(localStorage.getItem(LISTS_PANEL_WIDTH_STORAGE_KEY));
-
-    if (Number.isFinite(storedWidth) && storedWidth >= LISTS_PANEL_MIN_WIDTH) {
-      return storedWidth;
-    }
-
-    return 320;
+    return readStoredPanelWidth(localStorage.getItem(LISTS_PANEL_WIDTH_STORAGE_KEY), LISTS_PANEL_MIN_WIDTH, 320);
   });
   const [isListsPanelOpen, setIsListsPanelOpen] = useState<boolean>(() => {
-    const stored = localStorage.getItem(LISTS_PANEL_OPEN_STORAGE_KEY);
-    return stored === null ? true : stored === "true";
+    return readStoredOpenState(localStorage.getItem(LISTS_PANEL_OPEN_STORAGE_KEY), true);
   });
   const [isCenterPanelOpen, setIsCenterPanelOpen] = useState<boolean>(() => {
-    const stored = localStorage.getItem(CENTER_PANEL_OPEN_STORAGE_KEY);
-    return stored === null ? true : stored === "true";
+    return readStoredOpenState(localStorage.getItem(CENTER_PANEL_OPEN_STORAGE_KEY), true);
   });
   const [isResizingListsPanel, setIsResizingListsPanel] = useState(false);
   const [sectionNotices, setSectionNotices] = useState<Record<SectionKey, SectionNotice | null>>({
@@ -682,14 +434,27 @@ export function App() {
   } | null>(null);
   const deferredGuestSearchQuery = useDeferredValue(guestSearchQuery);
 
-  const groupedConflictCount = useMemo(
-    () => Object.keys(workspace?.validation.grouping_conflicts ?? {}).length,
-    [workspace],
-  );
-  const conflictGuestIds = useMemo(
-    () => new Set(Object.values(workspace?.validation.grouping_conflicts ?? {}).flatMap((guestIds) => guestIds)),
-    [workspace],
-  );
+  const workspaceStats = useMemo(() => buildWorkspaceStats(workspace), [workspace]);
+  const {
+    fullTablesCount,
+    groupedConflictCount,
+    conflictGuestIds,
+    conflictTableIds,
+    confirmedGuestsCount,
+    unconfirmedGuestsCount,
+    adultGuestsCount,
+    teenGuestsCount,
+    childGuestsCount,
+    fishMenuGuestsCount,
+    meatMenuGuestsCount,
+    vegetarianMenuGuestsCount,
+    unknownMenuGuestsCount,
+    totalGuestsCount,
+    seatedGuestsCount,
+    seatingProgress,
+    confirmationProgress,
+    occupancyAverage,
+  } = workspaceStats;
   const selectedTable = useMemo(
     () => workspace?.tables.find((table) => table.id === selectedTableId) ?? null,
     [selectedTableId, workspace],
@@ -701,70 +466,6 @@ export function App() {
       null,
     [draggedGuestId, workspace],
   );
-  const fullTablesCount = useMemo(
-    () => workspace?.tables.filter((table) => table.available === 0).length ?? 0,
-    [workspace],
-  );
-  const conflictTableIds = useMemo(
-    () =>
-      new Set(
-        workspace?.tables
-          .filter((table) => table.guests.some((guest) => conflictGuestIds.has(guest.id)))
-          .map((table) => table.id) ?? [],
-      ),
-    [conflictGuestIds, workspace],
-  );
-  const allGuests = useMemo(
-    () => [...(workspace?.guests.unassigned ?? []), ...(workspace?.guests.assigned ?? [])],
-    [workspace],
-  );
-  const confirmedGuestsCount = useMemo(
-    () => allGuests.filter((guest) => guest.confirmed).length,
-    [allGuests],
-  );
-  const unconfirmedGuestsCount = useMemo(
-    () => allGuests.length - confirmedGuestsCount,
-    [allGuests, confirmedGuestsCount],
-  );
-  const adultGuestsCount = useMemo(
-    () => allGuests.filter((guest) => guest.guest_type === "adulto").length,
-    [allGuests],
-  );
-  const teenGuestsCount = useMemo(
-    () => allGuests.filter((guest) => guest.guest_type === "adolescente").length,
-    [allGuests],
-  );
-  const childGuestsCount = useMemo(
-    () => allGuests.filter((guest) => guest.guest_type === "nino").length,
-    [allGuests],
-  );
-  const fishMenuGuestsCount = useMemo(
-    () => allGuests.filter((guest) => guest.menu === "pescado").length,
-    [allGuests],
-  );
-  const meatMenuGuestsCount = useMemo(
-    () => allGuests.filter((guest) => guest.menu === "carne").length,
-    [allGuests],
-  );
-  const vegetarianMenuGuestsCount = useMemo(
-    () => allGuests.filter((guest) => guest.menu === "vegano").length,
-    [allGuests],
-  );
-  const unknownMenuGuestsCount = useMemo(
-    () => allGuests.filter((guest) => guest.menu === "desconocido").length,
-    [allGuests],
-  );
-  const totalGuestsCount = allGuests.length;
-  const seatedGuestsCount = workspace?.guests.assigned.length ?? 0;
-  const seatingProgress = totalGuestsCount === 0 ? 0 : Math.round((seatedGuestsCount / totalGuestsCount) * 100);
-  const confirmationProgress = totalGuestsCount === 0 ? 0 : Math.round((confirmedGuestsCount / totalGuestsCount) * 100);
-  const occupancyAverage = workspace
-    ? Math.round(
-        (workspace.tables.reduce((total, table) => total + table.occupied, 0) /
-          Math.max(workspace.tables.reduce((total, table) => total + table.capacity, 0), 1)) *
-          100,
-      )
-    : 0;
   const tableLabelById = useMemo(
     () => new Map((workspace?.tables ?? []).map((table) => [table.id, getTableLabel(table)])),
     [workspace],
@@ -804,149 +505,32 @@ export function App() {
   );
   const conflictReviewRows = useMemo(
     () =>
-      Object.entries(workspace?.validation.grouping_conflicts ?? {})
-        .flatMap(([groupId, guestIds]) =>
-          guestIds.map((guestId) => {
-            const guest = guestById.get(guestId);
-            const tableLabel = guest?.table_id ? tableLabelById.get(guest.table_id) : null;
-
-            return {
-              rowId: `${groupId}-${guestId}`,
-              guestId,
-              groupId,
-              guest: guest ?? null,
-              guestName: guest?.name ?? guestId,
-              tableLabel: tableLabel ?? "Sin mesa",
-            };
-          }),
-        )
-        .sort((left, right) => {
-          const groupComparison = left.groupId.localeCompare(right.groupId, "es");
-          if (groupComparison !== 0) {
-            return groupComparison;
-          }
-
-          return left.guestName.localeCompare(right.guestName, "es");
-        }),
+      buildConflictReviewRows(
+        workspace?.validation.grouping_conflicts ?? {},
+        guestById,
+        tableLabelById,
+      ),
     [guestById, tableLabelById, workspace],
   );
-  const guestImportStats = useMemo(() => {
-    if (!guestImportPreview) {
-      return null;
-    }
-
-    const confirmedCount = guestImportPreview.guests.filter((guest) => guest.confirmed).length;
-    const pendingCount = guestImportPreview.guests.length - confirmedCount;
-    const familyCount = new Set(
-      guestImportPreview.guests.map((guest) => guest.group_id).filter((groupId): groupId is string => Boolean(groupId)),
-    ).size;
-
-    return {
-      total: guestImportPreview.guests.length,
-      confirmed: confirmedCount,
-      pending: pendingCount,
-      families: familyCount,
-      previewRows: guestImportPreview.guests.slice(0, 8),
-    };
-  }, [guestImportPreview]);
+  const guestImportStats = useMemo(() => buildGuestImportStats(guestImportPreview), [guestImportPreview]);
   const sortedSessions = useMemo(
-    () =>
-      sortRows(savedSessions, tableSorts.sessions, (session, column) => {
-        if (column === "created_at") {
-          return new Date(session.created_at).getTime();
-        }
-        return session.name;
-      }),
+    () => sortSessions(savedSessions, tableSorts.sessions),
     [savedSessions, tableSorts.sessions],
   );
   const sortedUnassignedGuests = useMemo(
-    () =>
-      sortRows(filteredUnassignedGuests, tableSorts.unassigned, (guest, column) => {
-        switch (column) {
-          case "confirmed":
-            return guest.confirmed;
-          case "type":
-            return formatGuestTypeLabel(guest.guest_type);
-          case "intolerance":
-            return guest.intolerance || "zzz";
-          case "menu":
-            return formatMenuLabel(guest.menu);
-          case "group":
-            return guest.group_id ?? "zzz";
-          case "table":
-            return guest.table_id ? (tableById.get(guest.table_id)?.number ?? 0) : -1;
-          case "seat":
-            return guest.seat_index ?? Number.MAX_SAFE_INTEGER;
-          case "name":
-          default:
-            return guest.name;
-        }
-      }),
+    () => sortGuestRows(filteredUnassignedGuests, tableSorts.unassigned, tableById),
     [filteredUnassignedGuests, tableById, tableSorts.unassigned],
   );
   const sortedAssignedGuests = useMemo(
-    () =>
-      sortRows(filteredAssignedGuests, tableSorts.assigned, (guest, column) => {
-        switch (column) {
-          case "confirmed":
-            return guest.confirmed;
-          case "type":
-            return formatGuestTypeLabel(guest.guest_type);
-          case "intolerance":
-            return guest.intolerance || "zzz";
-          case "menu":
-            return formatMenuLabel(guest.menu);
-          case "group":
-            return guest.group_id ?? "zzz";
-          case "table":
-            return guest.table_id ? (tableById.get(guest.table_id)?.number ?? 0) : -1;
-          case "seat":
-            return guest.seat_index ?? Number.MAX_SAFE_INTEGER;
-          case "name":
-          default:
-            return guest.name;
-        }
-      }),
+    () => sortGuestRows(filteredAssignedGuests, tableSorts.assigned, tableById),
     [filteredAssignedGuests, tableById, tableSorts.assigned],
   );
   const sortedConflictRows = useMemo(
-    () =>
-      sortRows(conflictReviewRows, tableSorts.conflicts, (row, column) => {
-        switch (column) {
-          case "intolerance":
-            return row.guest?.intolerance || "zzz";
-          case "menu":
-            return row.guest ? formatMenuLabel(row.guest.menu) : "desconocido";
-          case "group":
-            return row.groupId;
-          case "table":
-            return row.tableLabel;
-          case "name":
-          default:
-            return row.guestName;
-        }
-      }),
+    () => sortConflictRows(conflictReviewRows, tableSorts.conflicts),
     [conflictReviewRows, tableSorts.conflicts],
   );
   const sortedGuestImportPreviewRows = useMemo(
-    () =>
-      sortRows(guestImportPreview?.guests ?? [], tableSorts.guestImport, (guest, column) => {
-        switch (column) {
-          case "confirmed":
-            return guest.confirmed;
-          case "type":
-            return formatGuestTypeLabel(guest.guest_type);
-          case "intolerance":
-            return guest.intolerance || "zzz";
-          case "menu":
-            return formatMenuLabel(guest.menu);
-          case "group":
-            return guest.group_id ?? "zzz";
-          case "name":
-          default:
-            return guest.name;
-        }
-      }).slice(0, 8),
+    () => sortGuestImportPreviewRows(guestImportPreview?.guests ?? [], tableSorts.guestImport),
     [guestImportPreview, tableSorts.guestImport],
   );
   const paginatedUnassignedGuests = useMemo(
@@ -1214,14 +798,14 @@ export function App() {
     const canvasRect = canvasRef.current?.getBoundingClientRect();
     const maxWidth = canvasRect ? getListsPanelMaxWidth(canvasRect.width) : nextWidth;
 
-    return Math.min(Math.max(nextWidth, LISTS_PANEL_MIN_WIDTH), maxWidth);
+    return clampPanelWidth(nextWidth, LISTS_PANEL_MIN_WIDTH, maxWidth);
   }
 
   function clampRailPanelWidth(nextWidth: number) {
     const shellRect = shellRef.current?.getBoundingClientRect();
     const maxWidth = shellRect ? getRailPanelMaxWidth(shellRect.width) : nextWidth;
 
-    return Math.min(Math.max(nextWidth, RAIL_PANEL_MIN_WIDTH), maxWidth);
+    return clampPanelWidth(nextWidth, RAIL_PANEL_MIN_WIDTH, maxWidth);
   }
 
   function startRailPanelResize() {

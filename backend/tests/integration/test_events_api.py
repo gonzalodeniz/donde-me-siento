@@ -377,6 +377,51 @@ async def test_save_load_and_delete_sessions_flow(client: AsyncClient) -> None:
 
 
 @pytest.mark.anyio
+async def test_sessions_reject_blank_name_and_missing_session_ids(client: AsyncClient) -> None:
+    save_response = await client.post("/api/sessions", json={"name": "   "})
+    assert save_response.status_code == 400
+    assert save_response.json()["detail"] == "El nombre de la sesión es obligatorio."
+
+    load_response = await client.post("/api/sessions/session-no-existe/load")
+    assert load_response.status_code == 400
+    assert "No existe la sesión" in load_response.json()["detail"]
+
+    export_response = await client.get("/api/sessions/session-no-existe/export")
+    assert export_response.status_code == 400
+    assert "No existe la sesión" in export_response.json()["detail"]
+
+    delete_response = await client.delete("/api/sessions/session-no-existe")
+    assert delete_response.status_code == 404
+    assert delete_response.json()["detail"] == "La sesión no existe."
+
+
+@pytest.mark.anyio
+async def test_import_session_rejects_semantically_invalid_snapshot(client: AsyncClient) -> None:
+    response = await client.post(
+        "/api/sessions/import",
+        json={
+            "version": "1",
+            "session": {
+                "id": "session-import",
+                "name": "Copia rota",
+                "created_at": "2026-03-17T10:00:00Z",
+            },
+            "snapshot": {
+                "id": "workspace-main",
+                "name": "Workspace principal",
+                "date": None,
+                "default_table_capacity": 0,
+                "tables": [],
+                "guests": [],
+            },
+        },
+    )
+
+    assert response.status_code == 400
+    assert "capacidad por defecto" in response.json()["detail"]
+
+
+@pytest.mark.anyio
 async def test_reset_workspace_clears_tables_and_guests(client: AsyncClient) -> None:
     await client.post("/api/guests", json={"id": "guest-1", "name": "Ana", "guest_type": "adulto"})
     await client.put("/api/tables/table-1", json={"capacity": 5})
@@ -440,6 +485,48 @@ async def test_workspace_report_pdf_hides_empty_tables(client: AsyncClient) -> N
     assert b"(Invitado) Tj" not in response.content
     assert b"(Familia) Tj" not in response.content
     assert b"(Intolerancia) Tj" not in response.content
+
+
+@pytest.mark.anyio
+async def test_workspace_report_pdf_escapes_accents_and_parentheses(client: AsyncClient) -> None:
+    await client.post(
+        "/api/guests",
+        json={
+            "id": "guest-acentos",
+            "name": "María (Nina)",
+            "guest_type": "adulto",
+            "group_id": "Familia Gómez",
+            "menu": "pescado",
+        },
+    )
+    await client.put("/api/guests/guest-acentos/assignment", json={"table_id": "table-1", "seat_index": 0})
+
+    response = await client.get("/api/workspace/report.pdf")
+
+    assert response.status_code == 200
+    assert b"Mar\xeda \\(Nina\\)" in response.content
+    assert b"Familia G\xf3mez" in response.content
+
+
+@pytest.mark.anyio
+async def test_workspace_report_pdf_adds_pages_when_there_are_many_guests(client: AsyncClient) -> None:
+    for index in range(90):
+        await client.post(
+            "/api/guests",
+            json={
+                "id": f"guest-{index}",
+                "name": f"Invitado {index:02d}",
+                "guest_type": "adulto" if index % 3 == 0 else "adolescente" if index % 3 == 1 else "nino",
+                "group_id": f"Familia {index % 12}",
+                "confirmed": index % 2 == 0,
+                "menu": "carne" if index % 3 == 0 else "pescado" if index % 3 == 1 else "vegano",
+            },
+        )
+
+    response = await client.get("/api/workspace/report.pdf")
+
+    assert response.status_code == 200
+    assert response.content.count(b"/Type /Page ") >= 4
 
 
 @pytest.mark.anyio
