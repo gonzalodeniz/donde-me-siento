@@ -357,4 +357,99 @@ describe("App integración", () => {
     revokeObjectUrlSpy.mockRestore();
     clickSpy.mockRestore();
   });
+
+  it("importa una sesión desde fichero y refresca la biblioteca", async () => {
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace)
+      .mockResolvedValueOnce(createWorkspace())
+      .mockResolvedValueOnce({
+        ...createWorkspace(),
+        guests: {
+          assigned: [
+            {
+              id: "guest-9",
+              name: "Lucía",
+              guest_type: "adulto",
+              confirmed: true,
+              intolerance: "",
+              menu: "vegano",
+              group_id: "Familia Sol",
+              table_id: "table-1",
+              seat_index: 0,
+            },
+          ],
+          unassigned: [],
+        },
+        validation: {
+          grouping_conflicts: {},
+          tables: [],
+          assigned_guests: 1,
+          unassigned_guests: 0,
+        },
+      });
+    vi.mocked(api.fetchSessions)
+      .mockResolvedValueOnce(createSessions())
+      .mockResolvedValueOnce([
+        {
+          id: "session-9",
+          name: "Plano importado",
+          created_at: "2026-03-19T09:00:00Z",
+        },
+        ...createSessions(),
+      ]);
+    vi.mocked(api.importSession).mockResolvedValueOnce(undefined);
+
+    const backup = {
+      version: "1",
+      session: {
+        id: "session-9",
+        name: "Plano importado",
+        created_at: "2026-03-19T09:00:00Z",
+      },
+      snapshot: {
+        event_id: "workspace-main",
+      },
+    };
+
+    const { container } = render(<App />);
+
+    expect(await screen.findByText("Base familiar")).not.toBeNull();
+
+    const sessionImportInput = container.querySelector('input[type="file"][accept="application/json,.json"]');
+    if (!(sessionImportInput instanceof HTMLInputElement)) {
+      throw new Error("No se encontró el input de importación de sesiones.");
+    }
+
+    const importFile = new File(
+      [JSON.stringify(backup)],
+      "plano-importado.json",
+      { type: "application/json" },
+    );
+
+    fireEvent.change(sessionImportInput, { target: { files: [importFile] } });
+
+    await waitFor(() => {
+      expect(api.importSession).toHaveBeenCalledWith(backup, "token-demo");
+    });
+    expect(await screen.findByText('Sesión "Plano importado" cargada desde fichero.')).not.toBeNull();
+    expect(await screen.findByText("Plano importado")).not.toBeNull();
+    expect(await screen.findByText("1 de 1 invitados sentados")).not.toBeNull();
+  });
+
+  it("sale de la sesión y vuelve a mostrar el formulario de acceso", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace).mockResolvedValueOnce(createWorkspace());
+    vi.mocked(api.fetchSessions).mockResolvedValueOnce(createSessions());
+
+    render(<App />);
+
+    expect(await screen.findByRole("button", { name: "Salir" })).not.toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Salir" }));
+
+    expect(localStorage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
+    expect(await screen.findByRole("button", { name: "Repartir amor en las mesas" })).not.toBeNull();
+    expect(screen.getByLabelText("Tu llave")).not.toBeNull();
+  });
 });
