@@ -33,11 +33,11 @@ import {
   normalizeText,
   paginateGuestTableRows,
   parseGuestImportCsv,
-  sortRows,
 } from "./appUtils";
 import { SeatingPlan } from "./components/SeatingPlan";
 import { buildConflictReviewRows, sortConflictRows, sortGuestRows } from "./guestTableUtils";
 import { buildGuestImportStats, buildWorkspaceStats } from "./reportStatsUtils";
+import { sortGuestImportPreviewRows, sortSessions } from "./sessionImportUtils";
 import type { Guest, SavedSession, SessionBackup, Workspace, WorkspaceTable } from "./types";
 import {
   CENTER_PANEL_OPEN_STORAGE_KEY,
@@ -514,13 +514,7 @@ export function App() {
   );
   const guestImportStats = useMemo(() => buildGuestImportStats(guestImportPreview), [guestImportPreview]);
   const sortedSessions = useMemo(
-    () =>
-      sortRows(savedSessions, tableSorts.sessions, (session, column) => {
-        if (column === "created_at") {
-          return new Date(session.created_at).getTime();
-        }
-        return session.name;
-      }),
+    () => sortSessions(savedSessions, tableSorts.sessions),
     [savedSessions, tableSorts.sessions],
   );
   const sortedUnassignedGuests = useMemo(
@@ -536,24 +530,7 @@ export function App() {
     [conflictReviewRows, tableSorts.conflicts],
   );
   const sortedGuestImportPreviewRows = useMemo(
-    () =>
-      sortRows(guestImportPreview?.guests ?? [], tableSorts.guestImport, (guest, column) => {
-        switch (column) {
-          case "confirmed":
-            return guest.confirmed;
-          case "type":
-            return formatGuestTypeLabel(guest.guest_type);
-          case "intolerance":
-            return guest.intolerance || "zzz";
-          case "menu":
-            return formatMenuLabel(guest.menu);
-          case "group":
-            return guest.group_id ?? "zzz";
-          case "name":
-          default:
-            return guest.name;
-        }
-      }).slice(0, 8),
+    () => sortGuestImportPreviewRows(guestImportPreview?.guests ?? [], tableSorts.guestImport),
     [guestImportPreview, tableSorts.guestImport],
   );
   const paginatedUnassignedGuests = useMemo(
