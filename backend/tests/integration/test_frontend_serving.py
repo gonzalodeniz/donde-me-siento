@@ -17,6 +17,7 @@ async def frontend_client(tmp_path: Path):
     assets_dir.mkdir(parents=True)
     (frontend_dist_dir / "index.html").write_text("<html><body>Donde me siento</body></html>", encoding="utf-8")
     (assets_dir / "app.js").write_text("console.log('hola');", encoding="utf-8")
+    (tmp_path / "secret.txt").write_text("secreto", encoding="utf-8")
 
     app = create_app(frontend_dist_dir=frontend_dist_dir)
     transport = ASGITransport(app=app)
@@ -52,5 +53,12 @@ async def test_frontend_static_assets_are_served_directly(frontend_client: Async
 @pytest.mark.anyio
 async def test_unknown_api_routes_keep_returning_404(frontend_client: AsyncClient) -> None:
     response = await frontend_client.get("/api/no-existe")
+
+    assert response.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_frontend_rejects_path_traversal_outside_dist(frontend_client: AsyncClient) -> None:
+    response = await frontend_client.get("/assets/%2e%2e/%2e%2e/secret.txt")
 
     assert response.status_code == 404

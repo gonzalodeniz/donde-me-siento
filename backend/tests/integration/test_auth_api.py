@@ -122,3 +122,47 @@ async def test_login_rejects_unknown_username(client_with_auth: AsyncClient) -> 
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Credenciales invalidas"
+
+
+@pytest.mark.anyio
+async def test_protected_routes_reject_non_bearer_scheme(client_with_auth: AsyncClient) -> None:
+    response = await client_with_auth.get(
+        "/api/auth/me",
+        headers={"Authorization": "Basic abc123"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "No autenticado"
+
+
+@pytest.mark.anyio
+async def test_protected_routes_reject_unknown_token(client_with_auth: AsyncClient) -> None:
+    response = await client_with_auth.get(
+        "/api/auth/me",
+        headers={"Authorization": "Bearer token-inventado"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Sesion invalida"
+
+
+@pytest.mark.anyio
+async def test_logout_rejects_already_invalidated_token(client_with_auth: AsyncClient) -> None:
+    login_response = await client_with_auth.post(
+        "/api/auth/login",
+        json={"username": "raquel", "password": "héctor"},
+    )
+    token = login_response.json()["access_token"]
+
+    first_logout = await client_with_auth.post(
+        "/api/auth/logout",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    second_logout = await client_with_auth.post(
+        "/api/auth/logout",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert first_logout.status_code == 204
+    assert second_logout.status_code == 401
+    assert second_logout.json()["detail"] == "Sesion invalida"
