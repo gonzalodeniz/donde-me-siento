@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, DragEvent, PointerEvent as ReactPointerEvent } from "react";
+import type { CSSProperties, DragEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 
 import type { Guest, Workspace, WorkspaceTable } from "../types";
 
@@ -55,6 +55,21 @@ const COUPLE_HALO_WIDTH = 214;
 const COUPLE_HALO_HEIGHT = 108;
 const COUPLE_SEAT_SIDE_OFFSET_X = 38;
 const COUPLE_SEAT_SIDE_OFFSET_Y = -74;
+const PLAN_VIEWPORT_MIN_HEIGHT = 320;
+const PLAN_VIEWPORT_DEFAULT_HEIGHT = 620;
+const PLAN_VIEWPORT_STEP = 36;
+
+function getPlanViewportMaxHeight() {
+  if (typeof window === "undefined") {
+    return 920;
+  }
+
+  return Math.max(460, Math.min(window.innerHeight - 180, 980));
+}
+
+function clampPlanViewportHeight(value: number) {
+  return Math.min(Math.max(value, PLAN_VIEWPORT_MIN_HEIGHT), getPlanViewportMaxHeight());
+}
 
 function truncateName(name: string) {
   return name.length > 12 ? `${name.slice(0, 12)}…` : name;
@@ -263,6 +278,11 @@ export function SeatingPlan({
     positionY: number;
     rotationDegrees: number;
   } | null>(null);
+  const [viewportHeight, setViewportHeight] = useState(() => clampPlanViewportHeight(PLAN_VIEWPORT_DEFAULT_HEIGHT));
+  const [viewportResizeStart, setViewportResizeStart] = useState<{
+    clientY: number;
+    height: number;
+  } | null>(null);
   const [hoveredGuestCard, setHoveredGuestCard] = useState<{
     guestId: string;
     name: string;
@@ -348,7 +368,20 @@ export function SeatingPlan({
   const zoomedHeight = Math.max(height * zoomLevel, 420);
   const isDraggingGuest = Boolean(draggedGuestName);
   const isDraggingTable = Boolean(draggedTable || rotatingTable);
+  const isResizingViewport = Boolean(viewportResizeStart);
   const zoomPercent = Math.round(zoomLevel * 100);
+
+  useEffect(() => {
+    const handleWindowResize = () => {
+      setViewportHeight((current) => clampPlanViewportHeight(current));
+    };
+
+    window.addEventListener("resize", handleWindowResize);
+
+    return () => {
+      window.removeEventListener("resize", handleWindowResize);
+    };
+  }, []);
 
   useEffect(() => {
     const stageElement = stageRef.current;
@@ -368,6 +401,30 @@ export function SeatingPlan({
       stageElement.removeEventListener("wheel", handleNativeWheel);
     };
   }, []);
+
+  useEffect(() => {
+    if (!viewportResizeStart) {
+      return undefined;
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      setViewportHeight(clampPlanViewportHeight(viewportResizeStart.height + (event.clientY - viewportResizeStart.clientY)));
+    };
+
+    const stopResizing = () => {
+      setViewportResizeStart(null);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopResizing, { once: true });
+    window.addEventListener("pointercancel", stopResizing, { once: true });
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopResizing);
+      window.removeEventListener("pointercancel", stopResizing);
+    };
+  }, [viewportResizeStart]);
 
   useEffect(() => {
     if (!draggedTable) {
@@ -648,7 +705,7 @@ export function SeatingPlan({
   }
 
   function handleStagePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (isDraggingGuest || isDraggingTable || event.button !== 0) {
+    if (isDraggingGuest || isDraggingTable || isResizingViewport || event.button !== 0) {
       return;
     }
 
@@ -674,6 +731,40 @@ export function SeatingPlan({
       scrollLeft: viewport.scrollLeft,
       scrollTop: viewport.scrollTop,
     });
+  }
+
+  function handleViewportResizeStart(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    setViewportResizeStart({
+      clientY: event.clientY,
+      height: viewportHeight,
+    });
+  }
+
+  function handleViewportResizeKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (event.key === "Home") {
+      setViewportHeight(PLAN_VIEWPORT_MIN_HEIGHT);
+      return;
+    }
+
+    if (event.key === "End") {
+      setViewportHeight(getPlanViewportMaxHeight());
+      return;
+    }
+
+    setViewportHeight((current) =>
+      clampPlanViewportHeight(current + (event.key === "ArrowDown" ? PLAN_VIEWPORT_STEP : -PLAN_VIEWPORT_STEP)),
+    );
   }
 
   function formatMenuLabel(menu: Guest["menu"]) {
@@ -754,7 +845,7 @@ export function SeatingPlan({
 
       <div
         ref={stageRef}
-        className={`plan-stage ${isDraggingGuest ? "plan-stage--dragging" : ""} ${isPanningStage ? "plan-stage--panning" : ""}`}
+        className={`plan-stage ${isDraggingGuest ? "plan-stage--dragging" : ""} ${isPanningStage ? "plan-stage--panning" : ""} ${isResizingViewport ? "plan-stage--resizing" : ""}`}
       >
         <div className="plan-stage__zoom-controls" aria-label="Controles de zoom del plano">
           <button
@@ -779,6 +870,7 @@ export function SeatingPlan({
           ref={scrollViewportRef}
           className="plan-stage__scroll"
           onPointerDown={handleStagePointerDown}
+          style={{ height: `${viewportHeight}px` }}
         >
           <div
             className="plan-stage__viewport"
@@ -1144,6 +1236,20 @@ export function SeatingPlan({
               </div>
             ) : null}
           </div>
+        </div>
+        <div
+          aria-label="Ajustar altura visible del plano"
+          aria-orientation="horizontal"
+          aria-valuemax={Math.round(getPlanViewportMaxHeight())}
+          aria-valuemin={PLAN_VIEWPORT_MIN_HEIGHT}
+          aria-valuenow={Math.round(viewportHeight)}
+          className={`plan-stage__height-resizer ${isResizingViewport ? "plan-stage__height-resizer--active" : ""}`}
+          onKeyDown={handleViewportResizeKeyDown}
+          onPointerDown={handleViewportResizeStart}
+          role="separator"
+          tabIndex={0}
+        >
+          <span className="plan-stage__height-resizer-grip" aria-hidden="true" />
         </div>
       </div>
     </section>
