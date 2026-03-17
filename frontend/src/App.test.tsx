@@ -1119,4 +1119,152 @@ describe("App integración", () => {
     });
     expect(await screen.findByText("15°")).not.toBeNull();
   });
+
+  it("mueve un invitado ubicado a otro asiento desde la tabla", async () => {
+    const user = userEvent.setup();
+    const seatedWorkspace: Workspace = {
+      ...createWorkspace(),
+      guests: {
+        assigned: [
+          {
+            ...createWorkspace().guests.unassigned[0],
+            table_id: "table-1",
+            seat_index: 0,
+          },
+        ],
+        unassigned: [],
+      },
+      validation: {
+        grouping_conflicts: {},
+        tables: [],
+        assigned_guests: 1,
+        unassigned_guests: 0,
+      },
+    };
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace)
+      .mockResolvedValueOnce(seatedWorkspace)
+      .mockResolvedValueOnce({
+        ...seatedWorkspace,
+        guests: {
+          assigned: [
+            {
+              ...seatedWorkspace.guests.assigned[0],
+              seat_index: 1,
+            },
+          ],
+          unassigned: [],
+        },
+      });
+    vi.mocked(api.fetchSessions)
+      .mockResolvedValueOnce(createSessions())
+      .mockResolvedValueOnce(createSessions());
+    vi.mocked(api.assignGuest).mockResolvedValueOnce(undefined);
+
+    render(<App />);
+
+    const assignedHeading = await screen.findByRole("heading", { name: "Invitados ubicados" });
+    const assignedSection = assignedHeading.closest("section");
+    if (!(assignedSection instanceof HTMLElement)) {
+      throw new Error("No se encontró la sección de invitados ubicados.");
+    }
+
+    await user.click(within(assignedSection).getByRole("button", { name: "Mesa" }));
+    await user.click(within(assignedSection).getByRole("button", { name: "Asiento 1" }));
+
+    const seatSelect = assignedSection.querySelector('select.guest-table__select');
+    if (!(seatSelect instanceof HTMLSelectElement)) {
+      throw new Error("No se encontró el selector de asiento.");
+    }
+
+    await user.selectOptions(seatSelect, "1");
+
+    await waitFor(() => {
+      expect(api.assignGuest).toHaveBeenCalledWith("guest-1", "table-1", 1, "token-demo");
+    });
+    expect(await screen.findByText("Ana María movido a asiento 2.")).not.toBeNull();
+    expect(await screen.findByRole("button", { name: "Asiento 2" })).not.toBeNull();
+  });
+
+  it("mueve un invitado ubicado a otra mesa desde la tabla", async () => {
+    const user = userEvent.setup();
+    const seatedWorkspace: Workspace = {
+      ...createWorkspace(),
+      tables: [
+        ...createWorkspace().tables,
+        {
+          id: "table-2",
+          number: 2,
+          capacity: 8,
+          position_x: 420,
+          position_y: 240,
+          table_kind: "round",
+          rotation_degrees: 0,
+          occupied: 0,
+          available: 8,
+          guests: [],
+        },
+      ],
+      guests: {
+        assigned: [
+          {
+            ...createWorkspace().guests.unassigned[0],
+            table_id: "table-1",
+            seat_index: 0,
+          },
+        ],
+        unassigned: [],
+      },
+      validation: {
+        grouping_conflicts: {},
+        tables: [],
+        assigned_guests: 1,
+        unassigned_guests: 0,
+      },
+    };
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace)
+      .mockResolvedValueOnce(seatedWorkspace)
+      .mockResolvedValueOnce({
+        ...seatedWorkspace,
+        guests: {
+          assigned: [
+            {
+              ...seatedWorkspace.guests.assigned[0],
+              table_id: "table-2",
+              seat_index: null,
+            },
+          ],
+          unassigned: [],
+        },
+      });
+    vi.mocked(api.fetchSessions)
+      .mockResolvedValueOnce(createSessions())
+      .mockResolvedValueOnce(createSessions());
+    vi.mocked(api.assignGuest).mockResolvedValueOnce(undefined);
+
+    render(<App />);
+
+    const assignedHeading = await screen.findByRole("heading", { name: "Invitados ubicados" });
+    const assignedSection = assignedHeading.closest("section");
+    if (!(assignedSection instanceof HTMLElement)) {
+      throw new Error("No se encontró la sección de invitados ubicados.");
+    }
+
+    await user.click(within(assignedSection).getByRole("button", { name: "Mesa" }));
+    await user.click(within(assignedSection).getByRole("button", { name: "Mesa 1" }));
+
+    const tableSelect = assignedSection.querySelector('select.guest-table__select');
+    if (!(tableSelect instanceof HTMLSelectElement)) {
+      throw new Error("No se encontró el selector de mesa del invitado ubicado.");
+    }
+
+    await user.selectOptions(tableSelect, "table-2");
+
+    await waitFor(() => {
+      expect(api.assignGuest).toHaveBeenCalledWith("guest-1", "table-2", null, "token-demo");
+    });
+    expect(await screen.findByText("Ana María asignado correctamente.")).not.toBeNull();
+    expect(await screen.findByRole("button", { name: "Mesa 2" })).not.toBeNull();
+  });
 });
