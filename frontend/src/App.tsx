@@ -37,17 +37,22 @@ import {
 } from "./appUtils";
 import { SeatingPlan } from "./components/SeatingPlan";
 import type { Guest, SavedSession, SessionBackup, Workspace, WorkspaceTable } from "./types";
+import {
+  CENTER_PANEL_OPEN_STORAGE_KEY,
+  LISTS_PANEL_MIN_WIDTH,
+  LISTS_PANEL_OPEN_STORAGE_KEY,
+  LISTS_PANEL_WIDTH_STORAGE_KEY,
+  RAIL_PANEL_MIN_WIDTH,
+  RAIL_PANEL_WIDTH_STORAGE_KEY,
+  TOKEN_STORAGE_KEY,
+  clampPanelWidth,
+  getListsPanelMaxWidth,
+  getRailPanelMaxWidth,
+  readStoredOpenState,
+  readStoredPanelWidth,
+} from "./uiStateUtils";
 
-const TOKEN_STORAGE_KEY = "dms.auth.token";
-const LISTS_PANEL_WIDTH_STORAGE_KEY = "dms.ui.listsPanelWidth";
-const RAIL_PANEL_WIDTH_STORAGE_KEY = "dms.ui.railPanelWidth";
-const LISTS_PANEL_OPEN_STORAGE_KEY = "dms.ui.listsPanelOpen";
-const CENTER_PANEL_OPEN_STORAGE_KEY = "dms.ui.centerPanelOpen";
 const LOGIN_NAMES = ["raquel", "héctor"] as const;
-const LISTS_PANEL_MIN_WIDTH = 280;
-const CANVAS_MIN_MAIN_WIDTH = 260;
-const RAIL_PANEL_MIN_WIDTH = 360;
-const SHELL_MIN_MAIN_WIDTH = 0;
 type SectionTone = "success" | "error" | "info";
 type SectionKey = "guests" | "tables";
 type SectionNotice = {
@@ -85,14 +90,6 @@ function createEmptyGuestDraft(): GuestDraft {
     intolerance: "",
     menu: "desconocido",
   };
-}
-
-function getRailPanelMaxWidth(shellWidth: number) {
-  return Math.max(RAIL_PANEL_MIN_WIDTH, shellWidth - 24 - SHELL_MIN_MAIN_WIDTH);
-}
-
-function getListsPanelMaxWidth(canvasWidth: number) {
-  return Math.max(LISTS_PANEL_MIN_WIDTH, canvasWidth - CANVAS_MIN_MAIN_WIDTH);
 }
 
 function isCoupleTable(table: Pick<WorkspaceTable, "table_kind"> | null | undefined) {
@@ -366,32 +363,18 @@ export function App() {
   const [isUnassignedDropActive, setIsUnassignedDropActive] = useState(false);
   const [isRailOpen, setIsRailOpen] = useState(true);
   const [railPanelWidth, setRailPanelWidth] = useState<number>(() => {
-    const storedWidth = Number(localStorage.getItem(RAIL_PANEL_WIDTH_STORAGE_KEY));
-
-    if (Number.isFinite(storedWidth) && storedWidth >= RAIL_PANEL_MIN_WIDTH) {
-      return storedWidth;
-    }
-
-    return 420;
+    return readStoredPanelWidth(localStorage.getItem(RAIL_PANEL_WIDTH_STORAGE_KEY), RAIL_PANEL_MIN_WIDTH, 420);
   });
   const [isResizingRailPanel, setIsResizingRailPanel] = useState(false);
   const [optimisticTablePositions, setOptimisticTablePositions] = useState<Record<string, TablePosition>>({});
   const [listsPanelWidth, setListsPanelWidth] = useState<number>(() => {
-    const storedWidth = Number(localStorage.getItem(LISTS_PANEL_WIDTH_STORAGE_KEY));
-
-    if (Number.isFinite(storedWidth) && storedWidth >= LISTS_PANEL_MIN_WIDTH) {
-      return storedWidth;
-    }
-
-    return 320;
+    return readStoredPanelWidth(localStorage.getItem(LISTS_PANEL_WIDTH_STORAGE_KEY), LISTS_PANEL_MIN_WIDTH, 320);
   });
   const [isListsPanelOpen, setIsListsPanelOpen] = useState<boolean>(() => {
-    const stored = localStorage.getItem(LISTS_PANEL_OPEN_STORAGE_KEY);
-    return stored === null ? true : stored === "true";
+    return readStoredOpenState(localStorage.getItem(LISTS_PANEL_OPEN_STORAGE_KEY), true);
   });
   const [isCenterPanelOpen, setIsCenterPanelOpen] = useState<boolean>(() => {
-    const stored = localStorage.getItem(CENTER_PANEL_OPEN_STORAGE_KEY);
-    return stored === null ? true : stored === "true";
+    return readStoredOpenState(localStorage.getItem(CENTER_PANEL_OPEN_STORAGE_KEY), true);
   });
   const [isResizingListsPanel, setIsResizingListsPanel] = useState(false);
   const [sectionNotices, setSectionNotices] = useState<Record<SectionKey, SectionNotice | null>>({
@@ -981,14 +964,14 @@ export function App() {
     const canvasRect = canvasRef.current?.getBoundingClientRect();
     const maxWidth = canvasRect ? getListsPanelMaxWidth(canvasRect.width) : nextWidth;
 
-    return Math.min(Math.max(nextWidth, LISTS_PANEL_MIN_WIDTH), maxWidth);
+    return clampPanelWidth(nextWidth, LISTS_PANEL_MIN_WIDTH, maxWidth);
   }
 
   function clampRailPanelWidth(nextWidth: number) {
     const shellRect = shellRef.current?.getBoundingClientRect();
     const maxWidth = shellRect ? getRailPanelMaxWidth(shellRect.width) : nextWidth;
 
-    return Math.min(Math.max(nextWidth, RAIL_PANEL_MIN_WIDTH), maxWidth);
+    return clampPanelWidth(nextWidth, RAIL_PANEL_MIN_WIDTH, maxWidth);
   }
 
   function startRailPanelResize() {
