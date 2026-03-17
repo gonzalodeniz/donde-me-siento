@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import colorsys
 from dataclasses import dataclass
 from datetime import datetime
 import math
@@ -252,6 +253,236 @@ class ReportLayout:
             self.cursor_top += 12
         else:
             self.cursor_top += 4
+
+
+@dataclass(frozen=True)
+class TableCell:
+    kind: str
+    value: str
+
+
+EMPTY_BADGE_FILL = (1.0, 0.988, 0.969)
+EMPTY_BADGE_STROKE = (0.47, 0.33, 0.25)
+EMPTY_BADGE_TEXT = (0.42, 0.34, 0.29)
+CONFIRMED_FILL = (0.898, 0.945, 0.922)
+CONFIRMED_STROKE = (0.247, 0.447, 0.337)
+PENDING_FILL = (1.0, 0.961, 0.886)
+PENDING_STROKE = (0.659, 0.478, 0.227)
+AGE_ADULT_FILL = (0.957, 0.918, 0.871)
+AGE_ADULT_STROKE = (0.447, 0.306, 0.251)
+AGE_ADULT_TEXT = (0.431, 0.306, 0.251)
+AGE_TEEN_FILL = (0.518, 0.741, 0.839)
+AGE_TEEN_STROKE = (0.173, 0.424, 0.549)
+AGE_TEEN_TEXT = (0.094, 0.302, 0.404)
+AGE_CHILD_FILL = (0.584, 0.831, 0.616)
+AGE_CHILD_STROKE = (0.227, 0.522, 0.298)
+AGE_CHILD_TEXT = (0.118, 0.357, 0.169)
+MENU_MEAT_FILL = (1.0, 0.922, 0.898)
+MENU_MEAT_STROKE = (0.671, 0.369, 0.275)
+MENU_MEAT_TEXT = (0.553, 0.247, 0.165)
+MENU_FISH_FILL = (0.886, 0.945, 0.980)
+MENU_FISH_STROKE = (0.275, 0.498, 0.647)
+MENU_FISH_TEXT = (0.133, 0.353, 0.471)
+MENU_VEGAN_FILL = (0.906, 0.965, 0.894)
+MENU_VEGAN_STROKE = (0.298, 0.549, 0.329)
+MENU_VEGAN_TEXT = (0.184, 0.416, 0.208)
+
+
+def _hsl_to_rgb(hue: float, saturation: float, lightness: float) -> tuple[float, float, float]:
+    red, green, blue = colorsys.hls_to_rgb(hue / 360.0, lightness / 100.0, saturation / 100.0)
+    return red, green, blue
+
+
+def _build_family_badge_colors(group_id: str) -> tuple[tuple[float, float, float], tuple[float, float, float], tuple[float, float, float]]:
+    hash_value = 0
+    for character in group_id:
+        hash_value = ((hash_value << 5) - hash_value) + ord(character)
+        hash_value &= 0xFFFFFFFF
+    hue = abs(hash_value) % 360
+    return (
+        _hsl_to_rgb(hue, 48, 90),
+        _hsl_to_rgb(hue, 28, 58),
+        _hsl_to_rgb(hue, 24, 28),
+    )
+
+
+def _build_intolerance_badge_colors(intolerance: str) -> tuple[tuple[float, float, float], tuple[float, float, float], tuple[float, float, float]]:
+    hash_value = 0
+    for character in intolerance:
+        hash_value = ((hash_value << 5) - hash_value) + ord(character)
+        hash_value &= 0xFFFFFFFF
+    base = abs(hash_value)
+    hue = (base * 137) % 360
+    saturation = 42 + (base % 18)
+    lightness = 86 + (base % 8)
+    return (
+        _hsl_to_rgb(hue, saturation, lightness),
+        _hsl_to_rgb(hue, 30, 58),
+        _hsl_to_rgb(hue, 24, 28),
+    )
+
+
+def _table_text_cell(value: str) -> TableCell:
+    return TableCell("text", value)
+
+
+def _display_seat_label(seat_index: int | None) -> str:
+    return "-" if seat_index is None else str(seat_index + 1)
+
+
+def _draw_badge(pdf: PdfDocument, *, x: float, center_y: float, width: float, height: float, fill: tuple[float, float, float], stroke: tuple[float, float, float], text_color: tuple[float, float, float], label: str, font_size: float = 8.1, bold: bool = True) -> None:
+    y = center_y - (height / 2)
+    pdf.rect(x, y, width, height, stroke=stroke, fill=fill)
+    baseline = center_y - (font_size / 3)
+    pdf.text(x + max((width - _estimated_text_width(label, font_size)) / 2, 4), baseline, label, size=font_size, bold=bold, color=text_color)
+
+
+def _draw_confirmation_badge(pdf: PdfDocument, x: float, center_y: float, confirmed: bool) -> None:
+    fill = CONFIRMED_FILL if confirmed else PENDING_FILL
+    stroke = CONFIRMED_STROKE if confirmed else PENDING_STROKE
+    pdf.circle(x + 10, center_y, 9, stroke=stroke, fill=fill)
+    pdf.circle(x + 10, center_y, 5.8, stroke=stroke, fill=(fill[0] * 0.94, fill[1] * 0.94, fill[2] * 0.94))
+    if confirmed:
+        pdf.line(x + 6.7, center_y - 0.6, x + 9.0, center_y - 3.0, width=1.2, color=stroke)
+        pdf.line(x + 9.0, center_y - 3.0, x + 13.7, center_y + 2.5, width=1.2, color=stroke)
+    else:
+        pdf.text(x + 7.1, center_y - 2.7, "?", size=8.4, bold=True, color=stroke)
+
+
+def _draw_meat_icon(pdf: PdfDocument, center_x: float, center_y: float, color: tuple[float, float, float]) -> None:
+    pdf.circle(center_x, center_y, 3.7, stroke=color, fill=None)
+    pdf.circle(center_x + 3.5, center_y, 3.2, stroke=color, fill=None)
+    pdf.circle(center_x - 1.2, center_y + 2.0, 2.8, stroke=color, fill=None)
+    pdf.circle(center_x + 1.6, center_y + 2.3, 2.5, stroke=color, fill=None)
+    pdf.line(center_x - 7.0, center_y - 1.5, center_x - 4.5, center_y - 4.0, width=1.1, color=color)
+    pdf.line(center_x - 7.0, center_y + 1.5, center_x - 4.5, center_y + 4.0, width=1.1, color=color)
+
+
+def _draw_fish_icon(pdf: PdfDocument, center_x: float, center_y: float, color: tuple[float, float, float]) -> None:
+    pdf.polygon(
+        [
+            (center_x - 5.8, center_y),
+            (center_x - 1.2, center_y - 3.6),
+            (center_x + 4.6, center_y - 2.1),
+            (center_x + 6.2, center_y),
+            (center_x + 4.6, center_y + 2.1),
+            (center_x - 1.2, center_y + 3.6),
+        ],
+        stroke=color,
+        fill=None,
+    )
+    pdf.line(center_x - 5.8, center_y, center_x - 8.0, center_y - 2.7, width=1.1, color=color)
+    pdf.line(center_x - 5.8, center_y, center_x - 8.0, center_y + 2.7, width=1.1, color=color)
+    pdf.circle(center_x + 2.4, center_y - 0.8, 0.65, stroke=color, fill=color)
+
+
+def _draw_vegan_icon(pdf: PdfDocument, center_x: float, center_y: float, color: tuple[float, float, float]) -> None:
+    pdf.circle(center_x, center_y + 0.8, 4.7, stroke=color, fill=None)
+    pdf.line(center_x, center_y - 4.5, center_x, center_y - 7.0, width=1.1, color=color)
+    pdf.line(center_x, center_y - 5.0, center_x + 3.8, center_y - 7.2, width=1.1, color=color)
+    pdf.line(center_x, center_y - 5.0, center_x - 3.8, center_y - 7.2, width=1.1, color=color)
+
+
+def _draw_menu_badge(pdf: PdfDocument, x: float, center_y: float, menu: GuestMenu) -> None:
+    icon_center_x = x + 10
+    if menu is GuestMenu.MEAT:
+        fill = MENU_MEAT_FILL
+        stroke = MENU_MEAT_STROKE
+        text_color = MENU_MEAT_TEXT
+        label = "Carne"
+    elif menu is GuestMenu.FISH:
+        fill = MENU_FISH_FILL
+        stroke = MENU_FISH_STROKE
+        text_color = MENU_FISH_TEXT
+        label = "Pescado"
+    elif menu is GuestMenu.VEGAN:
+        fill = MENU_VEGAN_FILL
+        stroke = MENU_VEGAN_STROKE
+        text_color = MENU_VEGAN_TEXT
+        label = "Vegano"
+    else:
+        pdf.text(x + 4, center_y - 3.2, "-", size=9.0, color=EMPTY_BADGE_TEXT)
+        return
+
+    pdf.circle(icon_center_x, center_y, 9.0, stroke=stroke, fill=fill)
+    if menu is GuestMenu.MEAT:
+        _draw_meat_icon(pdf, icon_center_x, center_y, text_color)
+    elif menu is GuestMenu.FISH:
+        _draw_fish_icon(pdf, icon_center_x, center_y, text_color)
+    else:
+        _draw_vegan_icon(pdf, icon_center_x, center_y, text_color)
+    pdf.text(x + 24, center_y - 3.2, label, size=8.7, bold=True, color=text_color)
+
+
+def _table_cell_lines(cell: TableCell, max_width: float, font_size: float) -> list[str]:
+    if cell.kind in {"text", "family", "intolerance"}:
+        return _wrap_text(cell.value, max_width, font_size)
+    if cell.kind in {"table", "seat"}:
+        return [cell.value]
+    return [cell.value]
+
+
+def _draw_table_cell(pdf: PdfDocument, cell: TableCell, x: float, top: float, width: float, row_height: float, padding_x: float, padding_y: float) -> None:
+    center_y = PAGE_HEIGHT - top - (row_height / 2)
+
+    if cell.kind == "confirmation":
+        _draw_confirmation_badge(pdf, x + padding_x + 2, center_y, cell.value == "true")
+        return
+
+    if cell.kind == "age":
+        label = cell.value
+        if label == "Adulto":
+            badge_label = "+18"
+            fill, stroke, text_color = AGE_ADULT_FILL, AGE_ADULT_STROKE, AGE_ADULT_TEXT
+        elif label == "Adolescente":
+            badge_label = "+11"
+            fill, stroke, text_color = AGE_TEEN_FILL, AGE_TEEN_STROKE, AGE_TEEN_TEXT
+        else:
+            badge_label = "+1"
+            fill, stroke, text_color = AGE_CHILD_FILL, AGE_CHILD_STROKE, AGE_CHILD_TEXT
+        badge_width = min(max(_estimated_text_width(badge_label, 8.2) + 14, 30), width - padding_x * 2)
+        _draw_badge(pdf, x=x + padding_x, center_y=center_y, width=badge_width, height=18.0, fill=fill, stroke=stroke, text_color=text_color, label=badge_label, font_size=8.2)
+        return
+
+    if cell.kind == "family":
+        lines = _wrap_text(cell.value, max(width - padding_x * 2, 24), 9.0)
+        line_height = 10.2
+        text_top = top + max((row_height - (len(lines) * line_height)) / 2, padding_y)
+        for line_index, line in enumerate(lines):
+            baseline = PAGE_HEIGHT - (text_top + line_index * line_height) - 7
+            pdf.text(x + padding_x, baseline, line, size=9.0, color=TEXT_COLOR)
+        return
+
+    if cell.kind == "intolerance":
+        lines = _wrap_text(cell.value, max(width - padding_x * 2, 24), 9.0)
+        line_height = 10.2
+        text_top = top + max((row_height - (len(lines) * line_height)) / 2, padding_y)
+        for line_index, line in enumerate(lines):
+            baseline = PAGE_HEIGHT - (text_top + line_index * line_height) - 7
+            pdf.text(x + padding_x, baseline, line, size=9.0, color=TEXT_COLOR)
+        return
+
+    if cell.kind == "menu":
+        menu_label = _format_guest_menu(GuestMenu(cell.value))
+        pdf.text(x + padding_x, center_y - 3.0, "-" if menu_label == "Desconocido" else menu_label, size=8.8, color=TEXT_COLOR)
+        return
+
+    if cell.kind == "table":
+        text_x = x + max((width - _estimated_text_width(cell.value, 8.8)) / 2, padding_x)
+        pdf.text(text_x, center_y - 2.8, cell.value, size=8.8, color=TEXT_COLOR)
+        return
+
+    if cell.kind == "seat":
+        text_x = x + max((width - _estimated_text_width(cell.value, 8.8)) / 2, padding_x)
+        pdf.text(text_x, center_y - 2.5, cell.value, size=8.8, color=TEXT_COLOR)
+        return
+
+    lines = _wrap_text(cell.value, max(width - padding_x * 2, 24), 9.3)
+    line_height = 10.8
+    text_top = top + padding_y
+    for line_index, line in enumerate(lines):
+        baseline = PAGE_HEIGHT - (text_top + line_index * line_height) - 8
+        pdf.text(x + padding_x, baseline, line, size=9.3, color=TEXT_COLOR, bold=False)
 
 
 def _format_guest_type(guest_type: GuestType) -> str:
@@ -588,7 +819,7 @@ def _draw_summary_dashboard(
 def _draw_data_table(
     layout: ReportLayout,
     columns: list[str],
-    rows: list[list[str]],
+    rows: list[list[TableCell]],
     width_fractions: list[float],
     empty_message: str,
 ) -> None:
@@ -617,7 +848,8 @@ def _draw_data_table(
         cursor_x = PAGE_MARGIN
         baseline = PAGE_HEIGHT - layout.cursor_top - 17
         for index, label in enumerate(columns):
-            layout.pdf.text(cursor_x + cell_padding_x, baseline, label, size=9.4, bold=True, color=ACCENT_COLOR)
+            label_size = 8.8 if _estimated_text_width(label, 9.4) > column_widths[index] - (cell_padding_x * 2) else 9.4
+            layout.pdf.text(cursor_x + cell_padding_x, baseline, label, size=label_size, bold=True, color=ACCENT_COLOR)
             cursor_x += column_widths[index]
         layout.cursor_top += header_height
 
@@ -625,11 +857,11 @@ def _draw_data_table(
 
     for row_index, row in enumerate(rows):
         wrapped_cells = [
-            _wrap_text(cell, max(column_widths[column_index] - cell_padding_x * 2, 24), 9.3)
+            _table_cell_lines(cell, max(column_widths[column_index] - cell_padding_x * 2, 24), 9.3)
             for column_index, cell in enumerate(row)
         ]
         row_line_count = max(len(lines) for lines in wrapped_cells)
-        row_height = max(24.0, row_line_count * line_height + cell_padding_y * 2)
+        row_height = max(28.0, row_line_count * line_height + cell_padding_y * 2)
 
         if layout.cursor_top + row_height > PAGE_HEIGHT - BOTTOM_MARGIN:
             layout.pdf.new_page()
@@ -640,11 +872,17 @@ def _draw_data_table(
         draw_row_background(layout.cursor_top, row_height, fill)
 
         cursor_x = PAGE_MARGIN
-        for column_index, lines in enumerate(wrapped_cells):
-            text_top = layout.cursor_top + cell_padding_y
-            for line_index, line in enumerate(lines):
-                baseline = PAGE_HEIGHT - (text_top + line_index * line_height) - 8
-                layout.pdf.text(cursor_x + cell_padding_x, baseline, line, size=9.3, color=TEXT_COLOR)
+        for column_index, cell in enumerate(row):
+            _draw_table_cell(
+                layout.pdf,
+                cell,
+                cursor_x,
+                layout.cursor_top,
+                column_widths[column_index],
+                row_height,
+                cell_padding_x,
+                cell_padding_y,
+            )
             cursor_x += column_widths[column_index]
 
         layout.cursor_top += row_height
@@ -731,46 +969,49 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
     layout.section_title("Invitados ubicados", underline=False, gap_before=10)
     assigned_rows = [
         [
-            guest.name,
-            guest.group_id or "",
-            f"Mesa {table_by_id[guest.table_id].number}" if guest.table_id else "-",
-            _format_guest_type(guest.guest_type),
-            "Confirmado" if guest.confirmed else "Pendiente",
-            guest.intolerance or "-",
-            _format_guest_menu(guest.menu),
+            _table_text_cell(guest.name),
+            TableCell("confirmation", "true" if guest.confirmed else "false"),
+            TableCell("age", _format_guest_type(guest.guest_type)),
+            TableCell("family", guest.group_id or "-"),
+            TableCell("intolerance", guest.intolerance or "-"),
+            TableCell("menu", guest.menu.value),
+            TableCell("table", str(table_by_id[guest.table_id].number) if guest.table_id else "-"),
+            TableCell("seat", _display_seat_label(guest.seat_index)),
         ]
         for guest in assigned_guests
     ]
     _draw_data_table(
         layout,
-        ["Invitado", "Familia", "Mesa", "Tipo", "Asistencia", "Intolerancia", "Menú"],
+        ["Invitado", "Conf.", "Edad", "Familia", "Intolerancia", "Menú", "Mesa", "Asiento"],
         assigned_rows,
-        [0.18, 0.15, 0.10, 0.11, 0.13, 0.17, 0.16],
+        [0.17, 0.08, 0.10, 0.16, 0.16, 0.14, 0.10, 0.09],
         "No hay invitados ubicados.",
     )
 
     layout.section_title("Invitados sin sentar", underline=False, gap_before=20)
     unassigned_rows = [
         [
-            guest.name,
-            guest.group_id or "",
-            _format_guest_type(guest.guest_type),
-            "Confirmado" if guest.confirmed else "Pendiente",
-            guest.intolerance or "-",
-            _format_guest_menu(guest.menu),
+            _table_text_cell(guest.name),
+            TableCell("confirmation", "true" if guest.confirmed else "false"),
+            TableCell("age", _format_guest_type(guest.guest_type)),
+            TableCell("family", guest.group_id or "-"),
+            TableCell("intolerance", guest.intolerance or "-"),
+            TableCell("menu", guest.menu.value),
+            TableCell("table", "-"),
+            TableCell("seat", "-"),
         ]
         for guest in unassigned_guests
     ]
     _draw_data_table(
         layout,
-        ["Invitado", "Familia", "Tipo", "Asistencia", "Intolerancia", "Menú"],
+        ["Invitado", "Conf.", "Edad", "Familia", "Intolerancia", "Menú", "Mesa", "Asiento"],
         unassigned_rows,
-        [0.22, 0.17, 0.12, 0.13, 0.22, 0.14],
+        [0.17, 0.08, 0.10, 0.16, 0.16, 0.14, 0.10, 0.09],
         "No hay invitados sin sentar.",
     )
 
     layout.section_title("Ubicaciones por revisar", underline=False, gap_before=20)
-    conflict_rows: list[list[str]] = []
+    conflict_rows: list[list[TableCell]] = []
     if conflict_groups:
         guest_by_id = event.guests
         for group_id, guest_ids in sorted(conflict_groups.items(), key=lambda item: item[0].casefold()):
@@ -779,18 +1020,18 @@ def generate_workspace_report_pdf(event: Event) -> bytes:
                 table_label = table_by_id[guest.table_id].display_name if guest.table_id else "-"
                 conflict_rows.append(
                     [
-                        guest.name,
-                        guest.intolerance or "-",
-                        _format_guest_menu(guest.menu),
-                        group_id,
-                        table_label.title() if table_label != "-" else "-",
+                        _table_text_cell(guest.name),
+                        TableCell("intolerance", guest.intolerance or "-"),
+                        TableCell("menu", guest.menu.value),
+                        TableCell("family", group_id),
+                        TableCell("table", str(table_by_id[guest.table_id].number) if guest.table_id else "-"),
                     ]
                 )
     _draw_data_table(
         layout,
         ["Invitado", "Intolerancia", "Menú", "Familia", "Mesa"],
         conflict_rows,
-        [0.24, 0.24, 0.14, 0.24, 0.14],
+        [0.24, 0.24, 0.18, 0.20, 0.14],
         "No hay ubicaciones por revisar.",
     )
 
