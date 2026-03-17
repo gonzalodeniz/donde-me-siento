@@ -279,4 +279,82 @@ describe("App integración", () => {
     expect(await screen.findByText('Sesión "Versión jardín" cargada.')).not.toBeNull();
     expect(await screen.findByText("1 de 1 invitados sentados")).not.toBeNull();
   });
+
+  it("elimina una sesión desde la biblioteca y refresca la lista", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace)
+      .mockResolvedValueOnce(createWorkspace())
+      .mockResolvedValueOnce(createWorkspace());
+    vi.mocked(api.fetchSessions)
+      .mockResolvedValueOnce(createSessions())
+      .mockResolvedValueOnce([
+        {
+          id: "session-1",
+          name: "Base familiar",
+          created_at: "2026-03-17T12:00:00Z",
+        },
+      ]);
+    vi.mocked(api.deleteSession).mockResolvedValueOnce(undefined);
+
+    render(<App />);
+
+    expect(await screen.findByText("Versión jardín")).not.toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Eliminar sesión Versión jardín" }));
+
+    await waitFor(() => {
+      expect(api.deleteSession).toHaveBeenCalledWith("session-2", "token-demo");
+    });
+    expect(await screen.findByText('Sesión "Versión jardín" eliminada.')).not.toBeNull();
+    await waitFor(() => {
+      expect(screen.queryByText("Versión jardín")).toBeNull();
+    });
+  });
+
+  it("exporta una sesión y dispara la descarga del JSON", async () => {
+    const user = userEvent.setup();
+    const createObjectUrlSpy = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:session-export");
+    const revokeObjectUrlSpy = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const appendSpy = vi.spyOn(document.body, "append");
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace).mockResolvedValueOnce(createWorkspace());
+    vi.mocked(api.fetchSessions).mockResolvedValueOnce(createSessions());
+    vi.mocked(api.exportSession).mockResolvedValueOnce({
+      version: "1",
+      session: {
+        id: "session-2",
+        name: "Versión jardín",
+        created_at: "2026-03-16T09:30:00Z",
+      },
+      snapshot: {
+        event_id: "workspace-main",
+      },
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText("Versión jardín")).not.toBeNull();
+
+    const downloadButtons = screen.getAllByRole("button", { name: "Descargar" });
+    await user.click(downloadButtons[1]);
+
+    await waitFor(() => {
+      expect(api.exportSession).toHaveBeenCalledWith("session-2", "token-demo");
+    });
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(createObjectUrlSpy).toHaveBeenCalledTimes(1);
+    expect(revokeObjectUrlSpy).toHaveBeenCalledWith("blob:session-export");
+    const generatedLink = appendSpy.mock.calls[0]?.[0];
+    expect(generatedLink instanceof HTMLAnchorElement).toBe(true);
+    expect((generatedLink as HTMLAnchorElement).download).toBe("Versión-jardín.json");
+    expect((generatedLink as HTMLAnchorElement).href).toContain("blob:session-export");
+    expect(await screen.findByText('Sesión "Versión jardín" descargada.')).not.toBeNull();
+
+    appendSpy.mockRestore();
+    createObjectUrlSpy.mockRestore();
+    revokeObjectUrlSpy.mockRestore();
+    clickSpy.mockRestore();
+  });
 });
