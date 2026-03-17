@@ -36,6 +36,7 @@ import {
   sortRows,
 } from "./appUtils";
 import { SeatingPlan } from "./components/SeatingPlan";
+import { buildConflictReviewRows, sortConflictRows, sortGuestRows } from "./guestTableUtils";
 import type { Guest, SavedSession, SessionBackup, Workspace, WorkspaceTable } from "./types";
 import {
   CENTER_PANEL_OPEN_STORAGE_KEY,
@@ -554,30 +555,11 @@ export function App() {
   );
   const conflictReviewRows = useMemo(
     () =>
-      Object.entries(workspace?.validation.grouping_conflicts ?? {})
-        .flatMap(([groupId, guestIds]) =>
-          guestIds.map((guestId) => {
-            const guest = guestById.get(guestId);
-            const tableLabel = guest?.table_id ? tableLabelById.get(guest.table_id) : null;
-
-            return {
-              rowId: `${groupId}-${guestId}`,
-              guestId,
-              groupId,
-              guest: guest ?? null,
-              guestName: guest?.name ?? guestId,
-              tableLabel: tableLabel ?? "Sin mesa",
-            };
-          }),
-        )
-        .sort((left, right) => {
-          const groupComparison = left.groupId.localeCompare(right.groupId, "es");
-          if (groupComparison !== 0) {
-            return groupComparison;
-          }
-
-          return left.guestName.localeCompare(right.guestName, "es");
-        }),
+      buildConflictReviewRows(
+        workspace?.validation.grouping_conflicts ?? {},
+        guestById,
+        tableLabelById,
+      ),
     [guestById, tableLabelById, workspace],
   );
   const guestImportStats = useMemo(() => {
@@ -610,72 +592,15 @@ export function App() {
     [savedSessions, tableSorts.sessions],
   );
   const sortedUnassignedGuests = useMemo(
-    () =>
-      sortRows(filteredUnassignedGuests, tableSorts.unassigned, (guest, column) => {
-        switch (column) {
-          case "confirmed":
-            return guest.confirmed;
-          case "type":
-            return formatGuestTypeLabel(guest.guest_type);
-          case "intolerance":
-            return guest.intolerance || "zzz";
-          case "menu":
-            return formatMenuLabel(guest.menu);
-          case "group":
-            return guest.group_id ?? "zzz";
-          case "table":
-            return guest.table_id ? (tableById.get(guest.table_id)?.number ?? 0) : -1;
-          case "seat":
-            return guest.seat_index ?? Number.MAX_SAFE_INTEGER;
-          case "name":
-          default:
-            return guest.name;
-        }
-      }),
+    () => sortGuestRows(filteredUnassignedGuests, tableSorts.unassigned, tableById),
     [filteredUnassignedGuests, tableById, tableSorts.unassigned],
   );
   const sortedAssignedGuests = useMemo(
-    () =>
-      sortRows(filteredAssignedGuests, tableSorts.assigned, (guest, column) => {
-        switch (column) {
-          case "confirmed":
-            return guest.confirmed;
-          case "type":
-            return formatGuestTypeLabel(guest.guest_type);
-          case "intolerance":
-            return guest.intolerance || "zzz";
-          case "menu":
-            return formatMenuLabel(guest.menu);
-          case "group":
-            return guest.group_id ?? "zzz";
-          case "table":
-            return guest.table_id ? (tableById.get(guest.table_id)?.number ?? 0) : -1;
-          case "seat":
-            return guest.seat_index ?? Number.MAX_SAFE_INTEGER;
-          case "name":
-          default:
-            return guest.name;
-        }
-      }),
+    () => sortGuestRows(filteredAssignedGuests, tableSorts.assigned, tableById),
     [filteredAssignedGuests, tableById, tableSorts.assigned],
   );
   const sortedConflictRows = useMemo(
-    () =>
-      sortRows(conflictReviewRows, tableSorts.conflicts, (row, column) => {
-        switch (column) {
-          case "intolerance":
-            return row.guest?.intolerance || "zzz";
-          case "menu":
-            return row.guest ? formatMenuLabel(row.guest.menu) : "desconocido";
-          case "group":
-            return row.groupId;
-          case "table":
-            return row.tableLabel;
-          case "name":
-          default:
-            return row.guestName;
-        }
-      }),
+    () => sortConflictRows(conflictReviewRows, tableSorts.conflicts),
     [conflictReviewRows, tableSorts.conflicts],
   );
   const sortedGuestImportPreviewRows = useMemo(
