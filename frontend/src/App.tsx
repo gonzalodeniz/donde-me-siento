@@ -37,6 +37,7 @@ import {
 } from "./appUtils";
 import { SeatingPlan } from "./components/SeatingPlan";
 import { buildConflictReviewRows, sortConflictRows, sortGuestRows } from "./guestTableUtils";
+import { buildGuestImportStats, buildWorkspaceStats } from "./reportStatsUtils";
 import type { Guest, SavedSession, SessionBackup, Workspace, WorkspaceTable } from "./types";
 import {
   CENTER_PANEL_OPEN_STORAGE_KEY,
@@ -433,14 +434,27 @@ export function App() {
   } | null>(null);
   const deferredGuestSearchQuery = useDeferredValue(guestSearchQuery);
 
-  const groupedConflictCount = useMemo(
-    () => Object.keys(workspace?.validation.grouping_conflicts ?? {}).length,
-    [workspace],
-  );
-  const conflictGuestIds = useMemo(
-    () => new Set(Object.values(workspace?.validation.grouping_conflicts ?? {}).flatMap((guestIds) => guestIds)),
-    [workspace],
-  );
+  const workspaceStats = useMemo(() => buildWorkspaceStats(workspace), [workspace]);
+  const {
+    fullTablesCount,
+    groupedConflictCount,
+    conflictGuestIds,
+    conflictTableIds,
+    confirmedGuestsCount,
+    unconfirmedGuestsCount,
+    adultGuestsCount,
+    teenGuestsCount,
+    childGuestsCount,
+    fishMenuGuestsCount,
+    meatMenuGuestsCount,
+    vegetarianMenuGuestsCount,
+    unknownMenuGuestsCount,
+    totalGuestsCount,
+    seatedGuestsCount,
+    seatingProgress,
+    confirmationProgress,
+    occupancyAverage,
+  } = workspaceStats;
   const selectedTable = useMemo(
     () => workspace?.tables.find((table) => table.id === selectedTableId) ?? null,
     [selectedTableId, workspace],
@@ -452,70 +466,6 @@ export function App() {
       null,
     [draggedGuestId, workspace],
   );
-  const fullTablesCount = useMemo(
-    () => workspace?.tables.filter((table) => table.available === 0).length ?? 0,
-    [workspace],
-  );
-  const conflictTableIds = useMemo(
-    () =>
-      new Set(
-        workspace?.tables
-          .filter((table) => table.guests.some((guest) => conflictGuestIds.has(guest.id)))
-          .map((table) => table.id) ?? [],
-      ),
-    [conflictGuestIds, workspace],
-  );
-  const allGuests = useMemo(
-    () => [...(workspace?.guests.unassigned ?? []), ...(workspace?.guests.assigned ?? [])],
-    [workspace],
-  );
-  const confirmedGuestsCount = useMemo(
-    () => allGuests.filter((guest) => guest.confirmed).length,
-    [allGuests],
-  );
-  const unconfirmedGuestsCount = useMemo(
-    () => allGuests.length - confirmedGuestsCount,
-    [allGuests, confirmedGuestsCount],
-  );
-  const adultGuestsCount = useMemo(
-    () => allGuests.filter((guest) => guest.guest_type === "adulto").length,
-    [allGuests],
-  );
-  const teenGuestsCount = useMemo(
-    () => allGuests.filter((guest) => guest.guest_type === "adolescente").length,
-    [allGuests],
-  );
-  const childGuestsCount = useMemo(
-    () => allGuests.filter((guest) => guest.guest_type === "nino").length,
-    [allGuests],
-  );
-  const fishMenuGuestsCount = useMemo(
-    () => allGuests.filter((guest) => guest.menu === "pescado").length,
-    [allGuests],
-  );
-  const meatMenuGuestsCount = useMemo(
-    () => allGuests.filter((guest) => guest.menu === "carne").length,
-    [allGuests],
-  );
-  const vegetarianMenuGuestsCount = useMemo(
-    () => allGuests.filter((guest) => guest.menu === "vegano").length,
-    [allGuests],
-  );
-  const unknownMenuGuestsCount = useMemo(
-    () => allGuests.filter((guest) => guest.menu === "desconocido").length,
-    [allGuests],
-  );
-  const totalGuestsCount = allGuests.length;
-  const seatedGuestsCount = workspace?.guests.assigned.length ?? 0;
-  const seatingProgress = totalGuestsCount === 0 ? 0 : Math.round((seatedGuestsCount / totalGuestsCount) * 100);
-  const confirmationProgress = totalGuestsCount === 0 ? 0 : Math.round((confirmedGuestsCount / totalGuestsCount) * 100);
-  const occupancyAverage = workspace
-    ? Math.round(
-        (workspace.tables.reduce((total, table) => total + table.occupied, 0) /
-          Math.max(workspace.tables.reduce((total, table) => total + table.capacity, 0), 1)) *
-          100,
-      )
-    : 0;
   const tableLabelById = useMemo(
     () => new Map((workspace?.tables ?? []).map((table) => [table.id, getTableLabel(table)])),
     [workspace],
@@ -562,25 +512,7 @@ export function App() {
       ),
     [guestById, tableLabelById, workspace],
   );
-  const guestImportStats = useMemo(() => {
-    if (!guestImportPreview) {
-      return null;
-    }
-
-    const confirmedCount = guestImportPreview.guests.filter((guest) => guest.confirmed).length;
-    const pendingCount = guestImportPreview.guests.length - confirmedCount;
-    const familyCount = new Set(
-      guestImportPreview.guests.map((guest) => guest.group_id).filter((groupId): groupId is string => Boolean(groupId)),
-    ).size;
-
-    return {
-      total: guestImportPreview.guests.length,
-      confirmed: confirmedCount,
-      pending: pendingCount,
-      families: familyCount,
-      previewRows: guestImportPreview.guests.slice(0, 8),
-    };
-  }, [guestImportPreview]);
+  const guestImportStats = useMemo(() => buildGuestImportStats(guestImportPreview), [guestImportPreview]);
   const sortedSessions = useMemo(
     () =>
       sortRows(savedSessions, tableSorts.sessions, (session, column) => {
