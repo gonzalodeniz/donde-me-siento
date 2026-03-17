@@ -704,4 +704,112 @@ describe("App integración", () => {
     expect(await screen.findByText("Ana María eliminado.")).not.toBeNull();
     expect(await screen.findByText("No hay invitados sin sentar.")).not.toBeNull();
   });
+
+  it("asigna un invitado sin sentar a una mesa desde la tabla", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace)
+      .mockResolvedValueOnce(createWorkspace())
+      .mockResolvedValueOnce({
+        ...createWorkspace(),
+        guests: {
+          assigned: [
+            {
+              ...createWorkspace().guests.unassigned[0],
+              table_id: "table-1",
+              seat_index: null,
+            },
+          ],
+          unassigned: [],
+        },
+        validation: {
+          grouping_conflicts: {},
+          tables: [],
+          assigned_guests: 1,
+          unassigned_guests: 0,
+        },
+      });
+    vi.mocked(api.fetchSessions)
+      .mockResolvedValueOnce(createSessions())
+      .mockResolvedValueOnce(createSessions());
+    vi.mocked(api.assignGuest).mockResolvedValueOnce(undefined);
+
+    render(<App />);
+
+    const unassignedPanel = await screen.findByTestId("unassigned-guests-panel");
+    await user.click(within(unassignedPanel).getByRole("button", { name: "Mesa" }));
+
+    const guestRow = await screen.findByTestId("unassigned-guest-guest-1");
+    await user.click(within(guestRow).getByRole("button", { name: "-" }));
+
+    const tableSelect = guestRow.querySelector("select");
+    if (!(tableSelect instanceof HTMLSelectElement)) {
+      throw new Error("No se encontró el selector de mesa para el invitado sin sentar.");
+    }
+
+    await user.selectOptions(tableSelect, "table-1");
+
+    await waitFor(() => {
+      expect(api.assignGuest).toHaveBeenCalledWith("guest-1", "table-1", null, "token-demo");
+    });
+    expect(await screen.findByText("Ana María asignado correctamente.")).not.toBeNull();
+    expect(await screen.findByText("No hay invitados sin sentar.")).not.toBeNull();
+  });
+
+  it("devuelve un invitado ubicado a la lista de pendientes desde la tabla", async () => {
+    const user = userEvent.setup();
+    const assignedWorkspace: Workspace = {
+      ...createWorkspace(),
+      guests: {
+        assigned: [
+          {
+            ...createWorkspace().guests.unassigned[0],
+            table_id: "table-1",
+            seat_index: 0,
+          },
+        ],
+        unassigned: [],
+      },
+      validation: {
+        grouping_conflicts: {},
+        tables: [],
+        assigned_guests: 1,
+        unassigned_guests: 0,
+      },
+    };
+    localStorage.setItem(TOKEN_STORAGE_KEY, "token-demo");
+    vi.mocked(api.fetchWorkspace)
+      .mockResolvedValueOnce(assignedWorkspace)
+      .mockResolvedValueOnce(createWorkspace());
+    vi.mocked(api.fetchSessions)
+      .mockResolvedValueOnce(createSessions())
+      .mockResolvedValueOnce(createSessions());
+    vi.mocked(api.unassignGuest).mockResolvedValueOnce(undefined);
+
+    render(<App />);
+
+    const assignedHeading = await screen.findByRole("heading", { name: "Invitados ubicados" });
+    const assignedSection = assignedHeading.closest("section");
+    if (!(assignedSection instanceof HTMLElement)) {
+      throw new Error("No se encontró la sección de invitados ubicados.");
+    }
+
+    await user.click(within(assignedSection).getByRole("button", { name: "Mesa" }));
+    await user.click(within(assignedSection).getByRole("button", { name: "Mesa 1" }));
+
+    const tableSelect = assignedSection.querySelector("select");
+    if (!(tableSelect instanceof HTMLSelectElement)) {
+      throw new Error("No se encontró el selector de mesa para el invitado ubicado.");
+    }
+
+    await user.selectOptions(tableSelect, "");
+
+    await waitFor(() => {
+      expect(api.unassignGuest).toHaveBeenCalledWith("guest-1", "token-demo");
+    });
+    expect(await screen.findByText("Ana María vuelve a estar pendiente de ubicación.")).not.toBeNull();
+    await waitFor(() => {
+      expect(within(assignedSection).queryByRole("button", { name: "Ana María" })).toBeNull();
+    });
+  });
 });
